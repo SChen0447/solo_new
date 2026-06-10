@@ -224,39 +224,42 @@ export default function RuneWheel({ onRuneDropped, slotPositions, disabled }: Ru
     [getCanvasPoint],
   );
 
-  const handleMouseUp = useCallback(() => {
-    const drag = dragRef.current;
-    if (!drag.isDragging || !drag.runeId) return;
-    const rune = runesRef.current.find((r) => r.element.id === drag.runeId);
-    if (rune) {
-      let dropped = false;
-      for (let i = 0; i < slotPositions.length; i++) {
-        const slot = slotPositions[i];
-        const dx = rune.x - slot.x;
-        const dy = rune.y - slot.y;
-        if (Math.sqrt(dx * dx + dy * dy) < DROP_THRESHOLD) {
-          onRuneDropped(rune.element.id, i);
-          dropped = true;
-          break;
+  const handleMouseUp = useCallback(
+    (e: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag.isDragging || !drag.runeId) return;
+      const rune = runesRef.current.find((r) => r.element.id === drag.runeId);
+      if (rune) {
+        let dropped = false;
+        for (let i = 0; i < slotPositions.length; i++) {
+          const slot = slotPositions[i];
+          const dx = e.clientX - slot.x;
+          const dy = e.clientY - slot.y;
+          if (Math.sqrt(dx * dx + dy * dy) < DROP_THRESHOLD + 10) {
+            onRuneDropped(rune.element.id, i);
+            dropped = true;
+            break;
+          }
         }
+        if (!dropped) {
+          rune.x = rune.originX;
+          rune.y = rune.originY;
+        }
+        rune.isDragging = false;
+        rune.trail = [];
       }
-      if (!dropped) {
-        rune.x = rune.originX;
-        rune.y = rune.originY;
-      }
-      rune.isDragging = false;
-      rune.trail = [];
-    }
-    dragRef.current = {
-      runeId: null,
-      startX: 0,
-      startY: 0,
-      currentX: 0,
-      currentY: 0,
-      isDragging: false,
-      trail: [],
-    };
-  }, [slotPositions, onRuneDropped]);
+      dragRef.current = {
+        runeId: null,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+        isDragging: false,
+        trail: [],
+      };
+    },
+    [slotPositions, onRuneDropped],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
