@@ -46,6 +46,7 @@ const Timeline: React.FC<TimelineProps> = ({
   const animationRef = useRef<number>(0);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const cardCanvasesRef = useRef<Map<string, HTMLCanvasElement>>(new Map());
 
   const getWaveform = useCallback(
     (id: string): number[] => {
@@ -77,6 +78,19 @@ const Timeline: React.FC<TimelineProps> = ({
       analyserRef.current = null;
     }
   }, [playingRecording]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      cardCanvasesRef.current.forEach((canvas, id) => {
+        const rec = recordings.find((r) => r.id === id);
+        if (rec) {
+          const mood = getMoodConfig(rec.mood);
+          drawCardWaveform(canvas, getWaveform(id), mood);
+        }
+      });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [recordings, getWaveform]);
 
   useEffect(() => {
     if (!panelVisible) return;
@@ -280,6 +294,16 @@ const Timeline: React.FC<TimelineProps> = ({
   ) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const displayWidth = canvas.clientWidth;
+    const displayHeight = 18;
+
+    if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const step = Math.max(1, Math.floor(data.length / canvas.width));
     const pts: number[] = [];
@@ -296,7 +320,7 @@ const Timeline: React.FC<TimelineProps> = ({
     grad.addColorStop(0, mood.gradient[0]);
     grad.addColorStop(1, mood.gradient[1]);
     ctx.strokeStyle = grad;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * dpr;
     ctx.beginPath();
     pts.forEach((p, i) => {
       const y = canvas.height / 2 - (p - 0.5) * canvas.height * 0.8;
@@ -393,15 +417,6 @@ const Timeline: React.FC<TimelineProps> = ({
                       onClick={() => handleCardClick(rec)}
                       onMouseEnter={() => setHoveredCard(rec.id)}
                       onMouseLeave={() => setHoveredCard(null)}
-                      ref={(el) => {
-                        if (el) {
-                          const canvas = el.querySelector('canvas');
-                          if (canvas && !canvas.dataset.drawn) {
-                            canvas.dataset.drawn = '1';
-                            drawCardWaveform(canvas, getWaveform(rec.id), mood);
-                          }
-                        }
-                      }}
                       style={{
                         width: 220,
                         minWidth: 220,
@@ -479,8 +494,13 @@ const Timeline: React.FC<TimelineProps> = ({
 
                       <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
                         <canvas
-                          width={180}
-                          height={18}
+                          ref={(el) => {
+                            if (el) {
+                              cardCanvasesRef.current.set(rec.id, el);
+                            } else {
+                              cardCanvasesRef.current.delete(rec.id);
+                            }
+                          }}
                           style={{ width: '100%', height: 18 }}
                         />
                       </div>

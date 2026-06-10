@@ -20,6 +20,7 @@ const MoodMap: React.FC<MoodMapProps> = ({ recordings, onSelectRecording }) => {
   const animationRef = useRef<number>(0);
   const particlesRef = useRef<Particle[]>([]);
   const startTimeRef = useRef<number>(0);
+  const lastFrameTimeRef = useRef<number>(0);
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
@@ -126,16 +127,18 @@ const MoodMap: React.FC<MoodMapProps> = ({ recordings, onSelectRecording }) => {
     if (curveCount === 0) return;
 
     const particlesPerCurve = Math.max(1, Math.floor(20 / Math.max(curveCount, 1)));
+    const totalDuration = 800;
     for (let ci = 0; ci < curveCount; ci++) {
       for (let pi = 0; pi < particlesPerCurve; pi++) {
         const moodA = getMoodConfig(sortedRecordings[ci].mood);
+        const moodB = getMoodConfig(sortedRecordings[ci + 1].mood);
         particles.push({
           curveIndex: ci,
           t: Math.random(),
-          speed: 0.0015 + Math.random() * 0.002,
+          speed: 1 / totalDuration,
           color: lerpColor(
             moodA.gradient[0],
-            moodA.gradient[1],
+            moodB.gradient[1],
             Math.random()
           ),
           size: 2 + Math.random() * 2,
@@ -183,9 +186,11 @@ const MoodMap: React.FC<MoodMapProps> = ({ recordings, onSelectRecording }) => {
 
     const dpr = window.devicePixelRatio || 1;
     startTimeRef.current = performance.now();
+    lastFrameTimeRef.current = performance.now();
 
     const draw = (now: number) => {
-      const elapsed = (now - startTimeRef.current) / 1000;
+      const deltaTime = Math.min(now - lastFrameTimeRef.current, 50);
+      lastFrameTimeRef.current = now;
       const { w, h } = canvasSize;
       ctx.save();
       ctx.scale(dpr, dpr);
@@ -322,7 +327,7 @@ const MoodMap: React.FC<MoodMapProps> = ({ recordings, onSelectRecording }) => {
 
       // Animate and draw particles
       particlesRef.current.forEach((p) => {
-        p.t += p.speed * (elapsed > 0 ? Math.min(elapsed * 60, 3) : 1);
+        p.t += p.speed * deltaTime;
         if (p.t > 1) p.t -= 1;
 
         const ci = p.curveIndex;

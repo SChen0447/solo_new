@@ -17,9 +17,10 @@ const MAX_DURATION = 15;
 const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
-  const [showRipple, setShowRipple] = useState(false);
+  const [ripples, setRipples] = useState<{ id: number; size: number }[]>([]);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [showMoodPanel, setShowMoodPanel] = useState(false);
+  const [moodPanelClosing, setMoodPanelClosing] = useState(false);
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
   const [note, setNote] = useState('');
   const [recordingTime, setRecordingTime] = useState(0);
@@ -245,8 +246,11 @@ const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => 
 
   const handleButtonMouseDown = () => {
     setIsPressed(true);
-    setShowRipple(true);
-    setTimeout(() => setShowRipple(false), 300);
+    const newRipple = { id: Date.now(), size: 0 };
+    setRipples((prev) => [...prev, newRipple]);
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== newRipple.id));
+    }, 600);
   };
 
   const handleButtonMouseUp = () => {
@@ -299,19 +303,27 @@ const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => 
   const handleSave = async () => {
     if (!recordedBlob || !selectedMood) return;
     await uploadRecording(recordedBlob, selectedMood);
-    setShowMoodPanel(false);
-    setRecordedBlob(null);
-    setSelectedMood(null);
-    setNote('');
-    audioDataRef.current = [];
+    setMoodPanelClosing(true);
+    setTimeout(() => {
+      setShowMoodPanel(false);
+      setMoodPanelClosing(false);
+      setRecordedBlob(null);
+      setSelectedMood(null);
+      setNote('');
+      audioDataRef.current = [];
+    }, 400);
   };
 
   const handleCancel = () => {
-    setShowMoodPanel(false);
-    setRecordedBlob(null);
-    setSelectedMood(null);
-    setNote('');
-    audioDataRef.current = [];
+    setMoodPanelClosing(true);
+    setTimeout(() => {
+      setShowMoodPanel(false);
+      setMoodPanelClosing(false);
+      setRecordedBlob(null);
+      setSelectedMood(null);
+      setNote('');
+      audioDataRef.current = [];
+    }, 400);
   };
 
   const todayRecordings = recordings.filter((r) => {
@@ -387,7 +399,7 @@ const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => 
           </span>
         </div>
 
-        <div style={{ position: 'relative', marginBottom: 24 }}>
+        <div style={{ position: 'relative', marginBottom: 24, width: 80, height: 80 }}>
           <button
             onClick={handleButtonClick}
             onMouseDown={handleButtonMouseDown}
@@ -415,7 +427,7 @@ const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => 
               overflow: 'visible',
             }}
           >
-            <span style={{ fontSize: 28, zIndex: 1 }}>
+            <span style={{ fontSize: 28, zIndex: 2 }}>
               {isRecording ? '🔴' : '🎤'}
             </span>
             {isRecording && (
@@ -432,8 +444,9 @@ const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => 
             )}
           </button>
 
-          {showRipple && (
+          {ripples.map((ripple) => (
             <div
+              key={ripple.id}
               style={{
                 position: 'absolute',
                 top: 0,
@@ -441,12 +454,13 @@ const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => 
                 width: 80,
                 height: 80,
                 borderRadius: '50%',
-                background: 'rgba(108, 99, 255, 0.4)',
-                animation: 'ripple 0.3s ease-out forwards',
+                background: 'transparent',
+                border: '2px solid rgba(108, 99, 255, 0.6)',
                 pointerEvents: 'none',
+                animation: 'ripple-expand 0.6s ease-out forwards',
               }}
             />
-          )}
+          ))}
         </div>
 
         <div
@@ -501,7 +515,9 @@ const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => 
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 20,
               padding: 24,
-              animation: 'slide-up 0.4s ease-out',
+              animation: moodPanelClosing
+                ? 'slide-down 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards'
+                : 'slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               zIndex: 10,
             }}
           >
@@ -834,6 +850,18 @@ const Recorder: React.FC<RecorderProps> = ({ onRecordingAdded, recordings }) => 
       </div>
 
       <style>{`
+        @keyframes ripple-expand {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+            border-width: 2px;
+          }
+          100% {
+            transform: scale(2.5);
+            opacity: 0;
+            border-width: 1px;
+          }
+        }
         @media (max-width: 1200px) {
           .recorder-grid {
             grid-template-columns: 1fr 120px !important;
