@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Billboard, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Frequency, FREQUENCY_CONFIG } from './types';
 

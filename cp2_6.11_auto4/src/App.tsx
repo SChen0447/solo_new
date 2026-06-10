@@ -1,7 +1,31 @@
 import React, { useState, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
+import * as THREE from 'three';
 import CrystalNetwork from './CrystalNetwork';
 import { CrystalData, ConnectionData, Frequency, FREQUENCY_CONFIG, generateId } from './types';
+
+const panelStyles = (expanded: boolean, isMobile: boolean): React.CSSProperties => ({
+  position: 'absolute',
+  top: '20px',
+  right: expanded ? '0' : '0',
+  bottom: '20px',
+  width: expanded ? '260px' : '6px',
+  background: expanded ? 'rgba(20, 20, 40, 0.85)' : 'rgba(42, 42, 74, 0.6)',
+  backdropFilter: expanded ? 'blur(12px)' : 'none',
+  WebkitBackdropFilter: expanded ? 'blur(12px)' : 'none',
+  borderRadius: expanded ? '12px 0 0 12px' : '3px 0 0 3px',
+  padding: expanded ? '20px 16px' : '0',
+  transition: 'width 0.3s ease, padding 0.3s ease, background 0.3s ease, border-radius 0.3s ease, transform 0.3s ease',
+  overflow: 'hidden',
+  borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+  zIndex: 100,
+  cursor: expanded ? 'default' : 'pointer',
+  transform: isMobile && !expanded ? 'translateX(0)' : 'translateX(0)',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: expanded ? 'flex-start' : 'center',
+  alignItems: expanded ? 'stretch' : 'center'
+});
 
 const App: React.FC = () => {
   const [crystals, setCrystals] = useState<CrystalData[]>([
@@ -16,10 +40,17 @@ const App: React.FC = () => {
   const [selectedCrystalId, setSelectedCrystalId] = useState<string | null>(null);
   const [isPanelExpanded, setIsPanelExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(!isMobile);
 
   React.useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsToolbarExpanded(false);
+        setIsPanelExpanded(false);
+      }
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -36,17 +67,14 @@ const App: React.FC = () => {
 
   const addConnection = useCallback((fromId: string, toId: string) => {
     if (fromId === toId) return;
-    const exists = connections.some(
-      c => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
-    );
-    if (exists) return;
-    const newConnection: ConnectionData = {
-      id: generateId(),
-      from: fromId,
-      to: toId
-    };
-    setConnections(prev => [...prev, newConnection]);
-  }, [connections]);
+    setConnections(prev => {
+      const exists = prev.some(
+        c => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
+      );
+      if (exists) return prev;
+      return [...prev, { id: generateId(), from: fromId, to: toId }];
+    });
+  }, []);
 
   const clearAll = useCallback(() => {
     setCrystals([]);
@@ -58,7 +86,7 @@ const App: React.FC = () => {
     const newCrystals: CrystalData[] = [];
     const frequencies: Frequency[] = ['low', 'mid', 'high'];
     const count = 8 + Math.floor(Math.random() * 10);
-    
+
     for (let i = 0; i < count; i++) {
       const freq = frequencies[Math.floor(Math.random() * 3)];
       newCrystals.push({
@@ -72,7 +100,7 @@ const App: React.FC = () => {
         color: FREQUENCY_CONFIG[freq].color
       });
     }
-    
+
     const newConnections: ConnectionData[] = [];
     for (let i = 0; i < newCrystals.length; i++) {
       const connectCount = 1 + Math.floor(Math.random() * 3);
@@ -93,7 +121,7 @@ const App: React.FC = () => {
         }
       }
     }
-    
+
     setCrystals(newCrystals);
     setConnections(newConnections);
     setSelectedCrystalId(null);
@@ -101,13 +129,28 @@ const App: React.FC = () => {
 
   const selectedCrystal = crystals.find(c => c.id === selectedCrystalId) || null;
 
+  const btnStyle: React.CSSProperties = {
+    padding: '10px 20px',
+    borderRadius: '8px',
+    background: '#2a2a4a',
+    color: 'white',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 500,
+    transition: 'all 0.2s ease-out',
+    whiteSpace: 'nowrap'
+  };
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: 'linear-gradient(180deg, #0d0d2b 0%, #0b0015 100%)' }}>
       <Canvas
         camera={{ position: [0, 0, 12], fov: 60 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: false }}
+        onCreated={({ gl }) => {
+          gl.setClearColor(new THREE.Color('#0d0d2b'), 1);
+        }}
       >
-        <color attach="background" args={[0]} transparent />
         <ambientLight intensity={0.4} />
         <pointLight position={[10, 10, 10]} intensity={0.8} />
         <pointLight position={[-10, -10, -10]} intensity={0.4} color="#6b4eff" />
@@ -137,7 +180,8 @@ const App: React.FC = () => {
           gap: '10px',
           transition: 'all 0.3s ease',
           border: '1px solid rgba(255, 255, 255, 0.1)',
-          zIndex: 100
+          zIndex: 100,
+          transform: isMobile && !isToolbarExpanded ? 'translateX(0)' : 'translateX(0)'
         }}
       >
         {isMobile && !isToolbarExpanded ? (
@@ -151,7 +195,10 @@ const App: React.FC = () => {
               color: 'white',
               border: 'none',
               cursor: 'pointer',
-              fontSize: '18px'
+              fontSize: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
             ⚙
@@ -160,18 +207,7 @@ const App: React.FC = () => {
           <>
             <button
               onClick={clearAll}
-              style={{
-                padding: '10px 20px',
-                borderRadius: '8px',
-                background: '#2a2a4a',
-                color: 'white',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 500,
-                transition: 'all 0.2s ease-out',
-                whiteSpace: 'nowrap'
-              }}
+              style={btnStyle}
               onMouseEnter={(e) => { e.currentTarget.style.background = '#3a3a6a'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = '#2a2a4a'; }}
               onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
@@ -181,18 +217,7 @@ const App: React.FC = () => {
             </button>
             <button
               onClick={generateRandomNetwork}
-              style={{
-                padding: '10px 20px',
-                borderRadius: '8px',
-                background: '#2a2a4a',
-                color: 'white',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 500,
-                transition: 'all 0.2s ease-out',
-                whiteSpace: 'nowrap'
-              }}
+              style={btnStyle}
               onMouseEnter={(e) => { e.currentTarget.style.background = '#3a3a6a'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = '#2a2a4a'; }}
               onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
@@ -221,127 +246,87 @@ const App: React.FC = () => {
       </div>
 
       <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          height: '100%',
-          display: 'flex',
-          alignItems: 'stretch',
-          zIndex: 100
+        style={panelStyles(isPanelExpanded, isMobile)}
+        onClick={() => {
+          if (!isPanelExpanded) setIsPanelExpanded(true);
         }}
       >
-        {isMobile && !isPanelExpanded ? (
-          <button
-            onClick={() => setIsPanelExpanded(true)}
-            style={{
-              width: '8px',
-              height: '60px',
-              marginTop: '20px',
-              background: 'rgba(42, 42, 74, 0.8)',
-              border: 'none',
-              borderRadius: '4px 0 0 4px',
-              cursor: 'pointer'
-            }}
-          />
-        ) : (
+        {!isPanelExpanded && (
           <div
             style={{
-              width: isPanelExpanded ? '260px' : '8px',
-              background: 'rgba(20, 20, 40, 0.85)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              borderRadius: '12px 0 0 12px',
-              padding: isPanelExpanded ? '20px 16px' : '0',
-              transition: 'width 0.3s ease, padding 0.3s ease',
-              overflow: 'hidden',
-              borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
-              transform: isMobile && !isPanelExpanded ? 'translateX(100%)' : 'translateX(0)',
-              marginTop: '20px',
-              marginBottom: '20px',
-              height: 'auto'
+              width: '4px',
+              height: '40px',
+              borderRadius: '2px',
+              background: 'rgba(255, 255, 255, 0.3)',
+              alignSelf: 'center'
             }}
-          >
-            {isPanelExpanded && (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 600 }}>晶体信息</h3>
-                  {isMobile && (
-                    <button
-                      onClick={() => setIsPanelExpanded(false)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'rgba(255,255,255,0.6)',
-                        cursor: 'pointer',
-                        fontSize: '18px',
-                        padding: '4px'
-                      }}
-                    >
-                      ×
-                    </button>
-                  )}
+          />
+        )}
+
+        {isPanelExpanded && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 600 }}>晶体信息</h3>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPanelExpanded(false);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
+              >
+                ▸
+              </button>
+            </div>
+            {selectedCrystal ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', color: 'rgba(255,255,255,0.9)', fontSize: '13px' }}>
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>频率</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {selectedCrystal.frequency === 'low' ? '低频' : selectedCrystal.frequency === 'mid' ? '中频' : '高频'}
+                  </div>
                 </div>
-                {selectedCrystal ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', color: 'rgba(255,255,255,0.9)', fontSize: '13px' }}>
-                    <div>
-                      <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>频率</div>
-                      <div style={{ fontWeight: 600 }}>
-                        {selectedCrystal.frequency === 'low' ? '低频' : selectedCrystal.frequency === 'mid' ? '中频' : '高频'}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>颜色</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', background: selectedCrystal.color, boxShadow: `0 0 12px ${selectedCrystal.color}` }} />
-                        <span style={{ fontFamily: 'monospace' }}>{selectedCrystal.color.toUpperCase()}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>连接数</div>
-                      <div style={{ fontWeight: 600 }}>
-                        {connections.filter(c => c.from === selectedCrystal.id || c.to === selectedCrystal.id).length}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>坐标</div>
-                      <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                        ({selectedCrystal.position[0].toFixed(2)}, {selectedCrystal.position[1].toFixed(2)}, {selectedCrystal.position[2].toFixed(2)})
-                      </div>
-                    </div>
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>颜色</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '4px', background: selectedCrystal.color, boxShadow: `0 0 12px ${selectedCrystal.color}` }} />
+                    <span style={{ fontFamily: 'monospace' }}>{selectedCrystal.color.toUpperCase()}</span>
                   </div>
-                ) : (
-                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', lineHeight: 1.6 }}>
-                    点击晶体查看详细信息<br /><br />
-                    <strong style={{ color: 'rgba(255,255,255,0.7)' }}>操作提示：</strong><br />
-                    • 双击空白创建晶体<br />
-                    • 从晶体拖拽到另一晶体建立连接
+                </div>
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>连接数</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {connections.filter(c => c.from === selectedCrystal.id || c.to === selectedCrystal.id).length}
                   </div>
-                )}
-              </>
+                </div>
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>坐标</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                    ({selectedCrystal.position[0].toFixed(2)}, {selectedCrystal.position[1].toFixed(2)}, {selectedCrystal.position[2].toFixed(2)})
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', lineHeight: 1.6 }}>
+                点击晶体查看详细信息<br /><br />
+                <strong style={{ color: 'rgba(255,255,255,0.7)' }}>操作提示：</strong><br />
+                • 双击空白创建晶体<br />
+                • 从晶体拖拽到另一晶体建立连接
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
-
-      {!isMobile && isPanelExpanded && (
-        <button
-          onClick={() => setIsPanelExpanded(false)}
-          style={{
-            position: 'absolute',
-            right: '260px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '8px',
-            height: '60px',
-            background: 'rgba(20, 20, 40, 0.85)',
-            border: 'none',
-            borderRadius: '4px 0 0 4px',
-            cursor: 'pointer',
-            zIndex: 99
-          }}
-        />
-      )}
     </div>
   );
 };
