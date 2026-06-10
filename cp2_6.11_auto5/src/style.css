@@ -159,22 +159,6 @@ body {
   100% { transform: scale(1); }
 }
 
-.score-rainbow {
-  background: linear-gradient(
-    90deg,
-    #ff6b6b,
-    #ffd700,
-    #00d4aa,
-    #4a9eff,
-    #ff6b6b
-  );
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: rainbowShift 2s linear infinite;
-}
-
 @keyframes rainbowShift {
   0% { background-position: 0% center; }
   100% { background-position: 200% center; }
@@ -196,8 +180,6 @@ body {
 
 .cards-container {
   display: grid;
-  grid-template-columns: repeat(18, var(--card-width));
-  grid-auto-rows: calc(var(--card-height) + 10px);
   gap: 4px;
   justify-content: center;
   align-content: center;
@@ -205,6 +187,14 @@ body {
   z-index: 1;
   perspective: 1000px;
   padding: 20px;
+}
+
+.card-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--card-width);
+  height: calc(var(--card-height) + 10px);
 }
 
 .card {
@@ -226,8 +216,8 @@ body {
 }
 
 @keyframes cardPulse {
-  0%, 100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.003); }
-  50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.03); }
+  0%, 100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.03); }
+  50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
 }
 
 .card.flipped,
@@ -527,9 +517,11 @@ body {
     padding: 10px;
   }
 
+  .card-wrapper {
+    height: calc(var(--card-height) + 8px);
+  }
+
   .cards-container {
-    grid-template-columns: repeat(14, var(--card-width));
-    grid-auto-rows: calc(var(--card-height) + 8px);
     gap: 3px;
     padding: 10px;
   }
@@ -578,9 +570,5 @@ body {
   :root {
     --card-width: 36px;
     --card-height: 51px;
-  }
-
-  .cards-container {
-    grid-template-columns: repeat(13, var(--card-width));
   }
 }
