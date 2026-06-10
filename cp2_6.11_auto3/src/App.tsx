@@ -33,40 +33,39 @@ const interpolateColor = (color1: string, color2: string, factor: number): strin
 
 const generateColorsFromSliders = (values: SliderValues): { colors: string[]; colorStops: ColorStop[] } => {
   const [temperature, density, , darkMatter] = values;
-  
+
   const layerCount = Math.floor(2 + (density / 100) * 4);
   const opacity = 0.4 + (density / 100) * 0.6;
-  
+
   const coldColor = '#0a1a3a';
   const hotColor = '#ff4d4d';
   const tempFactor = temperature / 100;
-  
+
   const baseColor = interpolateColor(coldColor, hotColor, tempFactor);
-  
   const midColor1 = interpolateColor('#1a3a6a', '#ff8c42', tempFactor);
   const midColor2 = interpolateColor('#2a5a8a', '#ffd166', tempFactor);
   const darkColor = interpolateColor('#050a1a', '#1a0a0a', tempFactor * 0.5);
-  
+
   const allColors = [darkColor, coldColor, midColor1, baseColor, midColor2, hotColor];
-  
+
   const colors: string[] = [];
   const colorStops: ColorStop[] = [];
-  
+
   const darkInfluence = darkMatter / 100;
-  
+
   for (let i = 0; i < layerCount; i++) {
-    const position = i / (layerCount - 1);
-    const colorIndex = Math.floor((position * (allColors.length - 1)));
+    const position = i / Math.max(layerCount - 1, 1);
+    const colorIndex = Math.floor(position * (allColors.length - 1));
     const nextIndex = Math.min(colorIndex + 1, allColors.length - 1);
     const localFactor = (position * (allColors.length - 1)) % 1;
-    
+
     let color = interpolateColor(allColors[colorIndex], allColors[nextIndex], localFactor);
-    
+
     if (position < darkInfluence * 0.5) {
-      const darkFactor = 1 - (position / (darkInfluence * 0.5));
+      const darkFactor = 1 - (position / Math.max(darkInfluence * 0.5, 0.01));
       color = interpolateColor(color, '#000000', darkFactor * 0.7);
     }
-    
+
     const alpha = Math.floor(opacity * 255).toString(16).padStart(2, '0');
     colors.push(color);
     colorStops.push({
@@ -74,7 +73,7 @@ const generateColorsFromSliders = (values: SliderValues): { colors: string[]; co
       position
     });
   }
-  
+
   return { colors, colorStops };
 };
 
@@ -83,8 +82,13 @@ const generateId = (): string => {
 };
 
 const VIRTUAL_SCROLL_THRESHOLD = 50;
-const ITEM_HEIGHT = 88;
+const ITEM_HEIGHT_COLLAPSED = 88;
+const ITEM_HEIGHT_EXPANDED = 280;
 const BUFFER_ITEMS = 5;
+const VISIBLE_HEIGHT = 600;
+
+const sliderColors = ['#ff6b6b', '#00d4aa', '#ffd700', '#9b59b6'];
+const sliderLabels = ['恒星温度', '星云密度', '星爆强度', '暗物质比例'];
 
 export const App: React.FC = () => {
   const [sliderValues, setSliderValues] = useState<SliderValues>([50, 50, 50, 30]);
@@ -99,13 +103,8 @@ export const App: React.FC = () => {
     [sliderValues]
   );
 
-  const handleSliderChange = useCallback((values: SliderValues) => {
-    const startTime = performance.now();
-    setSliderValues(values);
-    const elapsed = performance.now() - startTime;
-    if (elapsed > 16) {
-      console.warn(`Slider update took ${elapsed.toFixed(2)}ms, target is <16ms`);
-    }
+  const handleSliderChange = useCallback((newValues: SliderValues) => {
+    setSliderValues(newValues);
   }, []);
 
   const handleFavorite = useCallback(() => {
@@ -172,37 +171,59 @@ export const App: React.FC = () => {
     event.target.value = '';
   }, []);
 
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
+  const handleScroll = useCallback(() => {
+    if (listRef.current) {
+      setScrollTop(listRef.current.scrollTop);
+    }
   }, []);
 
   const useVirtualScroll = favorites.length > VIRTUAL_SCROLL_THRESHOLD;
 
-  const visibleItems = useMemo(() => {
-    if (!useVirtualScroll) return favorites;
+  const getItemHeight = useCallback((id: string) => {
+    return expandedId === id ? ITEM_HEIGHT_EXPANDED : ITEM_HEIGHT_COLLAPSED;
+  }, [expandedId]);
 
-    const listHeight = listRef.current?.clientHeight || 600;
-    const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER_ITEMS);
-    const endIndex = Math.min(
-      favorites.length,
-      Math.ceil((scrollTop + listHeight) / ITEM_HEIGHT) + BUFFER_ITEMS
-    );
-    return favorites.slice(startIndex, endIndex).map((item, idx) => ({
-      ...item,
-      _virtualIndex: startIndex + idx
-    }));
-  }, [favorites, scrollTop, useVirtualScroll]);
+  const itemPositions = useMemo(() => {
+    const positions: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < favorites.length; i++) {
+      positions.push(acc);
+      acc += getItemHeight(favorites[i].id);
+    }
+    return positions;
+  }, [favorites, getItemHeight]);
 
-  const totalHeight = useMemo(() => {
-    if (!useVirtualScroll) return undefined;
-    return favorites.length * ITEM_HEIGHT;
-  }, [favorites.length, useVirtualScroll]);
+  const totalListHeight = useMemo(() => {
+    if (itemPositions.length === 0) return 0;
+    const lastPos = itemPositions[itemPositions.length - 1];
+    const lastId = favorites[favorites.length - 1].id;
+    return lastPos + getItemHeight(lastId);
+  }, [itemPositions, favorites, getItemHeight]);
 
-  const offsetY = useMemo(() => {
-    if (!useVirtualScroll) return 0;
-    const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER_ITEMS);
-    return startIndex * ITEM_HEIGHT;
-  }, [scrollTop, useVirtualScroll]);
+  const visibleRange = useMemo(() => {
+    if (!useVirtualScroll) {
+      return { start: 0, end: favorites.length };
+    }
+
+    let start = 0;
+    let end = favorites.length;
+
+    for (let i = 0; i < itemPositions.length; i++) {
+      if (itemPositions[i] + getItemHeight(favorites[i].id) >= scrollTop - BUFFER_ITEMS * ITEM_HEIGHT_COLLAPSED) {
+        start = Math.max(0, i - BUFFER_ITEMS);
+        break;
+      }
+    }
+
+    for (let i = start; i < itemPositions.length; i++) {
+      if (itemPositions[i] > scrollTop + VISIBLE_HEIGHT + BUFFER_ITEMS * ITEM_HEIGHT_COLLAPSED) {
+        end = Math.min(favorites.length, i + BUFFER_ITEMS);
+        break;
+      }
+    }
+
+    return { start, end };
+  }, [useVirtualScroll, favorites, itemPositions, scrollTop, getItemHeight]);
 
   useEffect(() => {
     const saved = localStorage.getItem('starlight-favorites');
@@ -219,12 +240,95 @@ export const App: React.FC = () => {
     localStorage.setItem('starlight-favorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  const getGradientStyle = (colorStops: ColorStop[]): string => {
-    return `linear-gradient(to right, ${colorStops.map(s => `${s.color} ${s.position * 100}%`).join(', ')})`;
+  const getGradientStyle = (stops: ColorStop[]): string => {
+    return `linear-gradient(to right, ${stops.map(s => `${s.color} ${s.position * 100}%`).join(', ')})`;
   };
 
-  const sliderColors = ['#ff6b6b', '#00d4aa', '#ffd700', '#9b59b6'];
-  const sliderLabels = ['恒星温度', '星云密度', '星爆强度', '暗物质比例'];
+  const renderFavoriteCard = (favorite: Favorite) => {
+    const isExpanded = expandedId === favorite.id;
+    return (
+      <div
+        key={favorite.id}
+        className={`favorite-card ${isExpanded ? 'expanded' : ''}`}
+        onClick={() => handleToggleExpand(favorite.id)}
+        style={useVirtualScroll ? { position: 'absolute', top: 0, left: 0, right: 0, height: getItemHeight(favorite.id) } : undefined}
+      >
+        <div className="favorite-header">
+          <div
+            className="color-gradient-bar"
+            style={{ background: getGradientStyle(favorite.colorStops) }}
+          />
+          <div className="favorite-info">
+            <input
+              type="text"
+              className="name-input"
+              value={favorite.name}
+              onChange={(e) => {
+                e.stopPropagation();
+                handleNameChange(favorite.id, e.target.value);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="输入名称"
+            />
+            <button
+              className="delete-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(favorite.id);
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div className="favorite-details">
+            <div className="spectrum-title">4D 光谱图</div>
+            <div className="spectrum-chart">
+              <div
+                className="spectrum-background"
+                style={{ background: getGradientStyle(favorite.colorStops) }}
+              />
+              {favorite.sliderValues.map((value, index) => (
+                <div
+                  key={index}
+                  className="spectrum-marker"
+                  style={{
+                    left: `${value}%`,
+                    backgroundColor: sliderColors[index],
+                    boxShadow: `0 0 10px ${sliderColors[index]}, 0 0 20px ${sliderColors[index]}80`
+                  }}
+                  title={`${sliderLabels[index]}: ${value}`}
+                >
+                  <span className="marker-label" style={{ color: sliderColors[index] }}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="spectrum-legend">
+              {favorite.sliderValues.map((value, index) => (
+                <div key={index} className="legend-item">
+                  <span className="legend-dot" style={{ backgroundColor: sliderColors[index] }} />
+                  <span className="legend-label">{sliderLabels[index]}</span>
+                  <span className="legend-value">{value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="color-values">
+              {favorite.colors.map((color, index) => (
+                <div key={index} className="color-value-item">
+                  <div className="color-swatch" style={{ backgroundColor: color }} />
+                  <span className="color-hex">{color.toUpperCase()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="app-container">
@@ -249,7 +353,9 @@ export const App: React.FC = () => {
             <ColorPalette
               colors={colors}
               colorStops={colorStops}
+              density={sliderValues[1]}
               starIntensity={sliderValues[2]}
+              darkMatter={sliderValues[3]}
               onFavorite={handleFavorite}
             />
           </div>
@@ -279,7 +385,7 @@ export const App: React.FC = () => {
             ref={listRef}
             className="favorites-list"
             onScroll={handleScroll}
-            style={{ height: useVirtualScroll ? '600px' : 'auto' }}
+            style={useVirtualScroll ? { height: `${VISIBLE_HEIGHT}px`, overflowY: 'auto' } : { maxHeight: `${VISIBLE_HEIGHT}px`, overflowY: 'auto' }}
           >
             {favorites.length === 0 ? (
               <div className="empty-state">
@@ -287,95 +393,22 @@ export const App: React.FC = () => {
                 <p className="empty-text">还没有记录任何光谱</p>
                 <p className="empty-hint">调整滑块并点击"记录光谱"开始收藏</p>
               </div>
-            ) : (
+            ) : useVirtualScroll ? (
               <div
                 className="virtual-list-container"
-                style={{ height: totalHeight, position: 'relative' }}
+                style={{ height: totalListHeight, position: 'relative' }}
               >
-                <div style={{ transform: `translateY(${offsetY}px)` }}>
-                  {visibleItems.map((favorite) => (
-                    <div
-                      key={favorite.id}
-                      className={`favorite-card ${expandedId === favorite.id ? 'expanded' : ''}`}
-                      onClick={() => handleToggleExpand(favorite.id)}
-                    >
-                      <div className="favorite-header">
-                        <div
-                          className="color-gradient-bar"
-                          style={{ background: getGradientStyle(favorite.colorStops) }}
-                        />
-                        <div className="favorite-info">
-                          <input
-                            type="text"
-                            className="name-input"
-                            value={favorite.name}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              handleNameChange(favorite.id, e.target.value);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="输入名称"
-                          />
-                          <button
-                            className="delete-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(favorite.id);
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="favorite-details">
-                        <div className="spectrum-title">4D 光谱图</div>
-                        <div className="spectrum-chart">
-                          <div
-                            className="spectrum-background"
-                            style={{ background: getGradientStyle(favorite.colorStops) }}
-                          />
-                          {favorite.sliderValues.map((value, index) => (
-                            <div
-                              key={index}
-                              className="spectrum-marker"
-                              style={{
-                                left: `${value}%`,
-                                backgroundColor: sliderColors[index],
-                                boxShadow: `0 0 8px ${sliderColors[index]}`
-                              }}
-                              title={`${sliderLabels[index]}: ${value}`}
-                            />
-                          ))}
-                        </div>
-                        <div className="spectrum-legend">
-                          {favorite.sliderValues.map((value, index) => (
-                            <div key={index} className="legend-item">
-                              <span
-                                className="legend-dot"
-                                style={{ backgroundColor: sliderColors[index] }}
-                              />
-                              <span className="legend-label">{sliderLabels[index]}</span>
-                              <span className="legend-value">{value}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="color-values">
-                          {favorite.colors.map((color, index) => (
-                            <div key={index} className="color-value-item">
-                              <div
-                                className="color-swatch"
-                                style={{ backgroundColor: color }}
-                              />
-                              <span className="color-hex">{color.toUpperCase()}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                {favorites.slice(visibleRange.start, visibleRange.end).map((favorite) => {
+                  const pos = itemPositions[favorites.indexOf(favorite)];
+                  return (
+                    <div key={favorite.id} style={{ position: 'absolute', top: pos, left: 0, right: 0 }}>
+                      {renderFavoriteCard(favorite)}
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+            ) : (
+              favorites.map(favorite => renderFavoriteCard(favorite))
             )}
           </div>
         </section>
@@ -403,7 +436,6 @@ export const App: React.FC = () => {
           background-clip: text;
           margin: 0 0 8px 0;
           letter-spacing: 4px;
-          text-shadow: 0 0 40px rgba(74, 158, 255, 0.3);
         }
 
         .title-icon {
@@ -533,6 +565,7 @@ export const App: React.FC = () => {
 
         .virtual-list-container {
           width: 100%;
+          position: relative;
         }
 
         .empty-state {
@@ -566,6 +599,7 @@ export const App: React.FC = () => {
           overflow: hidden;
           cursor: pointer;
           transition: all 0.3s ease;
+          box-sizing: border-box;
         }
 
         .favorite-card:hover {
@@ -573,6 +607,12 @@ export const App: React.FC = () => {
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
                       0 0 20px rgba(74, 74, 255, 0.2);
           border-color: rgba(74, 74, 255, 0.5);
+        }
+
+        .favorite-card.expanded {
+          border-color: rgba(74, 74, 255, 0.6);
+          box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5),
+                      0 0 30px rgba(74, 74, 255, 0.3);
         }
 
         .favorite-header {
@@ -635,15 +675,19 @@ export const App: React.FC = () => {
         }
 
         .favorite-details {
-          max-height: 0;
-          overflow: hidden;
-          transition: max-height 0.3s ease-out, padding 0.3s ease-out;
-          padding: 0 16px;
+          padding: 0 16px 20px 16px;
+          animation: expandDetails 0.3s ease-out;
         }
 
-        .favorite-card.expanded .favorite-details {
-          max-height: 500px;
-          padding: 0 16px 20px 16px;
+        @keyframes expandDetails {
+          from {
+            opacity: 0;
+            max-height: 0;
+          }
+          to {
+            opacity: 1;
+            max-height: 400px;
+          }
         }
 
         .spectrum-title {
@@ -655,25 +699,39 @@ export const App: React.FC = () => {
 
         .spectrum-chart {
           position: relative;
-          height: 60px;
+          height: 80px;
           border-radius: 8px;
-          overflow: hidden;
+          overflow: visible;
           margin-bottom: 16px;
+          border: 1px solid rgba(74, 74, 255, 0.2);
         }
 
         .spectrum-background {
           position: absolute;
           inset: 0;
           opacity: 0.6;
+          border-radius: 8px;
         }
 
         .spectrum-marker {
           position: absolute;
-          top: 0;
-          bottom: 0;
+          top: -4px;
+          bottom: -4px;
           width: 3px;
           transform: translateX(-50%);
           border-radius: 2px;
+          z-index: 2;
+        }
+
+        .marker-label {
+          position: absolute;
+          top: -18px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 10px;
+          font-weight: 700;
+          font-family: 'Courier New', monospace;
+          white-space: nowrap;
         }
 
         .spectrum-legend {
@@ -778,6 +836,10 @@ export const App: React.FC = () => {
 
           .color-gradient-bar {
             height: 32px;
+          }
+
+          .spectrum-chart {
+            height: 60px;
           }
 
           .spectrum-legend {

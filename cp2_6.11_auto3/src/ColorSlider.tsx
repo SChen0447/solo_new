@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import type { SliderValues, Star } from './types';
+import React from 'react';
+import type { SliderValues } from './types';
 
 interface ColorSliderProps {
   values: SliderValues;
@@ -13,97 +13,7 @@ const sliderConfig = [
   { label: '暗物质比例', min: 0, max: 100, color: '#9b59b6' }
 ];
 
-const starColors = ['#ffd700', '#00d4aa', '#ff6b6b'];
-
 export const ColorSlider: React.FC<ColorSliderProps> = ({ values, onChange }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const starsRef = useRef<Star[]>([]);
-  const animationRef = useRef<number>();
-
-  const generateStars = useCallback((density: number) => {
-    const starCount = Math.floor(10 + density * 0.5);
-    const stars: Star[] = [];
-    for (let i = 0; i < starCount; i++) {
-      stars.push({
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: 1 + Math.random() * 2,
-        color: starColors[Math.floor(Math.random() * starColors.length)],
-        brightness: 0.5 + Math.random() * 0.5,
-        twinkleSpeed: 0.5 + Math.random() * 2
-      });
-    }
-    starsRef.current = stars;
-  }, []);
-
-  useEffect(() => {
-    generateStars(values[1]);
-  }, [values[1], generateStars]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let lastTime = 0;
-    const targetFPS = 30;
-    const frameInterval = 1000 / targetFPS;
-
-    const animate = (currentTime: number) => {
-      animationRef.current = requestAnimationFrame(animate);
-      
-      if (currentTime - lastTime < frameInterval) return;
-      lastTime = currentTime;
-
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.scale(dpr, dpr);
-      const width = rect.width;
-      const height = rect.height;
-
-      ctx.clearRect(0, 0, width, height);
-
-      const darkMatterRatio = values[3] / 100;
-      const bgGradient = ctx.createRadialGradient(
-        width / 2, height / 2, 0,
-        width / 2, height / 2, Math.max(width, height) / 2
-      );
-      bgGradient.addColorStop(0, '#1a1a3e');
-      bgGradient.addColorStop(darkMatterRatio * 0.6, '#12122a');
-      bgGradient.addColorStop(1, '#0a0a1a');
-      ctx.fillStyle = bgGradient;
-      ctx.fillRect(0, 0, width, height);
-
-      const time = currentTime / 1000;
-      starsRef.current.forEach(star => {
-        const twinkle = Math.sin(time * star.twinkleSpeed) * 0.3 + 0.7;
-        const alpha = star.brightness * twinkle;
-        ctx.beginPath();
-        ctx.arc(
-          (star.x / 100) * width,
-          (star.y / 100) * height,
-          star.size,
-          0,
-          Math.PI * 2
-        );
-        ctx.fillStyle = star.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-        ctx.fill();
-      });
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [values]);
-
   const handleSliderChange = (index: number, value: number) => {
     const newValues = [...values] as SliderValues;
     newValues[index] = value;
@@ -112,9 +22,6 @@ export const ColorSlider: React.FC<ColorSliderProps> = ({ values, onChange }) =>
 
   return (
     <div className="color-slider-container">
-      <div className="slider-background">
-        <canvas ref={canvasRef} className="slider-canvas" />
-      </div>
       <div className="sliders-wrapper">
         {sliderConfig.map((config, index) => (
           <div key={config.label} className="slider-item">
@@ -125,7 +32,7 @@ export const ColorSlider: React.FC<ColorSliderProps> = ({ values, onChange }) =>
               <span className="slider-value">{values[index]}</span>
             </div>
             <div className="slider-track-wrapper">
-              <div 
+              <div
                 className="slider-track"
                 style={{
                   background: `linear-gradient(to right, ${config.color}40, ${config.color}80)`,
@@ -152,32 +59,15 @@ export const ColorSlider: React.FC<ColorSliderProps> = ({ values, onChange }) =>
 
       <style>{`
         .color-slider-container {
-          position: relative;
           border-radius: 16px;
           overflow: hidden;
           background: rgba(10, 10, 35, 0.6);
           border: 1px solid rgba(74, 74, 255, 0.3);
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-        }
-
-        .slider-background {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 0;
-        }
-
-        .slider-canvas {
-          width: 100%;
-          height: 100%;
-          display: block;
+          backdrop-filter: blur(8px);
         }
 
         .sliders-wrapper {
-          position: relative;
-          z-index: 1;
           padding: 24px;
           display: flex;
           flex-direction: column;

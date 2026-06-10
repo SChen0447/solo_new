@@ -4,39 +4,56 @@ import type { ColorStop, Star } from './types';
 interface ColorPaletteProps {
   colors: string[];
   colorStops: ColorStop[];
+  density: number;
   starIntensity: number;
+  darkMatter: number;
   onFavorite: () => void;
 }
 
 const starColors = ['#ffd700', '#00d4aa', '#ff6b6b'];
 
+const TARGET_FRAME_BUDGET = 12;
+const ADAPTIVE_COOLDOWN = 500;
+
 export const ColorPalette: React.FC<ColorPaletteProps> = ({
   colors,
   colorStops,
+  density,
   starIntensity,
+  darkMatter,
   onFavorite
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const starsRef = useRef<Star[]>([]);
   const animationRef = useRef<number>();
+  const qualityRef = useRef({ dprScale: 1, maxStars: 60 });
+  const lastAdaptTimeRef = useRef(0);
+  const frameTimeHistoryRef = useRef<number[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
 
-  const generateStars = useCallback((intensity: number, width: number, height: number) => {
-    const baseCount = 3 + Math.floor(intensity / 20) * 2;
-    const starCount = Math.min(5, Math.max(3, baseCount));
+  const generateStars = useCallback((densityVal: number, width: number, height: number) => {
+    const starCount = Math.floor(10 + densityVal * 0.5);
+    const clampedCount = Math.min(starCount, qualityRef.current.maxStars);
     const stars: Star[] = [];
-    for (let i = 0; i < starCount; i++) {
+    for (let i = 0; i < clampedCount; i++) {
       stars.push({
         x: Math.random() * width,
         y: Math.random() * height,
         size: 2 + Math.random() * 4,
         color: starColors[Math.floor(Math.random() * starColors.length)],
-        brightness: 0.6 + (intensity / 100) * 0.4,
+        brightness: 0.6 + (starIntensity / 100) * 0.4,
         twinkleSpeed: 0.8 + Math.random() * 1.5
       });
     }
     starsRef.current = stars;
-  }, []);
+  }, [starIntensity]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    generateStars(density, rect.width, rect.height);
+  }, [density, generateStars]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -49,35 +66,83 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
     const targetFPS = 30;
     const frameInterval = 1000 / targetFPS;
 
+    const adaptQuality = (frameTime: number) => {
+      const now = performance.now();
+      if (now - lastAdaptTimeRef.current < ADAPTIVE_COOLDOWN) return;
+
+      frameTimeHistoryRef.current.push(frameTime);
+      if (frameTimeHistoryRef.current.length > 10) {
+        frameTimeHistoryRef.current.shift();
+      }
+
+      const avgFrameTime = frameTimeHistoryRef.current.reduce((a, b) => a + b, 0) / frameTimeHistoryRef.current.length;
+
+      if (avgFrameTime > TARGET_FRAME_BUDGET && frameTimeHistoryRef.current.length >= 3) {
+        lastAdaptTimeRef.current = now;
+        const q = qualityRef.current;
+
+        if (q.maxStars > 10) {
+          q.maxStars = Math.max(10, Math.floor(q.maxStars * 0.7));
+        } else if (q.dprScale > 0.5) {
+          q.dprScale = Math.max(0.5, q.dprScale - 0.1);
+        }
+
+        const rect = canvas.getBoundingClientRect();
+        generateStars(density, rect.width, rect.height);
+      } else if (avgFrameTime < TARGET_FRAME_BUDGET * 0.5 && frameTimeHistoryRef.current.length >= 5) {
+        lastAdaptTimeRef.current = now;
+        const q = qualityRef.current;
+        const needsRegen = q.maxStars < 60 || q.dprScale < 1;
+
+        q.maxStars = Math.min(60, Math.floor(q.maxStars * 1.3));
+        q.dprScale = Math.min(1, q.dprScale + 0.05);
+
+        if (needsRegen) {
+          const rect = canvas.getBoundingClientRect();
+          generateStars(density, rect.width, rect.height);
+        }
+      }
+    };
+
     const animate = (currentTime: number) => {
       animationRef.current = requestAnimationFrame(animate);
-      
+
       if (currentTime - lastTime < frameInterval) return;
       lastTime = currentTime;
 
-      const startTime = performance.now();
+      const renderStart = performance.now();
 
-      const dpr = window.devicePixelRatio || 1;
+      const baseDpr = window.devicePixelRatio || 1;
+      const dpr = baseDpr * qualityRef.current.dprScale;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.scale(dpr, dpr);
       const width = rect.width;
       const height = rect.height;
-
-      if (starsRef.current.length === 0) {
-        generateStars(starIntensity, width, height);
-      }
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
 
       ctx.clearRect(0, 0, width, height);
+
+      const darkRatio = darkMatter / 100;
+      const bgGrad = ctx.createRadialGradient(
+        width * 0.5, height * 0.5, 0,
+        width * 0.5, height * 0.5, Math.max(width, height) * 0.7
+      );
+      bgGrad.addColorStop(0, '#1a1a3e');
+      bgGrad.addColorStop(Math.min(darkRatio * 0.6, 0.95), '#0d0d28');
+      bgGrad.addColorStop(1, '#050510');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, width, height);
 
       if (colorStops.length > 0) {
         const gradient = ctx.createLinearGradient(0, 0, width, height);
         colorStops.forEach(stop => {
           gradient.addColorStop(stop.position, stop.color);
         });
+        ctx.globalAlpha = 0.85;
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
+        ctx.globalAlpha = 1;
       }
 
       const time = currentTime / 1000;
@@ -85,17 +150,17 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
         const twinkle = Math.sin(time * star.twinkleSpeed) * 0.4 + 0.6;
         const brightness = star.brightness * twinkle;
         const glowSize = star.size * (1 + starIntensity / 200);
-        
+
         const glow = ctx.createRadialGradient(
           star.x, star.y, 0,
-          star.x, star.y, glowSize * 2
+          star.x, star.y, glowSize * 2.5
         );
-        glow.addColorStop(0, star.color + Math.floor(brightness * 200).toString(16).padStart(2, '0'));
-        glow.addColorStop(0.5, star.color + Math.floor(brightness * 100).toString(16).padStart(2, '0'));
-        glow.addColorStop(1, 'transparent');
-        
+        glow.addColorStop(0, star.color + Math.floor(brightness * 220).toString(16).padStart(2, '0'));
+        glow.addColorStop(0.4, star.color + Math.floor(brightness * 120).toString(16).padStart(2, '0'));
+        glow.addColorStop(1, star.color + '00');
+
         ctx.beginPath();
-        ctx.arc(star.x, star.y, glowSize * 2, 0, Math.PI * 2);
+        ctx.arc(star.x, star.y, glowSize * 2.5, 0, Math.PI * 2);
         ctx.fillStyle = glow;
         ctx.fill();
 
@@ -105,10 +170,8 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
         ctx.fill();
       });
 
-      const drawTime = performance.now() - startTime;
-      if (drawTime > 12) {
-        console.warn(`Canvas render took ${drawTime.toFixed(2)}ms, target is <12ms`);
-      }
+      const frameTime = performance.now() - renderStart;
+      adaptQuality(frameTime);
     };
 
     animationRef.current = requestAnimationFrame(animate);
@@ -118,15 +181,7 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [colorStops, starIntensity, generateStars]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      generateStars(starIntensity, rect.width, rect.height);
-    }
-  }, [starIntensity, generateStars]);
+  }, [colorStops, density, starIntensity, darkMatter, generateStars]);
 
   const handleFavoriteClick = () => {
     setIsFlipped(true);
@@ -168,7 +223,7 @@ export const ColorPalette: React.FC<ColorPaletteProps> = ({
           </div>
         </div>
       </div>
-      
+
       <button
         className="favorite-button"
         onClick={handleFavoriteClick}
