@@ -299,7 +299,7 @@ export default function Game() {
       if (sub.slowTimer === 0) sub.speed = sub.baseSpeed
     }
     sub.propellerAngle = (sub.propellerAngle + dt * 0.02) % (Math.PI * 2)
-    sub.windowPulse = (sub.windowPulse + dt * 0.0025) % (Math.PI * 2)
+    sub.windowPulse = (sub.windowPulse + dt * (Math.PI * 2 / 400)) % (Math.PI * 2)
 
     if (keysRef.current.has('ArrowLeft') || keysRef.current.has('a')) {
       sub.x -= sub.speed
@@ -452,9 +452,16 @@ export default function Game() {
     ctx.beginPath()
     ctx.moveTo(0, 0)
     const offset = state.scrollOffset
-    for (let y = 0; y <= CANVAS_H; y += 40) {
+    let prevX = 25
+    let prevY = 0
+    for (let y = 40; y <= CANVAS_H + 40; y += 40) {
       const wobble = Math.sin((y + offset) * 0.02) * 10 + Math.sin((y + offset) * 0.007) * 15
-      ctx.lineTo(25 + wobble, y)
+      const cpX = prevX
+      const cpY = prevY + 20
+      const x = 25 + wobble
+      ctx.quadraticCurveTo(cpX, cpY, x, y)
+      prevX = x
+      prevY = y
     }
     ctx.lineTo(0, CANVAS_H)
     ctx.closePath()
@@ -462,9 +469,16 @@ export default function Game() {
 
     ctx.beginPath()
     ctx.moveTo(CANVAS_W, 0)
-    for (let y = 0; y <= CANVAS_H; y += 40) {
+    prevX = CANVAS_W - 25
+    prevY = 0
+    for (let y = 40; y <= CANVAS_H + 40; y += 40) {
       const wobble = Math.cos((y + offset) * 0.02) * 10 + Math.cos((y + offset) * 0.007) * 15
-      ctx.lineTo(CANVAS_W - 25 - wobble, y)
+      const cpX = prevX
+      const cpY = prevY + 20
+      const x = CANVAS_W - 25 - wobble
+      ctx.quadraticCurveTo(cpX, cpY, x, y)
+      prevX = x
+      prevY = y
     }
     ctx.lineTo(CANVAS_W, CANVAS_H)
     ctx.closePath()
@@ -812,10 +826,8 @@ export default function Game() {
       if (!container) return
       const w = Math.min(window.innerWidth, MAX_CANVAS_WIDTH)
       const h = w / CANVAS_RATIO
-      if (container) {
-        container.style.width = `${w}px`
-        container.style.height = `${h}px`
-      }
+      container.style.width = `${w}px`
+      container.style.height = `${h}px`
     }
     updateSize()
     window.addEventListener('resize', updateSize)
