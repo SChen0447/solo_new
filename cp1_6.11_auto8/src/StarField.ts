@@ -16,9 +16,9 @@ interface StarData {
   height: number;
   baseSize: number;
   pulsePhase: number;
-  pulseSpeed: number;
+  pulsePeriod: number;
   pulseAmplitude: number;
-  spectralFactor: number;
+  spectralWavelength: number;
 }
 
 const STAR_NAMES = [
@@ -42,47 +42,62 @@ function generateStarName(index: number): string {
   return `${baseName} ${suffix}`;
 }
 
-function getSpectralTypeByFactor(factor: number): StarInfo['spectralType'] {
-  const types: { type: StarInfo['spectralType']; max: number }[] = [
-    { type: 'O', max: 0.03 },
-    { type: 'B', max: 0.13 },
-    { type: 'A', max: 0.30 },
-    { type: 'F', max: 0.55 },
-    { type: 'G', max: 0.75 },
-    { type: 'K', max: 0.92 },
-    { type: 'M', max: 1.00 }
-  ];
-  for (const t of types) {
-    if (factor <= t.max) return t.type;
-  }
-  return 'G';
+function getSpectralTypeByWavelength(wl: number): StarInfo['spectralType'] {
+  if (wl < 440) return 'O';
+  if (wl < 490) return 'B';
+  if (wl < 565) return 'A';
+  if (wl < 600) return 'F';
+  if (wl < 630) return 'G';
+  if (wl < 690) return 'K';
+  return 'M';
 }
 
-function spectralColor(factor: number): THREE.Color {
-  const stops = [
-    { pos: 0.00, r: 0.0, g: 0.4, b: 1.0 },
-    { pos: 0.15, r: 0.4, g: 0.6, b: 1.0 },
-    { pos: 0.30, r: 0.6, g: 0.8, b: 1.0 },
-    { pos: 0.45, r: 1.0, g: 1.0, b: 1.0 },
-    { pos: 0.60, r: 1.0, g: 1.0, b: 0.6 },
-    { pos: 0.75, r: 1.0, g: 0.8, b: 0.4 },
-    { pos: 0.88, r: 1.0, g: 0.5, b: 0.2 },
-    { pos: 1.00, r: 1.0, g: 0.2, b: 0.0 }
-  ];
-  
-  for (let i = 0; i < stops.length - 1; i++) {
-    const a = stops[i];
-    const b = stops[i + 1];
-    if (factor >= a.pos && factor <= b.pos) {
-      const t = (factor - a.pos) / (b.pos - a.pos);
-      return new THREE.Color(
-        a.r + (b.r - a.r) * t,
-        a.g + (b.g - a.g) * t,
-        a.b + (b.b - a.b) * t
-      );
-    }
+function wavelengthToRGB(wavelength: number): THREE.Color {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (wavelength >= 380 && wavelength < 440) {
+    r = -(wavelength - 440) / (440 - 380);
+    g = 0;
+    b = 1.0;
+  } else if (wavelength >= 440 && wavelength < 490) {
+    r = 0;
+    g = (wavelength - 440) / (490 - 440);
+    b = 1.0;
+  } else if (wavelength >= 490 && wavelength < 510) {
+    r = 0;
+    g = 1.0;
+    b = -(wavelength - 510) / (510 - 490);
+  } else if (wavelength >= 510 && wavelength < 580) {
+    r = (wavelength - 510) / (580 - 510);
+    g = 1.0;
+    b = 0;
+  } else if (wavelength >= 580 && wavelength < 645) {
+    r = 1.0;
+    g = -(wavelength - 645) / (645 - 580);
+    b = 0;
+  } else if (wavelength >= 645 && wavelength <= 780) {
+    r = 1.0;
+    g = 0;
+    b = 0;
   }
-  return new THREE.Color(0xffffff);
+
+  let factor = 0;
+  if (wavelength >= 380 && wavelength < 420) {
+    factor = 0.3 + 0.7 * (wavelength - 380) / (420 - 380);
+  } else if (wavelength >= 420 && wavelength <= 700) {
+    factor = 1.0;
+  } else if (wavelength > 700 && wavelength <= 780) {
+    factor = 0.3 + 0.7 * (780 - wavelength) / (780 - 700);
+  }
+
+  const gamma = 0.8;
+  r = Math.pow(r * factor, gamma);
+  g = Math.pow(g * factor, gamma);
+  b = Math.pow(b * factor, gamma);
+
+  return new THREE.Color(r, g, b);
 }
 
 function colorToHex(c: THREE.Color): string {
@@ -94,28 +109,44 @@ const vertexShader = `
   attribute float aPulse;
   attribute float aHighlight;
   varying vec3 vColor;
+  varying float vAlpha;
   uniform float uPixelRatio;
+  uniform float uNear;
+  uniform float uFar;
   
   void main() {
     vColor = color;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float dist = -mvPosition.z;
-    float sizeFactor = 300.0 / max(dist, 1.0);
-    float finalSize = aSize * sizeFactor * uPixelRatio * (1.0 + aPulse * 0.6) * (1.0 + aHighlight * 1.0);
-    gl_PointSize = max(1.5, finalSize);
+    
+    float logNear = log(uNear + 1.0);
+    float logFar = log(uFar + 1.0);
+    float logDist = log(dist + 1.0);
+    float depthNorm = clamp((logDist - logNear) / (logFar - logNear), 0.0, 1.0);
+    float sizeFactor = mix(2.8, 0.25, depthNorm);
+    
+    float finalSize = aSize * sizeFactor * uPixelRatio * (1.0 + aPulse * 0.5) * (1.0 + aHighlight * 1.2);
+    gl_PointSize = max(1.0, finalSize);
+    
+    vAlpha = mix(1.0, 0.4, depthNorm * depthNorm);
+    vAlpha *= (1.0 + aPulse * 0.3);
+    vAlpha = clamp(vAlpha, 0.0, 1.0);
+    
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
 
 const fragmentShader = `
   varying vec3 vColor;
+  varying float vAlpha;
   void main() {
     vec2 center = gl_PointCoord - vec2(0.5);
     float dist = length(center);
     if (dist > 0.5) discard;
     float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-    alpha = pow(alpha, 1.5);
-    gl_FragColor = vec4(vColor, alpha);
+    alpha = pow(alpha, 1.3) * vAlpha;
+    vec3 finalColor = vColor * (1.0 + (1.0 - alpha) * 0.3);
+    gl_FragColor = vec4(finalColor, alpha);
   }
 `;
 
@@ -130,14 +161,13 @@ export class StarField {
   private sizes: Float32Array;
   private pulses: Float32Array;
   private highlights: Float32Array;
-  private baseColors: Float32Array;
   private baseSizes: Float32Array;
   private starsData: StarData[] = [];
   
   private galaxyRotation: number = 0;
   private rotationSpeed: number = 0.05;
   private pulseTriggerTime: number = 0;
-  private pulseInterval: number = 2500;
+  private pulseInterval: number = 3000;
   private pulsingStars: Map<number, number> = new Map();
   private highlightedIndex: number | null = null;
 
@@ -148,14 +178,15 @@ export class StarField {
     this.sizes = new Float32Array(starCount);
     this.pulses = new Float32Array(starCount);
     this.highlights = new Float32Array(starCount);
-    this.baseColors = new Float32Array(starCount * 3);
     this.baseSizes = new Float32Array(starCount);
 
     this.geometry = new THREE.BufferGeometry();
     
     this.material = new THREE.ShaderMaterial({
       uniforms: {
-        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+        uNear: { value: 1.0 },
+        uFar: { value: 3000.0 }
       },
       vertexShader,
       fragmentShader,
@@ -193,14 +224,15 @@ export class StarField {
       const y = height + (Math.random() - 0.5) * 8;
       
       const distFactor = radius / maxRadius;
-      const spectralFactor = Math.max(0, Math.min(1, distFactor * 0.85 + Math.random() * 0.15));
-      const color = spectralColor(spectralFactor);
-      const spectralType = getSpectralTypeByFactor(spectralFactor);
+      const wavelength = 400 + distFactor * 350 + (Math.random() - 0.5) * 30;
+      const clampedWavelength = Math.max(380, Math.min(780, wavelength));
+      const color = wavelengthToRGB(clampedWavelength);
+      const spectralType = getSpectralTypeByWavelength(clampedWavelength);
       
       const distance = Math.sqrt(x * x + y * y + z * z);
-      const sizeDistFactor = 1.1 - distFactor * 0.5;
-      const coreBonus = Math.max(0, 1 - distFactor * 2) * 0.8;
-      const baseSize = (2.5 + Math.random() * 3.0) * sizeDistFactor + coreBonus;
+      const sizeDistFactor = 1.1 - distFactor * 0.4;
+      const coreBonus = Math.max(0, 1 - distFactor * 1.8) * 0.6;
+      const baseSize = (3.0 + Math.random() * 4.0) * sizeDistFactor + coreBonus;
       
       this.positions[i * 3] = x;
       this.positions[i * 3 + 1] = y;
@@ -209,10 +241,6 @@ export class StarField {
       this.colors[i * 3] = color.r;
       this.colors[i * 3 + 1] = color.g;
       this.colors[i * 3 + 2] = color.b;
-      
-      this.baseColors[i * 3] = color.r;
-      this.baseColors[i * 3 + 1] = color.g;
-      this.baseColors[i * 3 + 2] = color.b;
       
       this.sizes[i] = baseSize;
       this.baseSizes[i] = baseSize;
@@ -235,9 +263,9 @@ export class StarField {
         height: y,
         baseSize,
         pulsePhase: Math.random() * Math.PI * 2,
-        pulseSpeed: 1.5 + Math.random() * 2.5,
-        pulseAmplitude: 0.4 + Math.random() * 0.5,
-        spectralFactor
+        pulsePeriod: 0.8 + Math.random() * 1.5,
+        pulseAmplitude: 0.35 + Math.random() * 0.45,
+        spectralWavelength: clampedWavelength
       });
     }
   }
@@ -253,6 +281,8 @@ export class StarField {
   public update(delta: number, elapsed: number, _cameraDistance: number): void {
     this.galaxyRotation += this.rotationSpeed * delta;
     
+    const nowMs = elapsed * 1000;
+    
     for (let i = 0; i < this.starCount; i++) {
       const star = this.starsData[i];
       const rotationFactor = 1.0 - star.radius / 900 + 0.25;
@@ -264,33 +294,38 @@ export class StarField {
       this.positions[i * 3 + 2] = z;
       
       if (this.highlightedIndex === i) {
-        this.highlights[i] = 1.0;
+        this.highlights[i] = Math.min(1.0, this.highlights[i] + delta * 6);
       } else {
-        this.highlights[i] *= 0.9;
-        if (this.highlights[i] < 0.01) this.highlights[i] = 0;
+        this.highlights[i] = Math.max(0, this.highlights[i] - delta * 4);
       }
     }
     
-    if (elapsed * 1000 - this.pulseTriggerTime > this.pulseInterval) {
-      this.triggerRandomPulse();
-      this.pulseTriggerTime = elapsed * 1000;
-      this.pulseInterval = 2000 + Math.random() * 2000;
+    if (nowMs - this.pulseTriggerTime > this.pulseInterval) {
+      this.triggerRandomPulse(nowMs);
+      this.pulseTriggerTime = nowMs;
+      this.pulseInterval = 2000 + Math.random() * 2500;
     }
     
-    const pulseElapsed = (elapsed * 1000 - this.pulseTriggerTime) / 1000;
-    this.pulsingStars.forEach((_startTime, idx) => {
-      const star = this.starsData[idx];
-      if (!star) return;
-      const localTime = pulseElapsed;
-      const pulseWave = Math.sin(localTime * star.pulseSpeed * 3 + star.pulsePhase);
-      const envelope = Math.max(0, 1 - localTime / 1.5);
-      this.pulses[idx] = pulseWave * star.pulseAmplitude * envelope;
-    });
-    
-    if (pulseElapsed > 1.8) {
-      this.pulsingStars.clear();
-      for (let i = 0; i < this.starCount; i++) {
-        this.pulses[i] *= 0.8;
+    for (let i = 0; i < this.starCount; i++) {
+      if (this.pulsingStars.has(i)) {
+        const startTime = this.pulsingStars.get(i)!;
+        const localElapsed = (nowMs - startTime) / 1000;
+        const star = this.starsData[i];
+        
+        const fadeIn = Math.min(1, localElapsed / 0.3);
+        const fadeOut = Math.max(0, 1 - localElapsed / 2.0);
+        const envelope = fadeIn * fadeOut;
+        
+        const wave = Math.sin(localElapsed / star.pulsePeriod * Math.PI * 2 + star.pulsePhase);
+        this.pulses[i] = wave * star.pulseAmplitude * envelope;
+        
+        if (localElapsed > 2.5) {
+          this.pulsingStars.delete(i);
+          this.pulses[i] = 0;
+        }
+      } else {
+        this.pulses[i] *= Math.max(0, 1 - delta * 3);
+        if (Math.abs(this.pulses[i]) < 0.005) this.pulses[i] = 0;
       }
     }
     
@@ -300,13 +335,13 @@ export class StarField {
     (this.geometry.attributes.aSize as THREE.BufferAttribute).needsUpdate = true;
   }
 
-  private triggerRandomPulse(): void {
-    this.pulsingStars.clear();
-    const pulseCount = 25 + Math.floor(Math.random() * 45);
+  private triggerRandomPulse(triggerTime: number): void {
+    const pulseCount = 20 + Math.floor(Math.random() * 40);
     for (let i = 0; i < pulseCount; i++) {
       const index = Math.floor(Math.random() * this.starCount);
       if (!this.pulsingStars.has(index)) {
-        this.pulsingStars.set(index, performance.now());
+        const offset = Math.random() * 400;
+        this.pulsingStars.set(index, triggerTime + offset);
       }
     }
   }
@@ -323,19 +358,16 @@ export class StarField {
   }
 
   public highlightStar(index: number | null): void {
-    if (this.highlightedIndex !== null && this.highlightedIndex !== index) {
-      const prev = this.highlightedIndex;
-      this.highlights[prev] = 0;
-    }
     this.highlightedIndex = index;
-    if (index !== null) {
-      this.highlights[index] = 1.0;
-      (this.geometry.attributes.aHighlight as THREE.BufferAttribute).needsUpdate = true;
-    }
   }
 
   public setPixelRatio(ratio: number): void {
     this.material.uniforms.uPixelRatio.value = ratio;
+  }
+
+  public setDepthRange(near: number, far: number): void {
+    this.material.uniforms.uNear.value = near;
+    this.material.uniforms.uFar.value = far;
   }
 
   public dispose(): void {

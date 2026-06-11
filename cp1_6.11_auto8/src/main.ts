@@ -56,6 +56,7 @@ class GalaxyApp {
     this.container.appendChild(this.renderer.domElement);
     
     this.starField = new StarField(2500);
+    this.starField.setDepthRange(50, 2500);
     this.scene.add(this.starField.points);
     
     this.uiController = new UIController({
