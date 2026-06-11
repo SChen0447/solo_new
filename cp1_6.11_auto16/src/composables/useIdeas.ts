@@ -4,6 +4,7 @@ export type VoteType = 'up' | 'neutral' | 'down' | null
 
 export interface Comment {
   id: string
+  userId: string
   content: string
   authorName: string
   authorAvatar: string
@@ -150,8 +151,10 @@ export function useIdeas() {
     const comments: Comment[] = []
     for (let i = 0; i < commentCount; i++) {
       const commentAuthor = generateAuthorName()
+      const commentUserId = 'user_' + Math.random().toString(36).substr(2, 9)
       comments.push({
         id: generateId(),
+        userId: commentUserId,
         content: ['这个想法很棒！', '我觉得还需要再考虑一下。', '支持，很有价值的提议。', '可以再详细说说具体方案吗？', '期待这个想法能够实现。'][i % 5],
         authorName: commentAuthor,
         authorAvatar: generateAvatar(commentAuthor),
@@ -271,6 +274,7 @@ export function useIdeas() {
 
     const comment: Comment = {
       id: generateId(),
+      userId: userId.value,
       content: content.trim(),
       authorName: currentUserName.value,
       authorAvatar: currentUserAvatar.value,

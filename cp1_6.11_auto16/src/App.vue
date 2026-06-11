@@ -15,21 +15,31 @@
 
     <main class="main-content">
       <div class="toolbar">
-        <div class="sort-wrapper">
-          <label class="sort-label">排序方式:</label>
-          <select 
-            v-model="selectedSort" 
-            class="sort-select"
-            @change="handleSortChange"
+        <div class="toolbar-left">
+          <div class="sort-wrapper">
+            <label class="sort-label">排序方式:</label>
+            <select 
+              v-model="selectedSort" 
+              class="sort-select"
+              @change="handleSortChange"
+            >
+              <option value="hot">🔥 投票热度</option>
+              <option value="latest">⏰ 最新发布</option>
+              <option value="mostUp">👍 最多赞同</option>
+              <option value="controversial">⚖️ 争议最大</option>
+            </select>
+          </div>
+          <button 
+            v-if="ideas.length < 100"
+            class="bulk-btn" 
+            @click="handleGenerateBulk"
           >
-            <option value="hot">🔥 投票热度</option>
-            <option value="latest">⏰ 最新发布</option>
-            <option value="mostUp">👍 最多赞同</option>
-            <option value="controversial">⚖️ 争议最大</option>
-          </select>
+            ➕ 生成100条测试数据
+          </button>
         </div>
         <div class="stats">
           共 <span class="stats-number">{{ ideas.length }}</span> 个点子
+          <span v-if="ideas.length >= 100" class="perf-indicator">⚡ 高性能模式已启用</span>
         </div>
       </div>
 
@@ -102,7 +112,7 @@
               <div class="form-preview">
                 <span class="preview-label">发布身份:</span>
                 <div class="preview-avatar" :style="{ backgroundColor: currentAvatarInfo.color }">
-                  <span>{{ currentAvatarInfo.emoji }}</span>
+                  <span class="avatar-initial">{{ currentAvatarInfo.initial }}</span>
                 </div>
                 <span class="preview-name">{{ currentUserName }}</span>
               </div>
@@ -152,7 +162,8 @@ const {
   setSortType,
   getIdeaById,
   formatTime,
-  parseAvatar
+  parseAvatar,
+  generateBulkIdeas
 } = useIdeas()
 
 const showPublishModal = ref(false)
@@ -216,6 +227,13 @@ function handlePublish() {
 
 function handleAddComment(ideaId: string, content: string) {
   addComment(ideaId, content)
+}
+
+function handleGenerateBulk() {
+  const count = 100 - ideas.value.length
+  if (count > 0) {
+    generateBulkIdeas(count)
+  }
 }
 
 function openDetail(ideaId: string) {
@@ -334,10 +352,43 @@ function closeDetail() {
   gap: 16px;
 }
 
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .sort-wrapper {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.bulk-btn {
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 212, 59, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 212, 59, 0.1);
+  color: var(--accent-yellow);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bulk-btn:hover {
+  background: rgba(255, 212, 59, 0.2);
+  transform: translateY(-1px);
+}
+
+.perf-indicator {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--success);
+  background: rgba(81, 207, 102, 0.15);
+  padding: 4px 10px;
+  border-radius: 12px;
 }
 
 .sort-label {
@@ -641,8 +692,11 @@ function closeDetail() {
   border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
-.preview-avatar span {
+.preview-avatar .avatar-initial {
   font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .preview-name {

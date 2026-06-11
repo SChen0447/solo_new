@@ -130,6 +130,10 @@ function handleVote(voteType: VoteType, event: Event) {
   gap: 16px;
   position: relative;
   overflow: hidden;
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: 320px;
+  will-change: transform, opacity;
 }
 
 .idea-card::before {

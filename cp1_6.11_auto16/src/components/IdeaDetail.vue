@@ -9,7 +9,7 @@
 
           <div class="detail-header">
             <div class="avatar" :style="{ backgroundColor: avatarInfo.color }">
-              <span class="avatar-emoji">{{ avatarInfo.emoji }}</span>
+              <span class="avatar-initial">{{ avatarInfo.initial }}</span>
             </div>
             <div class="author-info">
               <span class="author-name">{{ idea.authorName }}</span>
@@ -73,7 +73,7 @@
             
             <div class="comment-input-wrapper">
               <div class="input-avatar" :style="{ backgroundColor: currentAvatarInfo.color }">
-                <span>{{ currentAvatarInfo.emoji }}</span>
+                <span class="avatar-initial">{{ currentAvatarInfo.initial }}</span>
               </div>
               <div class="input-area">
                 <textarea 
@@ -98,13 +98,13 @@
             <div class="comments-list">
               <TransitionGroup name="comment">
                 <div 
-                  v-for="comment in sortedComments" 
-                  :key="comment.id"
-                  class="comment-item"
-                >
-                  <div class="comment-avatar" :style="{ backgroundColor: parseAvatar(comment.authorAvatar).color }">
-                    <span>{{ parseAvatar(comment.authorAvatar).emoji }}</span>
-                  </div>
+                    v-for="comment in sortedComments" 
+                    :key="comment.id"
+                    class="comment-item"
+                  >
+                    <div class="comment-avatar" :style="{ backgroundColor: parseAvatar(comment.authorAvatar).color }">
+                      <span class="avatar-initial">{{ parseAvatar(comment.authorAvatar).initial }}</span>
+                    </div>
                   <div class="comment-bubble">
                     <div class="comment-header">
                       <span class="comment-author">{{ comment.authorName }}</span>
@@ -260,8 +260,19 @@ watch(() => props.visible, (val) => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.avatar-emoji {
-  font-size: 28px;
+.avatar-initial {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.input-avatar .avatar-initial {
+  font-size: 16px;
+}
+
+.comment-avatar .avatar-initial {
+  font-size: 14px;
 }
 
 .author-info {
