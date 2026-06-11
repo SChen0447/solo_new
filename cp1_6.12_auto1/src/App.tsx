@@ -49,7 +49,23 @@ function createEditor(config: MarkdownEditor) {
 > 提示：拖拽中间分隔条可调整编辑区与预览区的宽度比例。
 `;
 
-const SPLIT_KEY = 'md-editor-split';
+const LS_PREFIX = 'md-editor:';
+const SPLIT_KEY = LS_PREFIX + 'split-ratio';
+const DEFAULT_SPLIT_RATIO = 0.5;
+const MIN_WIDTH_PX = 200;
+
+function safeReadSplitRatio(): number {
+  try {
+    const raw = localStorage.getItem(SPLIT_KEY);
+    if (raw === null) return DEFAULT_SPLIT_RATIO;
+    const parsed = parseFloat(raw);
+    if (isNaN(parsed) || !isFinite(parsed)) return DEFAULT_SPLIT_RATIO;
+    if (parsed < 0.1 || parsed > 0.9) return DEFAULT_SPLIT_RATIO;
+    return parsed;
+  } catch {
+    return DEFAULT_SPLIT_RATIO;
+  }
+}
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
@@ -58,44 +74,53 @@ export default function App() {
 
   const [editorCollapsed, setEditorCollapsed] = useState(false);
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
-  const [splitRatio, setSplitRatio] = useState(() => {
-    const saved = localStorage.getItem(SPLIT_KEY);
-    return saved ? parseFloat(saved) : 0.5;
-  });
+  const [splitRatio, setSplitRatio] = useState<number>(safeReadSplitRatio);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const editorSectionRef = useRef<HTMLDivElement>(null);
+  const previewSectionRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
-  const currentRatioRef = useRef(splitRatio);
-
-  useEffect(() => {
-    currentRatioRef.current = splitRatio;
-  }, [splitRatio]);
-
-  const MIN_WIDTH_PX = 200;
 
   const handleMouseDown = useCallback(() => {
+    if (!containerRef.current || !editorSectionRef.current || !previewSectionRef.current) return;
     isDragging.current = true;
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
   }, []);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging.current || !containerRef.current) return;
+    if (!isDragging.current || !containerRef.current || !editorSectionRef.current || !previewSectionRef.current) return;
+
     const rect = containerRef.current.getBoundingClientRect();
     const totalWidth = rect.width;
-    const minRatio = MIN_WIDTH_PX / totalWidth;
-    const maxRatio = 1 - minRatio;
-    const ratio = (e.clientX - rect.left) / totalWidth;
-    const clamped = Math.min(maxRatio, Math.max(minRatio, ratio));
-    setSplitRatio(clamped);
+    let editorWidthPx = e.clientX - rect.left;
+
+    if (editorWidthPx < MIN_WIDTH_PX) editorWidthPx = MIN_WIDTH_PX;
+    const previewWidthPx = totalWidth - editorWidthPx;
+    if (previewWidthPx < MIN_WIDTH_PX) {
+      editorWidthPx = totalWidth - MIN_WIDTH_PX;
+    }
+
+    editorSectionRef.current.style.width = `${editorWidthPx}px`;
+    previewSectionRef.current.style.width = `${totalWidth - editorWidthPx}px`;
   }, []);
 
   const handleMouseUp = useCallback(() => {
-    if (isDragging.current) {
-      isDragging.current = false;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      localStorage.setItem(SPLIT_KEY, currentRatioRef.current.toString());
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+
+    if (containerRef.current && editorSectionRef.current) {
+      const totalWidth = containerRef.current.getBoundingClientRect().width;
+      const editorWidthPx = editorSectionRef.current.getBoundingClientRect().width;
+      const newRatio = editorWidthPx / totalWidth;
+      setSplitRatio(newRatio);
+      try {
+        localStorage.setItem(SPLIT_KEY, newRatio.toString());
+      } catch {
+        // 忽略 localStorage 写入错误
+      }
     }
   }, []);
 
@@ -108,8 +133,8 @@ export default function App() {
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  const editorWidth = editorCollapsed ? '0px' : previewCollapsed ? '100%' : `${splitRatio * 100}%`;
-  const previewWidth = previewCollapsed ? '0px' : editorCollapsed ? '100%' : `${(1 - splitRatio) * 100}%`;
+  const editorWidthStyle = editorCollapsed ? '0px' : previewCollapsed ? '100%' : isDragging.current ? undefined : `${splitRatio * 100}%`;
+  const previewWidthStyle = previewCollapsed ? '0px' : editorCollapsed ? '100%' : isDragging.current ? undefined : `${(1 - splitRatio) * 100}%`;
 
   return (
     <div className="app-container" data-theme={theme}>
@@ -122,7 +147,11 @@ export default function App() {
       </div>
 
       <div className="editor-layout" ref={containerRef}>
-        <div className="editor-section" style={{ width: editorWidth, flexShrink: 0 }}>
+        <div
+          className="editor-section"
+          ref={editorSectionRef}
+          style={{ width: editorWidthStyle, flexShrink: 0 }}
+        >
           <Editor
             content={content}
             theme={theme}
@@ -141,7 +170,11 @@ export default function App() {
           </div>
         )}
 
-        <div className="preview-section" style={{ width: previewWidth, flexShrink: 0 }}>
+        <div
+          className="preview-section"
+          ref={previewSectionRef}
+          style={{ width: previewWidthStyle, flexShrink: 0 }}
+        >
           <PreviewPanel
             content={debouncedContent}
             theme={theme}

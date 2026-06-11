@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 *,
@@ -571,12 +575,20 @@ html, body, #root {
   box-shadow: var(--shadow-sm);
 }
 
-.toolbar-btn.error-state {
-  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+.toolbar-btn[disabled],
+.toolbar-btn--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  pointer-events: none;
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
-.toolbar-btn.error-state:hover {
-  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.3);
+.toolbar-btn[disabled]:hover,
+.toolbar-btn--disabled:hover {
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
 .toolbar-btn:focus-visible {

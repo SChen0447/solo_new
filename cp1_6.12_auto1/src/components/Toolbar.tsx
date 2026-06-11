@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Download, Copy, Sun, Moon, Check, AlertCircle } from 'lucide-react';
+import { Download, Copy, Sun, Moon, Check } from 'lucide-react';
 
 interface ToolbarProps {
   content: string;
@@ -16,10 +16,15 @@ function generateFileName(content: string): string {
 
   if (title && title.length > 0) {
     const safeTitle = title
-      .replace(/[<>:\"/\\|?*]/g, '')
+      .replace(/[\/\\:*?"<>|]/g, '-')
+      .replace(/[\r\n\t]/g, '')
       .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
       .slice(0, 50);
-    return `${safeTitle}.md`;
+    if (safeTitle.length > 0) {
+      return `${safeTitle}.md`;
+    }
   }
 
   const now = new Date();
@@ -29,13 +34,16 @@ function generateFileName(content: string): string {
 
 export default function Toolbar({ content, theme, onToggleTheme }: ToolbarProps) {
   const [copied, setCopied] = useState(false);
-  const [exportError, setExportError] = useState(false);
+  const isEmpty = content.trim().length === 0;
 
   const handleExportMd = useCallback(() => {
     const trimmed = content.trim();
     if (!trimmed) {
-      setExportError(true);
-      setTimeout(() => setExportError(false), 2000);
+      try {
+        window.alert('内容为空，无法导出。请先输入 Markdown 内容。');
+      } catch {
+        // alert blocked, no-op
+      }
       return;
     }
 
@@ -54,8 +62,11 @@ export default function Toolbar({ content, theme, onToggleTheme }: ToolbarProps)
   const handleCopyHtml = useCallback(async () => {
     const trimmed = content.trim();
     if (!trimmed) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        window.alert('内容为空，无法复制。请先输入 Markdown 内容。');
+      } catch {
+        // alert blocked, no-op
+      }
       return;
     }
 
@@ -84,11 +95,21 @@ export default function Toolbar({ content, theme, onToggleTheme }: ToolbarProps)
 
   return (
     <div className="toolbar">
-      <button className={`toolbar-btn ${exportError ? 'error-state' : ''}`} onClick={handleExportMd} title="导出 Markdown">
-        {exportError ? <AlertCircle size={16} /> : <Download size={16} />}
-        <span>{exportError ? '内容为空' : '导出 .md'}</span>
+      <button
+        className={`toolbar-btn ${isEmpty ? 'toolbar-btn--disabled' : ''}`}
+        onClick={handleExportMd}
+        disabled={isEmpty}
+        title={isEmpty ? '内容为空，无法导出' : '导出 Markdown'}
+      >
+        <Download size={16} />
+        <span>导出 .md</span>
       </button>
-      <button className="toolbar-btn" onClick={handleCopyHtml} title="复制 HTML">
+      <button
+        className={`toolbar-btn ${isEmpty ? 'toolbar-btn--disabled' : ''}`}
+        onClick={handleCopyHtml}
+        disabled={isEmpty}
+        title={isEmpty ? '内容为空，无法复制' : '复制 HTML'}
+      >
         {copied ? <Check size={16} /> : <Copy size={16} />}
         <span>{copied ? '已复制' : '复制 HTML'}</span>
       </button>
