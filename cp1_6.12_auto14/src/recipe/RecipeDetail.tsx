@@ -15,6 +15,62 @@ interface RecipeDetailProps {
 const emojis = ['😀', '😍', '🤤', '👍', '🔥', '💯', '✨', '🎉', '❤️', '👨‍🍳'];
 
 const styles = `
+@keyframes checkmark-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-10deg);
+  }
+  50% {
+    transform: scale(1.15) rotate(5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes checkmark-fade-out {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(10deg);
+  }
+}
+
+@keyframes strikethrough-slide {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes checkbox-bg-fill {
+  0% {
+    background-color: #ffffff;
+    border-color: var(--text-secondary, #999);
+  }
+  100% {
+    background-color: var(--success-color, #22c55e);
+    border-color: var(--success-color, #22c55e);
+  }
+}
+
+@keyframes checkbox-bg-unfill {
+  0% {
+    background-color: var(--success-color, #22c55e);
+    border-color: var(--success-color, #22c55e);
+  }
+  100% {
+    background-color: #ffffff;
+    border-color: var(--text-secondary, #999);
+  }
+}
+
 .ingredient-item {
   display: flex;
   align-items: center;
@@ -39,12 +95,16 @@ const styles = `
   align-items: center;
   justify-content: center;
   background-color: #ffffff;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .ingredient-item.checked .ingredient-checkbox {
-  background-color: var(--success-color, #22c55e);
-  border-color: var(--success-color, #22c55e);
+  animation: checkbox-bg-fill 0.3s ease forwards;
+}
+
+.ingredient-item:not(.checked) .ingredient-checkbox {
+  animation: checkbox-bg-unfill 0.3s ease forwards;
 }
 
 .checkmark {
@@ -52,28 +112,41 @@ const styles = `
   height: 14px;
   color: #ffffff;
   opacity: 0;
-  transform: scale(0.5);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform: scale(0.3);
 }
 
 .ingredient-item.checked .checkmark {
-  opacity: 1;
-  transform: scale(1);
+  animation: checkmark-fade-in 0.35s ease forwards;
+}
+
+.ingredient-item:not(.checked) .checkmark {
+  animation: checkmark-fade-out 0.2s ease forwards;
 }
 
 .ingredient-name {
   flex: 1;
   font-size: 14px;
   color: var(--text-primary, #1f2937);
-  transition: color 0.3s ease, text-decoration 0.3s ease;
-  text-decoration: none;
-  text-decoration-color: transparent;
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+.ingredient-name .strikethrough-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 2px;
+  background-color: var(--text-secondary, #9ca3af);
+  width: 0;
+}
+
+.ingredient-item.checked .ingredient-name .strikethrough-line {
+  animation: strikethrough-slide 0.4s ease forwards;
 }
 
 .ingredient-item.checked .ingredient-name {
   color: var(--text-secondary, #9ca3af);
-  text-decoration: line-through;
-  text-decoration-color: var(--text-secondary, #9ca3af);
+  transition: color 0.3s ease 0.1s;
 }
 
 .ingredient-amount {
@@ -519,7 +592,10 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </div>
-                  <span className="ingredient-name">{ing.name}</span>
+                  <span className="ingredient-name">
+                    {ing.name}
+                    <span className="strikethrough-line" />
+                  </span>
                   <span className="ingredient-amount">
                     {ing.quantity} {ing.unit}
                   </span>

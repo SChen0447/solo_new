@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { DndProvider, useDrag, useDrop, DragPreviewImage } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { v4 as uuidv4 } from 'uuid';
 import { Recipe, Ingredient, RecipeStep } from '../types';
@@ -9,6 +9,7 @@ interface EditorProps {
   onSave: (recipeData: Partial<Recipe>) => void;
   onCancel: () => void;
   onBack: () => void;
+  loading?: boolean;
 }
 
 interface DraggableIngredientProps {
@@ -74,6 +75,26 @@ function useDebounce<T extends (...args: any[]) => any>(
   return debouncedFn;
 }
 
+function createDragPreview(text: string, type: string): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = 280;
+  canvas.height = 48;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+  ctx.fillStyle = '#fff';
+  ctx.roundRect(0, 0, 280, 48, 8);
+  ctx.fill();
+  ctx.strokeStyle = '#F57C00';
+  ctx.lineWidth = 2;
+  ctx.roundRect(0, 0, 280, 48, 8);
+  ctx.stroke();
+  ctx.fillStyle = '#2C3E50';
+  ctx.font = '14px sans-serif';
+  const label = type === 'ingredient' ? '🥘 食材: ' : '📝 步骤: ';
+  ctx.fillText(label + text, 16, 30);
+  return canvas.toDataURL();
+}
+
 const DraggableIngredient: React.FC<DraggableIngredientProps> = ({
   ingredient,
   index,
@@ -82,98 +103,108 @@ const DraggableIngredient: React.FC<DraggableIngredientProps> = ({
   onDelete,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const previewUrl = useRef(createDragPreview(ingredient.name || '新食材', 'ingredient'));
+
+  useEffect(() => {
+    previewUrl.current = createDragPreview(ingredient.name || '新食材', 'ingredient');
+  }, [ingredient.name]);
 
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.INGREDIENT,
-    item: { index },
+    item: { index, id: ingredient.id },
+    end: (item, monitor) => {
+      if (!monitor.didDrop()) return;
+    },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
   }));
 
-  const [{ isOver }, drop] = useDrop(() => ({
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: ItemTypes.INGREDIENT,
-    hover: (item: { index: number }) => {
-      if (item.index !== index) {
-        moveIngredient(item.index, index);
-        item.index = index;
-      }
+    hover: (item: { index: number; id: string }, monitor) => {
+      if (!ref.current) return;
+      const dragIndex = item.index;
+      const hoverIndex = index;
+      if (dragIndex === hoverIndex) return;
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+      moveIngredient(dragIndex, hoverIndex);
+      item.index = hoverIndex;
     },
     collect: (monitor) => ({
-      isOver: monitor.isOver(),
+      isOver: monitor.isOver({ shallow: true }),
+      canDrop: monitor.canDrop(),
     }),
   }));
 
   drag(drop(ref));
 
-  const draggingStyle: React.CSSProperties = isDragging
-    ? {
-        opacity: 0.5,
-        transform: 'scale(1.02)',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
-      }
-    : {};
-
-  const dropIndicatorStyle: React.CSSProperties = isOver && !isDragging
-    ? {
-        borderLeft: '3px solid #3b82f6',
-      }
-    : {};
-
   return (
-    <div
-      ref={ref}
-      className={`draggable-ingredient ${isDragging ? 'dragging' : ''} ${isOver && !isDragging ? 'drag-over' : ''}`}
-      style={{
-        ...draggingStyle,
-        ...dropIndicatorStyle,
-        transition: 'opacity 0.2s, transform 0.2s, box-shadow 0.2s, border-left 0.15s',
-      }}
-    >
-      <div className="drag-handle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="9" cy="6" r="1" />
-          <circle cx="15" cy="6" r="1" />
-          <circle cx="9" cy="12" r="1" />
-          <circle cx="15" cy="12" r="1" />
-          <circle cx="9" cy="18" r="1" />
-          <circle cx="15" cy="18" r="1" />
-        </svg>
+    <>
+      <DragPreviewImage connect={previewUrl.current ? undefined : undefined} src={previewUrl.current} />
+      <div
+        ref={ref}
+        className={`draggable-item draggable-ingredient ${isDragging ? 'dragging' : ''} ${isOver && canDrop ? 'drag-over' : ''}`}
+        style={{
+          opacity: isDragging ? 0.4 : 1,
+          transform: isDragging ? 'scale(0.98)' : 'scale(1)',
+          boxShadow: isDragging
+            ? '0 8px 24px rgba(245, 124, 0, 0.2)'
+            : isOver && canDrop
+              ? '0 0 0 2px #F57C00 inset'
+              : 'none',
+          transition: 'opacity 0.2s, transform 0.2s, box-shadow 0.2s',
+          borderLeft: isOver && canDrop && !isDragging ? '3px solid #F57C00' : '3px solid transparent',
+        }}
+      >
+        <div className="drag-handle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="9" cy="6" r="1" />
+            <circle cx="15" cy="6" r="1" />
+            <circle cx="9" cy="12" r="1" />
+            <circle cx="15" cy="12" r="1" />
+            <circle cx="9" cy="18" r="1" />
+            <circle cx="15" cy="18" r="1" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={ingredient.name}
+          onChange={e => onUpdate(ingredient.id, { name: e.target.value })}
+          placeholder="食材名称"
+          className="ingredient-name-input"
+        />
+        <input
+          type="number"
+          value={ingredient.quantity}
+          onChange={e => onUpdate(ingredient.id, { quantity: parseFloat(e.target.value) || 0 })}
+          placeholder="数量"
+          className="ingredient-quantity-input"
+          step="0.1"
+        />
+        <select
+          value={ingredient.unit}
+          onChange={e => onUpdate(ingredient.id, { unit: e.target.value as Ingredient['unit'] })}
+          className="ingredient-unit-select"
+        >
+          {unitOptions.map(unit => (
+            <option key={unit} value={unit}>{unit}</option>
+          ))}
+        </select>
+        <button className="delete-item-btn" onClick={() => onDelete(ingredient.id)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+        </button>
       </div>
-      <input
-        type="text"
-        value={ingredient.name}
-        onChange={e => onUpdate(ingredient.id, { name: e.target.value })}
-        placeholder="食材名称"
-        className="ingredient-name-input"
-      />
-      <input
-        type="number"
-        value={ingredient.quantity}
-        onChange={e => onUpdate(ingredient.id, { quantity: parseFloat(e.target.value) || 0 })}
-        placeholder="数量"
-        className="ingredient-quantity-input"
-        step="0.1"
-      />
-      <select
-        value={ingredient.unit}
-        onChange={e => onUpdate(ingredient.id, { unit: e.target.value as Ingredient['unit'] })}
-        className="ingredient-unit-select"
-      >
-        {unitOptions.map(unit => (
-          <option key={unit} value={unit}>{unit}</option>
-        ))}
-      </select>
-      <button
-        className="delete-item-btn"
-        onClick={() => onDelete(ingredient.id)}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
-      </button>
-    </div>
+    </>
   );
 };
 
@@ -185,25 +216,43 @@ const DraggableStep: React.FC<DraggableStepProps> = ({
   onDelete,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const previewUrl = useRef(createDragPreview(step.description ? step.description.substring(0, 20) + '...' : '新步骤', 'step'));
+
+  useEffect(() => {
+    previewUrl.current = createDragPreview(step.description ? step.description.substring(0, 20) + '...' : '新步骤', 'step');
+  }, [step.description]);
 
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.STEP,
-    item: { index },
+    item: { index, id: step.id },
+    end: (item, monitor) => {
+      if (!monitor.didDrop()) return;
+    },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
   }));
 
-  const [{ isOver }, drop] = useDrop(() => ({
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: ItemTypes.STEP,
-    hover: (item: { index: number }) => {
-      if (item.index !== index) {
-        moveStep(item.index, index);
-        item.index = index;
-      }
+    hover: (item: { index: number; id: string }, monitor) => {
+      if (!ref.current) return;
+      const dragIndex = item.index;
+      const hoverIndex = index;
+      if (dragIndex === hoverIndex) return;
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+      moveStep(dragIndex, hoverIndex);
+      item.index = hoverIndex;
     },
     collect: (monitor) => ({
-      isOver: monitor.isOver(),
+      isOver: monitor.isOver({ shallow: true }),
+      canDrop: monitor.canDrop(),
     }),
   }));
 
@@ -220,106 +269,133 @@ const DraggableStep: React.FC<DraggableStepProps> = ({
     }
   };
 
-  const draggingStyle: React.CSSProperties = isDragging
-    ? {
-        opacity: 0.5,
-        transform: 'scale(1.02)',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
-      }
-    : {};
-
-  const dropIndicatorStyle: React.CSSProperties = isOver && !isDragging
-    ? {
-        borderLeft: '3px solid #3b82f6',
-      }
-    : {};
-
   return (
-    <div
-      ref={ref}
-      className={`draggable-step ${isDragging ? 'dragging' : ''} ${isOver && !isDragging ? 'drag-over' : ''}`}
-      style={{
-        ...draggingStyle,
-        ...dropIndicatorStyle,
-        transition: 'opacity 0.2s, transform 0.2s, box-shadow 0.2s, border-left 0.15s',
-      }}
-    >
-      <div className="drag-handle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="9" cy="6" r="1" />
-          <circle cx="15" cy="6" r="1" />
-          <circle cx="9" cy="12" r="1" />
-          <circle cx="15" cy="12" r="1" />
-          <circle cx="9" cy="18" r="1" />
-          <circle cx="15" cy="18" r="1" />
-        </svg>
-      </div>
-      <div className="step-number-badge">{index + 1}</div>
-      <div className="step-edit-content">
-        <textarea
-          value={step.description}
-          onChange={e => onUpdate(step.id, { description: e.target.value })}
-          placeholder="描述这个步骤..."
-          className="step-description-input"
-          rows={3}
-        />
-        <div className="step-image-upload">
-          {step.image ? (
-            <div className="step-image-preview">
-              <img src={step.image} alt={`步骤 ${index + 1}`} />
-              <button
-                className="remove-image-btn"
-                onClick={() => onUpdate(step.id, { image: undefined })}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          ) : (
-            <label className="upload-image-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              添加图片
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                style={{ display: 'none' }}
-              />
-            </label>
-          )}
-        </div>
-        <input
-          type="text"
-          value={step.tips || ''}
-          onChange={e => onUpdate(step.id, { tips: e.target.value })}
-          placeholder="小贴士（可选）"
-          className="step-tips-input"
-        />
-      </div>
-      <button
-        className="delete-item-btn"
-        onClick={() => onDelete(step.id)}
+    <>
+      <DragPreviewImage connect={previewUrl.current ? undefined : undefined} src={previewUrl.current} />
+      <div
+        ref={ref}
+        className={`draggable-item draggable-step ${isDragging ? 'dragging' : ''} ${isOver && canDrop ? 'drag-over' : ''}`}
+        style={{
+          opacity: isDragging ? 0.4 : 1,
+          transform: isDragging ? 'scale(0.98)' : 'scale(1)',
+          boxShadow: isDragging
+            ? '0 8px 24px rgba(245, 124, 0, 0.2)'
+            : isOver && canDrop
+              ? '0 0 0 2px #F57C00 inset'
+              : 'none',
+          transition: 'opacity 0.2s, transform 0.2s, box-shadow 0.2s',
+          borderLeft: isOver && canDrop && !isDragging ? '3px solid #F57C00' : '3px solid transparent',
+        }}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
-      </button>
-    </div>
+        <div className="drag-handle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="9" cy="6" r="1" />
+            <circle cx="15" cy="6" r="1" />
+            <circle cx="9" cy="12" r="1" />
+            <circle cx="15" cy="12" r="1" />
+            <circle cx="9" cy="18" r="1" />
+            <circle cx="15" cy="18" r="1" />
+          </svg>
+        </div>
+        <div className="step-number-badge">{index + 1}</div>
+        <div className="step-edit-content">
+          <textarea
+            value={step.description}
+            onChange={e => onUpdate(step.id, { description: e.target.value })}
+            placeholder="描述这个步骤..."
+            className="step-description-input"
+            rows={3}
+          />
+          <div className="step-image-upload">
+            {step.image ? (
+              <div className="step-image-preview">
+                <img src={step.image} alt={`步骤 ${index + 1}`} />
+                <button className="remove-image-btn" onClick={() => onUpdate(step.id, { image: undefined })}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <label className="upload-image-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                添加图片
+                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+              </label>
+            )}
+          </div>
+          <input
+            type="text"
+            value={step.tips || ''}
+            onChange={e => onUpdate(step.id, { tips: e.target.value })}
+            placeholder="小贴士（可选）"
+            className="step-tips-input"
+          />
+        </div>
+        <button className="delete-item-btn" onClick={() => onDelete(step.id)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+        </button>
+      </div>
+    </>
   );
 };
+
+const EditorSkeleton: React.FC = () => (
+  <div className="editor-page">
+    <div className="editor-header">
+      <div className="skeleton" style={{ width: '100px', height: '40px', borderRadius: '8px' }} />
+      <div className="skeleton" style={{ width: '160px', height: '28px', borderRadius: '4px' }} />
+      <div className="skeleton" style={{ width: '120px', height: '40px', borderRadius: '8px' }} />
+    </div>
+    <div className="editor-container">
+      <div className="editor-left-panel">
+        <div className="editor-section">
+          <div className="skeleton" style={{ width: '80px', height: '20px', marginBottom: '16px' }} />
+          <div className="skeleton" style={{ width: '100%', height: '40px', marginBottom: '12px' }} />
+          <div className="skeleton" style={{ width: '100%', height: '200px', marginBottom: '12px', borderRadius: '12px' }} />
+          <div className="skeleton" style={{ width: '100%', height: '80px', marginBottom: '12px' }} />
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <div className="skeleton" style={{ flex: 1, height: '40px' }} />
+            <div className="skeleton" style={{ flex: 1, height: '40px' }} />
+          </div>
+        </div>
+        <div className="editor-section">
+          <div className="skeleton" style={{ width: '100px', height: '20px', marginBottom: '16px' }} />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="skeleton" style={{ width: '100%', height: '48px', marginBottom: '8px' }} />
+          ))}
+        </div>
+        <div className="editor-section">
+          <div className="skeleton" style={{ width: '100px', height: '20px', marginBottom: '16px' }} />
+          {[1, 2].map(i => (
+            <div key={i} className="skeleton" style={{ width: '100%', height: '120px', marginBottom: '16px' }} />
+          ))}
+        </div>
+      </div>
+      <div className="editor-right-panel">
+        <div className="skeleton" style={{ width: '100%', height: '200px', marginBottom: '16px', borderRadius: '12px' }} />
+        <div className="skeleton" style={{ width: '60%', height: '20px', marginBottom: '12px' }} />
+        <div className="skeleton" style={{ width: '100%', height: '16px', marginBottom: '8px' }} />
+        <div className="skeleton" style={{ width: '100%', height: '16px', marginBottom: '8px' }} />
+      </div>
+    </div>
+  </div>
+);
 
 const EditorContent: React.FC<EditorProps> = ({
   recipe,
   onSave,
   onCancel,
   onBack,
+  loading = false,
 }) => {
   const [title, setTitle] = useState(recipe?.title || '');
   const [description, setDescription] = useState(recipe?.description || '');
@@ -379,17 +455,8 @@ const EditorContent: React.FC<EditorProps> = ({
   const saveDraft = useCallback(() => {
     if (hasUnsavedChanges) {
       const draft = {
-        title,
-        description,
-        coverImage,
-        cuisine,
-        difficulty,
-        cookTime,
-        servings,
-        ingredients,
-        steps,
-        tags,
-        isPublic,
+        title, description, coverImage, cuisine, difficulty,
+        cookTime, servings, ingredients, steps, tags, isPublic,
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
       setLastSaved(new Date());
@@ -444,15 +511,12 @@ const EditorContent: React.FC<EditorProps> = ({
       await onSave({
         title: title.trim(),
         description: description.trim(),
-        coverImage,
-        cuisine,
-        difficulty,
+        coverImage, cuisine, difficulty,
         cookTime: Number(cookTime),
         servings: Number(servings),
         ingredients: ingredients.filter(i => i.name.trim()),
         steps: steps.filter(s => s.description.trim()).map((s, i) => ({ ...s, order: i + 1 })),
-        tags,
-        isPublic,
+        tags, isPublic,
       });
       localStorage.removeItem(draftKey);
       setHasUnsavedChanges(false);
@@ -541,6 +605,10 @@ const EditorContent: React.FC<EditorProps> = ({
     }
   };
 
+  if (loading) {
+    return <EditorSkeleton />;
+  }
+
   return (
     <div className="editor-page">
       <div className="editor-header">
@@ -567,16 +635,10 @@ const EditorContent: React.FC<EditorProps> = ({
         <div className="editor-left-panel">
           <div className="editor-section">
             <h3 className="editor-section-title">基本信息</h3>
-            
+
             <div className="form-group">
               <label>食谱标题 *</label>
-              <input
-                type="text"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="给你的美食起个名字"
-                className="form-input"
-              />
+              <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="给你的美食起个名字" className="form-input" />
             </div>
 
             <div className="form-group">
@@ -589,50 +651,27 @@ const EditorContent: React.FC<EditorProps> = ({
                     <circle cx="12" cy="13" r="4" />
                   </svg>
                   更换封面
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleCoverImageChange}
-                    style={{ display: 'none' }}
-                  />
+                  <input type="file" accept="image/*" onChange={handleCoverImageChange} style={{ display: 'none' }} />
                 </label>
               </div>
             </div>
 
             <div className="form-group">
               <label>简介</label>
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="简单介绍一下这道菜..."
-                className="form-textarea"
-                rows={3}
-              />
+              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="简单介绍一下这道菜..." className="form-textarea" rows={3} />
             </div>
 
             <div className="form-row">
               <div className="form-group">
                 <label>菜系</label>
-                <select
-                  value={cuisine}
-                  onChange={e => setCuisine(e.target.value)}
-                  className="form-select"
-                >
-                  {cuisineOptions.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
+                <select value={cuisine} onChange={e => setCuisine(e.target.value)} className="form-select">
+                  {cuisineOptions.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>难度</label>
-                <select
-                  value={difficulty}
-                  onChange={e => setDifficulty(e.target.value as Recipe['difficulty'])}
-                  className="form-select"
-                >
-                  {difficultyOptions.map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
+                <select value={difficulty} onChange={e => setDifficulty(e.target.value as Recipe['difficulty'])} className="form-select">
+                  {difficultyOptions.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
             </div>
@@ -640,23 +679,11 @@ const EditorContent: React.FC<EditorProps> = ({
             <div className="form-row">
               <div className="form-group">
                 <label>烹饪时间（分钟）</label>
-                <input
-                  type="number"
-                  value={cookTime}
-                  onChange={e => setCookTime(parseInt(e.target.value) || 0)}
-                  className="form-input"
-                  min="1"
-                />
+                <input type="number" value={cookTime} onChange={e => setCookTime(parseInt(e.target.value) || 0)} className="form-input" min="1" />
               </div>
               <div className="form-group">
                 <label>份量（人份）</label>
-                <input
-                  type="number"
-                  value={servings}
-                  onChange={e => setServings(parseInt(e.target.value) || 1)}
-                  className="form-input"
-                  min="1"
-                />
+                <input type="number" value={servings} onChange={e => setServings(parseInt(e.target.value) || 1)} className="form-input" min="1" />
               </div>
             </div>
 
@@ -669,24 +696,13 @@ const EditorContent: React.FC<EditorProps> = ({
                     <button onClick={() => removeTag(tag)} className="remove-tag-btn">×</button>
                   </span>
                 ))}
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={e => setTagInput(e.target.value)}
-                  onKeyDown={addTag}
-                  placeholder="输入标签按回车添加"
-                  className="tag-input"
-                />
+                <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag} placeholder="输入标签按回车添加" className="tag-input" />
               </div>
             </div>
 
             <div className="form-group">
               <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={isPublic}
-                  onChange={e => setIsPublic(e.target.checked)}
-                />
+                <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} />
                 公开食谱（所有人可见）
               </label>
             </div>
@@ -749,24 +765,12 @@ const EditorContent: React.FC<EditorProps> = ({
           </div>
           <div className="preview-content">
             <div className="preview-hero">
-              <img
-                src={coverImage}
-                alt="预览封面"
-                className="preview-cover-image"
-                onError={e => {
-                  (e.target as HTMLImageElement).src = defaultCoverImage;
-                }}
-              />
+              <img src={coverImage} alt="预览封面" className="preview-cover-image" onError={e => { (e.target as HTMLImageElement).src = defaultCoverImage; }} />
               <div className="preview-hero-overlay" />
               <div className="preview-hero-content">
                 <div className="preview-tags">
                   <span className="preview-cuisine-tag">{cuisine}</span>
-                  <span
-                    className="preview-difficulty-tag"
-                    style={{ backgroundColor: getDifficultyColor(difficulty) }}
-                  >
-                    {difficulty}
-                  </span>
+                  <span className="preview-difficulty-tag" style={{ backgroundColor: getDifficultyColor(difficulty) }}>{difficulty}</span>
                 </div>
                 <h2 className="preview-title-text">{title || '食谱标题'}</h2>
               </div>
@@ -774,19 +778,11 @@ const EditorContent: React.FC<EditorProps> = ({
 
             <div className="preview-info">
               <div className="preview-info-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                 <span>{cookTime} 分钟</span>
               </div>
               <div className="preview-info-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                 <span>{servings} 人份</span>
               </div>
             </div>
@@ -820,13 +816,9 @@ const EditorContent: React.FC<EditorProps> = ({
                   <div key={step.id} className="preview-step">
                     <div className="preview-step-number">{idx + 1}</div>
                     <div className="preview-step-content">
-                      {step.image && (
-                        <img src={step.image} alt={`步骤 ${idx + 1}`} className="preview-step-image" />
-                      )}
+                      {step.image && <img src={step.image} alt={`步骤 ${idx + 1}`} className="preview-step-image" />}
                       <p>{step.description}</p>
-                      {step.tips && (
-                        <div className="preview-step-tip">💡 {step.tips}</div>
-                      )}
+                      {step.tips && <div className="preview-step-tip">💡 {step.tips}</div>}
                     </div>
                   </div>
                 ))}
