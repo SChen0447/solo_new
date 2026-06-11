@@ -15,6 +15,22 @@ function gaussianRandom(): number {
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
 
+function poissonRandom(lambda: number): number {
+  if (lambda <= 0) return 0;
+  if (lambda < 30) {
+    const L = Math.exp(-lambda);
+    let k = 0;
+    let p = 1;
+    do {
+      k++;
+      p *= Math.random();
+    } while (p > L);
+    return k - 1;
+  } else {
+    return Math.max(0, Math.floor(lambda + gaussianRandom() * Math.sqrt(lambda)));
+  }
+}
+
 export function generateKlineData(count: number = 500): Candle[] {
   const data: Candle[] = [];
   const intervalMs = 60 * 60 * 1000;
@@ -40,6 +56,12 @@ export function generateKlineData(count: number = 500): Candle[] {
 
   let prevReturn = 0;
 
+  const jumpLambda = 0.035;
+  const jumpMu = 0;
+  const jumpSigma = 0.045;
+  const jumpK = Math.exp(jumpMu + jumpSigma * jumpSigma / 2) - 1;
+  const jumpCompensation = jumpLambda * jumpK;
+
   for (let i = count - 1; i >= 0; i--) {
     const timestamp = now - i * intervalMs;
 
@@ -59,9 +81,15 @@ export function generateKlineData(count: number = 500): Candle[] {
 
     const ouPull = ouTheta * (longTermMean - price) / price;
 
+    const jumpCount = poissonRandom(jumpLambda);
+    let jumpTerm = 0;
+    for (let j = 0; j < jumpCount; j++) {
+      jumpTerm += Math.exp(jumpMu + jumpSigma * gaussianRandom()) - 1;
+    }
+
     const dt = 1;
-    const drift = (mu + ouPull - 0.5 * sigmaSq) * dt;
-    const ret = drift + shock;
+    const drift = (mu + ouPull - jumpCompensation - 0.5 * sigmaSq) * dt;
+    const ret = drift + shock + jumpTerm;
 
     prevReturn = ret;
 
@@ -77,14 +105,14 @@ export function generateKlineData(count: number = 500): Candle[] {
     let close = open * (1 + ret);
     if (close <= 0) close = open * 0.95;
 
-    const wickUp = Math.abs(gaussianRandom()) * sigma * 0.65;
-    const wickDown = Math.abs(gaussianRandom()) * sigma * 0.65;
+    const wickUp = Math.abs(gaussianRandom()) * sigma * 0.65 + Math.max(0, jumpTerm) * 0.4;
+    const wickDown = Math.abs(gaussianRandom()) * sigma * 0.65 + Math.max(0, -jumpTerm) * 0.4;
 
     const high = Math.max(open, close) * (1 + Math.max(0, wickUp + ret * 0.3));
     const low = Math.min(open, close) * (1 - Math.max(0, wickDown - ret * 0.3));
 
     const baseVolume = 600000 + Math.random() * 1200000;
-    const volMultiplier = 1 + Math.abs(ret) / sigma * 2.5;
+    const volMultiplier = 1 + Math.abs(ret) / sigma * 2.5 + jumpCount * 4;
     const volRegimeMod = 0.8 + Math.abs(regimeDrift) * 120;
     const volume = Math.floor(baseVolume * volMultiplier * volRegimeMod * (0.55 + Math.random() * 0.9));
 
@@ -120,11 +148,25 @@ export function calculateSMA(data: Candle[], period: number): (number | null)[] 
   return result;
 }
 
+function savitzkyGolay5Quad(ys: number[]): number[] {
+  const n = ys.length;
+  if (n < 5) return ys.slice();
+  const out = new Array(n);
+  out[0] = ys[0];
+  out[1] = ys[1];
+  out[n - 2] = ys[n - 2];
+  out[n - 1] = ys[n - 1];
+  for (let i = 2; i < n - 2; i++) {
+    out[i] = (-3 * ys[i - 2] + 12 * ys[i - 1] + 17 * ys[i] + 12 * ys[i + 1] - 3 * ys[i + 2]) / 35;
+  }
+  return out;
+}
+
 export function smoothMA(
   values: (number | null)[],
   viewStart: number,
   viewCount: number,
-  passes: number = 2
+  passes: number = 4
 ): { x: number; y: number }[] {
   const raw: { idx: number; v: number }[] = [];
   const end = viewStart + viewCount;
@@ -132,20 +174,42 @@ export function smoothMA(
     const v = values[i];
     if (v !== null && v !== undefined) raw.push({ idx: i, v });
   }
-  if (raw.length < 2) return [];
+  if (raw.length < 5) {
+    if (raw.length < 2) return [];
+    return raw.map(r => ({ x: r.idx, y: r.v }));
+  }
 
   let ys = raw.map(r => r.v);
   for (let pass = 0; pass < passes; pass++) {
-    const next = new Array(ys.length);
-    next[0] = ys[0];
-    next[ys.length - 1] = ys[ys.length - 1];
-    for (let i = 1; i < ys.length - 1; i++) {
-      next[i] = (ys[i - 1] + 2 * ys[i] + ys[i + 1]) / 4;
-    }
-    ys = next;
+    ys = savitzkyGolay5Quad(ys);
   }
 
   return raw.map((r, i) => ({ x: r.idx, y: ys[i] }));
+}
+
+export function computeRollingStd(
+  data: Candle[],
+  start: number,
+  end: number
+): number {
+  const n = end - start;
+  if (n < 3) return 0;
+  let sum = 0;
+  let sumSq = 0;
+  let count = 0;
+  for (let i = start; i < end; i++) {
+    const c = data[i];
+    if (!c) continue;
+    const ret = Math.log(Math.max(c.close, 1e-9) / Math.max(c.open, 1e-9));
+    sum += ret;
+    sumSq += ret * ret;
+    count++;
+  }
+  if (count < 2) return 0;
+  const mean = sum / count;
+  const variance = (sumSq - count * mean * mean) / (count - 1);
+  if (!isFinite(variance) || variance < 0) return 0;
+  return Math.sqrt(variance);
 }
 
 export function formatPrice(price: number): string {

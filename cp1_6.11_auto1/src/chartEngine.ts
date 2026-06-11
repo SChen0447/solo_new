@@ -1,5 +1,5 @@
 import type { Candle } from './dataFetcher';
-import { calculateSMA, smoothMA, formatPrice, formatVolume, formatTime } from './dataFetcher';
+import { calculateSMA, smoothMA, formatPrice, formatVolume, formatTime, computeRollingStd } from './dataFetcher';
 
 interface CrosshairInfo {
   dataIndex: number;
@@ -198,14 +198,21 @@ export class ChartEngine {
       const rangeUpdated = this.easePriceRange(delta);
       if (rangeUpdated) this.needsStatic = true;
 
-      if (this.needsStatic && this.bgCtx) {
-        this.renderStaticTo(this.bgCtx);
+      if (this.needsStatic) {
+        if (this.bgCtx && this.bgCanvas && this.bgCanvas.width > 0 && this.bgCanvas.height > 0) {
+          this.renderStaticTo(this.bgCtx);
+        }
         this.needsStatic = false;
         this.needsOverlay = true;
       }
 
       if (this.needsOverlay) {
-        this.renderComposite();
+        if (!this.bgCanvas || this.bgCanvas.width === 0 || this.bgCanvas.height === 0) {
+          this.renderStaticTo(this.ctx);
+          if (this.crosshair && this.hovered) this.drawCrosshair(this.ctx);
+        } else {
+          this.renderComposite();
+        }
         this.needsOverlay = false;
       }
 
@@ -269,7 +276,11 @@ export class ChartEngine {
       if (c.volume > maxV) maxV = c.volume;
     }
     if (!isFinite(minP) || !isFinite(maxP)) return;
-    const padding = (maxP - minP) * 0.08;
+    const baseRange = maxP - minP;
+    const avgPrice = (minP + maxP) / 2;
+    const rollingStd = computeRollingStd(this.data, this.viewStart, this.viewStart + this.viewCount);
+    const dynamicPadRatio = Math.min(0.25, Math.max(0.04, 2 * rollingStd / Math.max(avgPrice, 1e-9) * baseRange));
+    const padding = Math.max(baseRange * 0.05, dynamicPadRatio);
     this.targetMinPrice = minP - padding;
     this.targetMaxPrice = maxP + padding;
     this.maxVolume = maxV * 1.1;
@@ -298,11 +309,10 @@ export class ChartEngine {
 
   private renderComposite(): void {
     const ctx = this.ctx;
-    if (this.bgCanvas) {
+    if (this.bgCanvas && this.bgCanvas.width > 0 && this.bgCanvas.height > 0) {
       ctx.drawImage(this.bgCanvas, 0, 0, this.width, this.height);
     } else {
-      ctx.fillStyle = '#0f0f1f';
-      ctx.fillRect(0, 0, this.width, this.height);
+      this.renderStaticTo(ctx);
     }
     if (this.crosshair && this.hovered) {
       this.drawCrosshair(ctx);
@@ -386,7 +396,7 @@ export class ChartEngine {
   }
 
   private buildSmoothedCurve(values: (number | null)[]): Pt[] {
-    const smoothed = smoothMA(values, this.viewStart, this.viewCount, 2);
+    const smoothed = smoothMA(values, this.viewStart, this.viewCount, 4);
     if (smoothed.length < 2) return [];
     const pts: Pt[] = smoothed.map(s => ({ x: this.indexToX(s.x), y: this.priceToY(s.y) }));
     return pts;
@@ -606,18 +616,30 @@ export class ChartEngine {
     const maxX = this.width - this.paddingRight - 4;
     const minY = this.priceAreaTop + 4;
     const maxY = this.priceAreaBottom - 4;
+    const availW = maxX - minX;
+    const availH = maxY - minY;
 
     if (bx + boxW > maxX) {
       bx = this.crosshair.x - boxW - gap;
     }
-    if (bx < minX) bx = minX;
-    if (bx + boxW > maxX) bx = maxX - boxW;
+    if (bx + boxW > maxX || bx < minX) {
+      if (boxW <= availW) {
+        bx = Math.max(minX, Math.min(maxX - boxW, bx));
+      } else {
+        bx = minX + (availW - boxW) / 2;
+      }
+    }
 
     if (by + boxH > maxY) {
       by = this.crosshair.y - boxH - gap;
     }
-    if (by < minY) by = minY;
-    if (by + boxH > maxY) by = maxY - boxH;
+    if (by + boxH > maxY || by < minY) {
+      if (boxH <= availH) {
+        by = Math.max(minY, Math.min(maxY - boxH, by));
+      } else {
+        by = minY + (availH - boxH) / 2;
+      }
+    }
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
