@@ -19,8 +19,6 @@ interface StatsDashboardProps {
   tags: Classification[];
 }
 
-const WARM_COLORS = ['#E8734A', '#F39C12', '#E74C3C', '#FF6B6B', '#FDCB6E'];
-
 const StatsDashboard: React.FC<StatsDashboardProps> = ({ cards, sessions, tags }) => {
   const totalReviews = useMemo(
     () => sessions.reduce((sum, s) => sum + s.records.length, 0),
@@ -177,12 +175,14 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ cards, sessions, tags }
         <h3 className="chart-title">各分类掌握进度</h3>
         <div className="tag-progress-list">
           {tagStats.map((stat) => (
-            <div key={stat.name} className="tag-progress-item">
+            <div key={stat.name} className={`tag-progress-item ${stat.value === 0 ? 'tag-progress-zero' : ''}`}>
               <div className="tag-progress-header">
                 <span className="tag-progress-name" style={{ color: stat.color }}>
                   {stat.name}
                 </span>
-                <span className="tag-progress-percent">{stat.value}%</span>
+                <label className="tag-progress-percent-label" style={{ color: stat.value > 0 ? stat.color : undefined }}>
+                  {stat.value}%
+                </label>
               </div>
               <div className="tag-progress-bar">
                 <div

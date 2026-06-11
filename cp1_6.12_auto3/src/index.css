@@ -256,6 +256,37 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.tag-placeholder {
+  border: 2px dashed #BFC5CC;
+  background: transparent;
+  color: #95A5A6;
+}
+
+.tag-placeholder:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+.tag-placeholder-idle {
+  cursor: default;
+  color: #95A5A6;
+  border-color: #BFC5CC;
+}
+
+.tag-placeholder-active {
+  cursor: pointer;
+  color: var(--accent);
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--accent-light);
+}
+
+.tag-placeholder-error {
+  color: var(--wrong) !important;
+  border-color: var(--wrong) !important;
+  border-style: dashed !important;
+}
+
 .btn-submit {
   width: 100%;
   margin-top: 8px;
@@ -685,6 +716,30 @@ body {
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
+}
+
+.tag-progress-percent-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+  text-align: right;
+}
+
+.tag-progress-zero .tag-progress-percent-label {
+  color: #BFC5CC;
+  font-weight: 600;
+}
+
+.tag-progress-zero .tag-progress-bar {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--surface-alt),
+    var(--surface-alt) 6px,
+    #E8ECF1 6px,
+    #E8ECF1 12px
+  );
 }
 
 .tag-progress-bar {

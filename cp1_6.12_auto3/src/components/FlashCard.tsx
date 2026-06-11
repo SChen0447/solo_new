@@ -8,7 +8,7 @@ interface FlashCardProps {
   tagColors: Record<string, string>;
 }
 
-const FlipBackDelay = 350;
+const FlipBackDelay = 600;
 
 const FlashCard: React.FC<FlashCardProps> = ({ card, onReview, showActions = false, tagColors }) => {
   const [flipped, setFlipped] = useState(false);

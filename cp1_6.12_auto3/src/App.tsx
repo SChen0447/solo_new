@@ -14,7 +14,6 @@ const App: React.FC = () => {
   const [sessions, setSessions] = useLocalStorage<ReviewSession[]>('flashmind-sessions', []);
   const [tags] = useLocalStorage<Classification[]>('flashmind-tags', TAG_PRESETS);
   const [filterTag, setFilterTag] = useState<string>('all');
-  const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [reviewActive, setReviewActive] = useState(false);
 
   const tagColors = useMemo(() => {
@@ -41,7 +40,6 @@ const App: React.FC = () => {
         }
         return [...prev, card];
       });
-      setEditingCard(null);
     },
     [setCards]
   );
@@ -140,13 +138,6 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <div className="card-list-actions">
-                        <button
-                          className="btn btn-icon"
-                          onClick={() => setEditingCard(card)}
-                          title="编辑"
-                        >
-                          ✏️
-                        </button>
                         <button
                           className="btn btn-icon"
                           onClick={() => handleDeleteCard(card.id)}

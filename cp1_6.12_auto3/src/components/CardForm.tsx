@@ -93,20 +93,14 @@ const CardForm: React.FC<CardFormProps> = ({ onSave, tags }) => {
         <div className="tag-selector">
           <button
             type="button"
-            className={`tag-btn tag-placeholder ${!hasSelected ? 'tag-btn-placeholder-active' : ''}`}
-            disabled={!hasSelected}
-            style={{
-              color: hasSelected ? undefined : errors.tags ? 'var(--wrong)' : '#95A5A6',
-              borderStyle: 'dashed',
-              borderColor: errors.tags ? 'var(--wrong)' : '#BFC5CC',
-              backgroundColor: 'transparent',
-              cursor: hasSelected ? 'pointer' : 'default',
-            } as React.CSSProperties}
+            className={`tag-btn tag-placeholder ${
+              !hasSelected ? 'tag-placeholder-idle' : 'tag-placeholder-active'
+            } ${errors.tags ? 'tag-placeholder-error' : ''}`}
             onClick={() => {
               if (hasSelected) setSelectedTags([]);
             }}
           >
-            {hasSelected ? '已选' : '选择标签'}
+            {hasSelected ? `已选 ${selectedTags.length} 个` : '选择标签'}
           </button>
           {availableTags.map((tag) => (
             <button
