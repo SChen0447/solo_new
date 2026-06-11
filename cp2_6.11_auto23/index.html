@@ -47,6 +47,7 @@
       padding: 16px;
       border: 1px solid rgba(255, 255, 255, 0.1);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
     }
 
     #chart-overlay.hidden {
@@ -105,4 +106,231 @@
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border-radius: 16px;
-      border: 1px solid rgba(2
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      z-index: 100;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-label {
+      font-size: 12px;
+      color: #aabbdd;
+      white-space: nowrap;
+    }
+
+    .time-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 160px;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #4fc3f7, #7c4dff, #ff4081);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .time-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(79, 195, 247, 0.6);
+      transition: all 0.2s ease;
+    }
+
+    .time-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 2px 12px rgba(79, 195, 247, 0.9);
+    }
+
+    .time-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #4fc3f7;
+      min-width: 36px;
+      text-align: center;
+    }
+
+    .control-btn {
+      padding: 8px 16px;
+      background: rgba(79, 195, 247, 0.15);
+      border: 1px solid rgba(79, 195, 247, 0.4);
+      border-radius: 8px;
+      color: #4fc3f7;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .control-btn:hover {
+      background: rgba(79, 195, 247, 0.3);
+      border-color: #4fc3f7;
+      box-shadow: 0 0 16px rgba(79, 195, 247, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 22px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 22px;
+      transition: 0.3s;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    input:checked + .toggle-slider {
+      background: rgba(79, 195, 247, 0.6);
+      border-color: #4fc3f7;
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(22px);
+    }
+
+    .fps-counter {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 10px 16px;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(10px);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+      color: #88ff88;
+      font-family: 'Consolas', 'Monaco', monospace;
+    }
+
+    .legend-panel {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 20px;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(10px);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+
+    .legend-color.smooth { background: #4caf50; }
+    .legend-color.slow { background: #ffc107; }
+    .legend-color.congested { background: #f44336; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container"></div>
+    
+    <div class="fps-counter">
+      FPS: <span id="fps-value">60</span>
+    </div>
+
+    <div class="legend-panel">
+      <div class="legend-item">
+        <div class="legend-color smooth"></div>
+        <span>畅通</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color slow"></div>
+        <span>缓行</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color congested"></div>
+        <span>拥堵</span>
+      </div>
+    </div>
+
+    <div id="chart-overlay">
+      <div id="chart-title">实时交通监控</div>
+      <div id="chart-stats">
+        <div class="stat-item">
+          <span class="stat-label">平均速度</span>
+          <span class="stat-value" id="avg-speed">--</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">拥堵路段</span>
+          <span class="stat-value congested" id="congested-count">--</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">车辆总数</span>
+          <span class="stat-value" id="total-cars">--</span>
+        </div>
+      </div>
+      <svg id="chart-svg"></svg>
+    </div>
+
+    <div id="control-panel">
+      <div class="control-group">
+        <span class="control-label">时间倍速</span>
+        <input type="range" class="time-slider" id="time-slider" min="0.5" max="4" step="0.5" value="1">
+        <span class="time-value" id="time-value">1.0x</span>
+      </div>
+      
+      <button class="control-btn" id="reset-camera-btn">重置视角</button>
+      
+      <div class="control-group">
+        <span class="control-label">热力图</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="heatmap-toggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      
+      <div class="control-group">
+        <span class="control-label">数据图表</span>
