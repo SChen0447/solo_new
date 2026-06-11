@@ -6,7 +6,7 @@
   >
     <div class="card-header">
       <div class="avatar" :style="{ backgroundColor: avatarInfo.color }">
-        <span class="avatar-emoji">{{ avatarInfo.emoji }}</span>
+        <span class="avatar-initial">{{ avatarInfo.initial }}</span>
       </div>
       <div class="author-info">
         <span class="author-name">{{ idea.authorName }}</span>
@@ -186,8 +186,11 @@ function handleVote(voteType: VoteType, event: Event) {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.avatar-emoji {
-  font-size: 22px;
+.avatar-initial {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .author-info {

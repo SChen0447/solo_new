@@ -31,8 +31,7 @@ export type SortType = 'hot' | 'latest' | 'mostUp' | 'controversial'
 const STORAGE_KEY = 'idea_voting_wall'
 const USER_ID_KEY = 'idea_voting_user_id'
 
-const avatarColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9', '#fd79a8', '#a29bfe', '#6c5ce7', '#00b894']
-const avatarEmojis = ['🎨', '🚀', '💡', '🔥', '⭐', '🎯', '🌈', '⚡', '🎪', '🔮', '🎭', '🦄', '🐉', '🌟', '💫']
+const avatarColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#fd79a8', '#a29bfe', '#6c5ce7', '#00b894', '#ff922b', '#20c997', '#339af0', '#f06595', '#845ef7', '#5c7cfa']
 
 function generateUserId(): string {
   let userId = localStorage.getItem(USER_ID_KEY)
@@ -43,28 +42,32 @@ function generateUserId(): string {
   return userId
 }
 
-function generateAvatar(): string {
-  const color = avatarColors[Math.floor(Math.random() * avatarColors.length)]
-  const emoji = avatarEmojis[Math.floor(Math.random() * avatarEmojis.length)]
-  return `${color}|${emoji}`
-}
-
 function generateAuthorName(): string {
-  const adjectives = ['创意', '聪明', '勇敢', '快乐', '神秘', '优雅', '活力', '智慧', '阳光', '酷炫']
-  const nouns = ['小达人', '发明家', '梦想家', '探索者', '创造者', '思想家', '艺术家', '工程师', '设计师', '先锋']
+  const adjectives = ['创意', '聪明', '勇敢', '快乐', '神秘', '优雅', '活力', '智慧', '阳光', '酷炫', '文艺', '极客', '浪漫', '潇洒', '呆萌']
+  const nouns = ['小达人', '发明家', '梦想家', '探索者', '创造者', '思想家', '艺术家', '工程师', '设计师', '先锋', '观察家', '行动派', '梦想家', '实干家', '战略家']
   const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
   const noun = nouns[Math.floor(Math.random() * nouns.length)]
   const num = Math.floor(Math.random() * 1000)
   return `${adj}${noun}${num}`
 }
 
+function getAvatarInitial(name: string): string {
+  return name.charAt(0).toUpperCase()
+}
+
+function generateAvatar(name?: string): string {
+  const color = avatarColors[Math.floor(Math.random() * avatarColors.length)]
+  const initial = name ? getAvatarInitial(name) : '?'
+  return `${color}|${initial}`
+}
+
 function generateId(): string {
   return 'idea_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
 }
 
-function parseAvatar(avatar: string): { color: string; emoji: string } {
-  const [color, emoji] = avatar.split('|')
-  return { color, emoji }
+function parseAvatar(avatar: string): { color: string; initial: string } {
+  const [color, initial] = avatar.split('|')
+  return { color, initial }
 }
 
 export function useIdeas() {
@@ -72,7 +75,7 @@ export function useIdeas() {
   const sortType = ref<SortType>('hot')
   const userId = ref(generateUserId())
   const currentUserName = ref(generateAuthorName())
-  const currentUserAvatar = ref(generateAvatar())
+  const currentUserAvatar = ref(generateAvatar(currentUserName.value))
 
   function loadIdeas() {
     try {
@@ -102,77 +105,87 @@ export function useIdeas() {
     }
   })
 
-  function seedSampleData() {
-    const sampleIdeas: Idea[] = [
-      {
-        id: generateId(),
-        title: '建立团队共享知识库',
-        description: '创建一个集中的知识库平台，让团队成员可以分享和查找项目经验、技术文档和最佳实践，减少重复劳动，提高工作效率。',
-        authorName: '智慧探索者42',
-        authorAvatar: '#4ecdc4|💡',
-        createdAt: Date.now() - 86400000 * 2,
-        votes: { up: 15, neutral: 3, down: 2 },
-        userVotes: {},
-        comments: [
-          {
-            id: generateId(),
-            content: '这个想法很棒，我们团队现在确实有知识断层的问题。',
-            authorName: '创意小达人123',
-            authorAvatar: '#ff6b6b|🚀',
-            createdAt: Date.now() - 86400000
-          }
-        ]
-      },
-      {
-        id: generateId(),
-        title: '每周五下午技术分享会',
-        description: '固定每周五下午安排一小时技术分享，每位成员轮流分享自己擅长的技术或近期学习的内容，促进团队技术交流和成长。',
-        authorName: '活力创造者88',
-        authorAvatar: '#ffd43b|⭐',
-        createdAt: Date.now() - 86400000,
-        votes: { up: 12, neutral: 5, down: 1 },
-        userVotes: {},
-        comments: []
-      },
-      {
-        id: generateId(),
-        title: '引入代码审查自动化工具',
-        description: '集成SonarQube等代码质量检测工具到CI/CD流程中，自动检测代码异味、漏洞和重复代码，提升代码质量。',
-        authorName: '严谨工程师567',
-        authorAvatar: '#a29bfe|🎯',
-        createdAt: Date.now() - 3600000 * 12,
-        votes: { up: 8, neutral: 8, down: 4 },
-        userVotes: {},
-        comments: []
-      },
-      {
-        id: generateId(),
-        title: '远程办公弹性工作制',
-        description: '允许员工每周选择1-2天远程办公，灵活安排工作时间，提高工作生活平衡，同时减少通勤时间和压力。',
-        authorName: '快乐思想家99',
-        authorAvatar: '#fd79a8|🌈',
-        createdAt: Date.now() - 3600000 * 6,
-        votes: { up: 20, neutral: 2, down: 8 },
-        userVotes: {},
-        comments: [
-          {
-            id: generateId(),
-            content: '远程办公确实能提高效率，但需要更好的沟通机制配合。',
-            authorName: '务实设计师234',
-            authorAvatar: '#00b894|⚡',
-            createdAt: Date.now() - 3600000 * 3
-          },
-          {
-            id: generateId(),
-            content: '担心团队协作会受到影响，需要仔细评估。',
-            authorName: '谨慎先锋789',
-            authorAvatar: '#6c5ce7|🔮',
-            createdAt: Date.now() - 3600000 * 2
-          }
-        ]
-      }
+  function generateRandomIdea(index: number): Idea {
+    const titles = [
+      '建立团队共享知识库',
+      '每周五下午技术分享会',
+      '引入代码审查自动化工具',
+      '远程办公弹性工作制',
+      '开发内部创新孵化器',
+      '实施敏捷开发流程',
+      '建立导师制度',
+      '优化项目管理工具',
+      '举办季度团建活动',
+      '引入OKR目标管理',
+      '建立代码规范体系',
+      '自动化测试覆盖',
+      '微服务架构改造',
+      '数据可视化大屏',
+      'AI辅助编程工具',
+      '跨部门交流机制',
+      '员工技能培训计划',
+      '开源社区贡献计划',
+      '产品用户反馈系统',
+      '持续集成持续部署'
     ]
+    const descriptions = [
+      '创建一个集中的知识库平台，让团队成员可以分享和查找项目经验、技术文档和最佳实践，减少重复劳动，提高工作效率。',
+      '固定每周五下午安排一小时技术分享，每位成员轮流分享自己擅长的技术或近期学习的内容，促进团队技术交流和成长。',
+      '集成代码质量检测工具到CI/CD流程中，自动检测代码异味、漏洞和重复代码，提升整体代码质量和可维护性。',
+      '允许员工每周选择1-2天远程办公，灵活安排工作时间，提高工作生活平衡，同时减少通勤时间和压力。',
+      '设立内部创新基金，鼓励员工提出创新想法并获得资源支持，孵化有潜力的内部项目和产品。',
+      '采用Scrum或Kanban等敏捷方法论，缩短迭代周期，提高团队响应速度和交付质量。',
+      '为新员工配备资深导师，帮助快速融入团队和提升技能，同时促进知识传承和团队凝聚力。',
+      '评估并引入更高效的项目管理工具，统一任务跟踪、文档协作和进度可视化，提升团队协作效率。',
+      '每季度组织一次团建活动，增强团队凝聚力和归属感，营造积极向上的团队文化氛围。',
+      '引入OKR目标管理体系，对齐团队目标，激发员工主动性和创造力，推动业务持续增长。'
+    ]
+    
+    const authorName = generateAuthorName()
+    const upVotes = Math.floor(Math.random() * 50)
+    const neutralVotes = Math.floor(Math.random() * 20)
+    const downVotes = Math.floor(Math.random() * 15)
+    const commentCount = Math.floor(Math.random() * 5)
+    
+    const comments: Comment[] = []
+    for (let i = 0; i < commentCount; i++) {
+      const commentAuthor = generateAuthorName()
+      comments.push({
+        id: generateId(),
+        content: ['这个想法很棒！', '我觉得还需要再考虑一下。', '支持，很有价值的提议。', '可以再详细说说具体方案吗？', '期待这个想法能够实现。'][i % 5],
+        authorName: commentAuthor,
+        authorAvatar: generateAvatar(commentAuthor),
+        createdAt: Date.now() - Math.random() * 86400000 * 3
+      })
+    }
+
+    return {
+      id: generateId(),
+      title: titles[index % titles.length] + (index >= titles.length ? ` (方案${Math.floor(index / titles.length) + 1})` : ''),
+      description: descriptions[index % descriptions.length],
+      authorName,
+      authorAvatar: generateAvatar(authorName),
+      createdAt: Date.now() - Math.random() * 86400000 * 30,
+      votes: { up: upVotes, neutral: neutralVotes, down: downVotes },
+      userVotes: {},
+      comments
+    }
+  }
+
+  function seedSampleData() {
+    const sampleIdeas: Idea[] = []
+    for (let i = 0; i < 4; i++) {
+      sampleIdeas.push(generateRandomIdea(i))
+    }
     ideas.value = sampleIdeas
+  }
+
+  function generateBulkIdeas(count: number) {
+    const newIdeas: Idea[] = []
+    for (let i = 0; i < count; i++) {
+      newIdeas.push(generateRandomIdea(ideas.value.length + i))
+    }
+    ideas.value = [...ideas.value, ...newIdeas]
   }
 
   const sortedIdeas = computed(() => {
@@ -305,6 +318,7 @@ export function useIdeas() {
     setSortType,
     getIdeaById,
     formatTime,
-    parseAvatar
+    parseAvatar,
+    generateBulkIdeas
   }
 }
