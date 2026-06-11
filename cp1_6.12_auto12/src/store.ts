@@ -45,7 +45,7 @@ function loadState(): { notes: StickyNote[]; viewport: Viewport } {
     if (stored) {
       const parsed = JSON.parse(stored);
       return {
-        notes: parsed.notes || [],
+        notes: (parsed.notes || []) as StickyNote[],
         viewport: parsed.viewport || { x: 0, y: 0, scale: 1 },
       };
     }
@@ -65,6 +65,87 @@ function saveState(notes: StickyNote[], viewport: Viewport) {
 
 const initialState = loadState();
 
+if (initialState.notes.length === 0) {
+  const demoNotes: StickyNote[] = [
+    {
+      id: uuidv4(),
+      type: 'text',
+      x: -300,
+      y: -120,
+      width: 200,
+      height: 160,
+      color: '#FF6B6B',
+      createdAt: Date.now(),
+      content: '欢迎使用头脑风暴画布！\n\n双击文字编辑内容，拖拽移动便签位置。',
+      fontSize: 'medium',
+    } satisfies TextNote,
+    {
+      id: uuidv4(),
+      type: 'vote',
+      x: 0,
+      y: -100,
+      width: 220,
+      height: 180,
+      color: '#74B9FF',
+      createdAt: Date.now(),
+      content: '我们今天做哪个方案？\nA方案还是B方案？',
+      votes: [],
+    } satisfies VoteNote,
+    {
+      id: uuidv4(),
+      type: 'annotation',
+      x: 320,
+      y: -80,
+      width: 260,
+      height: 200,
+      color: '#B39DDB',
+      createdAt: Date.now(),
+      content: '这个区域是重点关注区域，大家可以在这里添加相关想法。',
+      regionWidth: 260,
+      regionHeight: 160,
+    } satisfies AnnotationNote,
+    {
+      id: uuidv4(),
+      type: 'text',
+      x: -150,
+      y: 120,
+      width: 180,
+      height: 140,
+      color: '#FFB347',
+      createdAt: Date.now(),
+      content: '💡 小提示：\n\n• 滚轮缩放画布\n• 拖拽空白处平移\n• 点击便签查看详情',
+      fontSize: 'small',
+    } satisfies TextNote,
+  ];
+  initialState.notes = demoNotes;
+}
+
+function updateNoteById(notes: StickyNote[], id: string, updates: Partial<StickyNote>): StickyNote[] {
+  return notes.map((n) => {
+    if (n.id !== id) return n;
+    if (n.type === 'text') {
+      return { ...n, ...updates } as TextNote;
+    } else if (n.type === 'vote') {
+      return { ...n, ...updates } as VoteNote;
+    } else {
+      return { ...n, ...updates } as AnnotationNote;
+    }
+  });
+}
+
+function toggleVote(notes: StickyNote[], id: string, voterId: string): StickyNote[] {
+  return notes.map((n) => {
+    if (n.id !== id || n.type !== 'vote') return n;
+    const hasVoted = n.votes.includes(voterId);
+    const updated: VoteNote = {
+      ...n,
+      type: 'vote',
+      votes: hasVoted ? n.votes.filter((v) => v !== voterId) : [...n.votes, voterId],
+    };
+    return updated;
+  });
+}
+
 export const useBrainstormStore = create<BrainstormStore>((set, get) => ({
   notes: initialState.notes,
   viewport: initialState.viewport,
@@ -82,7 +163,6 @@ export const useBrainstormStore = create<BrainstormStore>((set, get) => ({
     const offsetY = (Math.random() - 0.5) * 100;
 
     let note: StickyNote;
-
     const base = {
       id: uuidv4(),
       type,
@@ -95,9 +175,9 @@ export const useBrainstormStore = create<BrainstormStore>((set, get) => ({
     };
 
     if (type === 'text') {
-      note = { ...base, type: 'text', content: '', fontSize: 'medium' as FontSize } as TextNote;
+      note = { ...base, type: 'text', content: '', fontSize: 'medium' as FontSize } satisfies TextNote;
     } else if (type === 'vote') {
-      note = { ...base, type: 'vote', content: '', votes: [] } as VoteNote;
+      note = { ...base, type: 'vote', content: '', votes: [] } satisfies VoteNote;
     } else {
       note = {
         ...base,
@@ -105,10 +185,10 @@ export const useBrainstormStore = create<BrainstormStore>((set, get) => ({
         content: '',
         regionWidth: sizes.width,
         regionHeight: sizes.height,
-      } as AnnotationNote;
+      } satisfies AnnotationNote;
     }
 
-    const newNotes = [...notes, note];
+    const newNotes: StickyNote[] = [...notes, note];
     set({ notes: newNotes });
     saveState(newNotes, get().viewport);
     get().broadcastSync({ type: 'note_add', payload: note });
@@ -116,7 +196,9 @@ export const useBrainstormStore = create<BrainstormStore>((set, get) => ({
 
   moveNote: (id: string, x: number, y: number) => {
     const { notes, viewport } = get();
-    const newNotes = notes.map((n) => (n.id === id ? { ...n, x, y } : n));
+    const newNotes: StickyNote[] = notes.map((n) =>
+      n.id === id ? { ...n, x, y } : n
+    );
     set({ notes: newNotes });
     saveState(newNotes, viewport);
     get().broadcastSync({ type: 'note_move', payload: { id, x, y } });
@@ -124,7 +206,7 @@ export const useBrainstormStore = create<BrainstormStore>((set, get) => ({
 
   updateNote: (id: string, updates: Partial<StickyNote>) => {
     const { notes, viewport } = get();
-    const newNotes = notes.map((n) => (n.id === id ? { ...n, ...updates } : n));
+    const newNotes = updateNoteById(notes, id, updates);
     set({ notes: newNotes });
     saveState(newNotes, viewport);
     get().broadcastSync({ type: 'note_update', payload: { id, updates } });
@@ -132,32 +214,18 @@ export const useBrainstormStore = create<BrainstormStore>((set, get) => ({
 
   deleteNote: (id: string) => {
     const { notes, viewport } = get();
-    const newNotes = notes.filter((n) => n.id !== id);
+    const newNotes: StickyNote[] = notes.filter((n) => n.id !== id);
     set({ notes: newNotes, selectedNoteId: null });
     saveState(newNotes, viewport);
     get().broadcastSync({ type: 'note_delete', payload: { id } });
   },
 
   voteNote: (id: string) => {
-    const { notes, viewport, userId } = get();
-    const newNotes: StickyNote[] = notes.map((n) => {
-      if (n.id === id && n.type === 'vote') {
-        const voteNote = n as VoteNote;
-        const hasVoted = voteNote.votes.includes(userId);
-        const updated: VoteNote = {
-          ...voteNote,
-          type: 'vote',
-          votes: hasVoted
-            ? voteNote.votes.filter((v) => v !== userId)
-            : [...voteNote.votes, userId],
-        };
-        return updated;
-      }
-      return n;
-    });
+    const { notes, viewport, userId: uid } = get();
+    const newNotes = toggleVote(notes, id, uid);
     set({ notes: newNotes });
     saveState(newNotes, viewport);
-    get().broadcastSync({ type: 'note_vote', payload: { id, userId } });
+    get().broadcastSync({ type: 'note_vote', payload: { id, userId: uid } });
   },
 
   clearCanvas: () => {
@@ -203,7 +271,7 @@ if (channel) {
       case 'note_add': {
         const note = msg.payload as StickyNote;
         if (!store.notes.find((n) => n.id === note.id)) {
-          const newNotes = [...store.notes, note];
+          const newNotes: StickyNote[] = [...store.notes, note];
           useBrainstormStore.setState({ notes: newNotes });
           saveState(newNotes, store.viewport);
         }
@@ -211,40 +279,30 @@ if (channel) {
       }
       case 'note_move': {
         const { id, x, y } = msg.payload as { id: string; x: number; y: number };
-        const newNotes = store.notes.map((n) => (n.id === id ? { ...n, x, y } : n));
+        const newNotes: StickyNote[] = store.notes.map((n) =>
+          n.id === id ? { ...n, x, y } : n
+        );
         useBrainstormStore.setState({ notes: newNotes });
         saveState(newNotes, store.viewport);
         break;
       }
       case 'note_update': {
         const { id, updates } = msg.payload as { id: string; updates: Partial<StickyNote> };
-        const newNotes = store.notes.map((n) => (n.id === id ? { ...n, ...updates } : n));
+        const newNotes = updateNoteById(store.notes, id, updates);
         useBrainstormStore.setState({ notes: newNotes });
         saveState(newNotes, store.viewport);
         break;
       }
       case 'note_vote': {
         const { id, userId: voterId } = msg.payload as { id: string; userId: string };
-        const newNotes = store.notes.map((n) => {
-          if (n.id === id && n.type === 'vote') {
-            const voteNote = n as VoteNote;
-            const hasVoted = voteNote.votes.includes(voterId);
-            return {
-              ...voteNote,
-              votes: hasVoted
-                ? voteNote.votes.filter((v) => v !== voterId)
-                : [...voteNote.votes, voterId],
-            };
-          }
-          return n;
-        });
+        const newNotes = toggleVote(store.notes, id, voterId);
         useBrainstormStore.setState({ notes: newNotes });
         saveState(newNotes, store.viewport);
         break;
       }
       case 'note_delete': {
         const { id } = msg.payload as { id: string };
-        const newNotes = store.notes.filter((n) => n.id !== id);
+        const newNotes: StickyNote[] = store.notes.filter((n) => n.id !== id);
         useBrainstormStore.setState({ notes: newNotes });
         saveState(newNotes, store.viewport);
         break;

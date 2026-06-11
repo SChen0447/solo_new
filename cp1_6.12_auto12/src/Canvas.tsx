@@ -3,6 +3,10 @@ import StickyNoteComponent from './StickyNote';
 import { useBrainstormStore } from './store';
 import type { StickyNote } from './types';
 
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 3;
+const BASE_GRID_SIZE = 40;
+
 interface CanvasProps {
   onSelectNote: (id: string) => void;
 }
@@ -15,32 +19,39 @@ const Canvas: React.FC<CanvasProps> = ({ onSelectNote }) => {
   const viewportStart = useRef({ x: 0, y: 0 });
   const rafRef = useRef<number>(0);
 
-  const gridSize = useMemo(() => {
-    const baseSize = 40;
+  const gridInfo = useMemo(() => {
     const scale = viewport.scale;
-    if (scale >= 2) return baseSize * 2;
-    if (scale >= 1) return baseSize;
-    if (scale >= 0.5) return baseSize * 2;
-    return baseSize * 4;
+    let worldGridSize = BASE_GRID_SIZE;
+    if (scale >= 2) {
+      worldGridSize = BASE_GRID_SIZE / 2;
+    } else if (scale <= 0.25) {
+      worldGridSize = BASE_GRID_SIZE * 4;
+    } else if (scale <= 0.5) {
+      worldGridSize = BASE_GRID_SIZE * 2;
+    }
+    const screenGridSize = worldGridSize * scale;
+    return { worldGridSize, screenGridSize };
   }, [viewport.scale]);
 
   const gridStyle = useMemo(
     () => ({
       backgroundImage: `
-        linear-gradient(rgba(232, 228, 224, 0.5) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(232, 228, 224, 0.5) 1px, transparent 1px)
+        linear-gradient(rgba(232, 228, 224, 0.6) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232, 228, 224, 0.6) 1px, transparent 1px)
       `,
-      backgroundSize: `${gridSize}px ${gridSize}px`,
-      backgroundPosition: `${viewport.x % gridSize}px ${viewport.y % gridSize}px`,
+      backgroundSize: `${gridInfo.screenGridSize}px ${gridInfo.screenGridSize}px`,
+      backgroundPosition: `${viewport.x % gridInfo.screenGridSize}px ${viewport.y % gridInfo.screenGridSize}px`,
     }),
-    [gridSize, viewport.x, viewport.y]
+    [gridInfo.screenGridSize, viewport.x, viewport.y]
   );
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const newScale = Math.min(Math.max(viewport.scale * delta, 0.1), 5);
+      const newScale = Math.min(Math.max(viewport.scale * delta, MIN_SCALE), MAX_SCALE);
+
+      if (newScale === viewport.scale) return;
 
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -141,7 +152,7 @@ const Canvas: React.FC<CanvasProps> = ({ onSelectNote }) => {
         ))}
       </div>
 
-      <div className="fixed bottom-4 left-4 text-xs text-black/25 font-display select-none pointer-events-none">
+      <div className="fixed bottom-4 left-4 glass-panel px-2.5 py-1 rounded-md text-xs text-black/40 font-display select-none pointer-events-none">
         {Math.round(viewport.scale * 100)}%
       </div>
     </div>

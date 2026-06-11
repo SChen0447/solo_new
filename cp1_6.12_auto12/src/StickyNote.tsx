@@ -15,6 +15,7 @@ const StickyNoteComponent: React.FC<StickyNoteProps> = React.memo(({ note, scale
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [voteAnim, setVoteAnim] = useState(false);
+  const hasDraggedRef = useRef(false);
   const noteRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
 
@@ -23,6 +24,7 @@ const StickyNoteComponent: React.FC<StickyNoteProps> = React.memo(({ note, scale
       if ((e.target as HTMLElement).closest('[data-no-drag]')) return;
       e.preventDefault();
       e.stopPropagation();
+      hasDraggedRef.current = false;
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       setDragOffset({
         x: e.clientX - rect.left,
@@ -36,12 +38,20 @@ const StickyNoteComponent: React.FC<StickyNoteProps> = React.memo(({ note, scale
   useEffect(() => {
     if (!isDragging) return;
 
+    let lastX = 0;
+    let lastY = 0;
+
     const handleMouseMove = (e: MouseEvent) => {
+      if (Math.abs(e.clientX - lastX) > 2 || Math.abs(e.clientY - lastY) > 2) {
+        hasDraggedRef.current = true;
+      }
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
         const { viewport } = useBrainstormStore.getState();
         const newX = (e.clientX - dragOffset.x - viewport.x) / viewport.scale;
         const newY = (e.clientY - dragOffset.y - viewport.y) / viewport.scale;
+        lastX = e.clientX;
+        lastY = e.clientY;
         moveNote(note.id, newX, newY);
       });
     };
@@ -63,6 +73,7 @@ const StickyNoteComponent: React.FC<StickyNoteProps> = React.memo(({ note, scale
   const handleVoteClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
+      e.preventDefault();
       voteNote(note.id);
       setVoteAnim(true);
       setTimeout(() => setVoteAnim(false), 300);
@@ -85,7 +96,8 @@ const StickyNoteComponent: React.FC<StickyNoteProps> = React.memo(({ note, scale
   );
 
   const handleColorChange = useCallback(
-    (color: string) => {
+    (e: React.MouseEvent, color: string) => {
+      e.stopPropagation();
       updateNote(note.id, { color });
     },
     [note.id, updateNote]
@@ -93,6 +105,10 @@ const StickyNoteComponent: React.FC<StickyNoteProps> = React.memo(({ note, scale
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
+      if (hasDraggedRef.current) {
+        hasDraggedRef.current = false;
+        return;
+      }
       e.stopPropagation();
       onSelect(note.id);
     },
@@ -109,7 +125,7 @@ const StickyNoteComponent: React.FC<StickyNoteProps> = React.memo(({ note, scale
   return (
     <div
       ref={noteRef}
-      className="absolute sticky-note-shadow animate-bounce-in"
+      className="absolute sticky-note-shadow animate-bounce-in select-none"
       style={{
         left: note.x,
         top: note.y,
@@ -156,12 +172,12 @@ function renderTextNote(
   note: TextNote,
   onContentChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void,
   onFontSizeChange: (e: React.ChangeEvent<HTMLSelectElement>) => void,
-  onColorChange: (color: string) => void
+  onColorChange: (e: React.MouseEvent, color: string) => void
 ) {
   return (
     <div className="p-3 flex flex-col gap-2">
       <textarea
-        className="w-full bg-transparent resize-none outline-none placeholder-black/30"
+        className="w-full bg-transparent resize-none outline-none placeholder-black/30 font-medium"
         style={{ color: '#2D2D2D' }}
         placeholder="输入内容..."
         value={note.content}
@@ -173,7 +189,7 @@ function renderTextNote(
         <select
           value={note.fontSize}
           onChange={onFontSizeChange}
-          className="text-xs bg-white/50 rounded px-1.5 py-0.5 outline-none cursor-pointer"
+          className="text-xs bg-white/50 rounded px-1.5 py-0.5 outline-none cursor-pointer text-black/60"
         >
           <option value="small">小</option>
           <option value="medium">中</option>
@@ -183,13 +199,13 @@ function renderTextNote(
           {NOTE_COLORS.text.slice(0, 4).map((c) => (
             <button
               key={c}
-              className="w-4 h-4 rounded-full border-2 transition-transform btn-press"
+              className="w-4 h-4 rounded-full border-2 transition-transform btn-press hover:scale-110"
               style={{
-                backgroundColor: c + '44',
+                backgroundColor: c + '55',
                 borderColor: note.color === c ? c : 'transparent',
                 transform: note.color === c ? 'scale(1.2)' : 'scale(1)',
               }}
-              onClick={() => onColorChange(c)}
+              onClick={(e) => onColorChange(e, c)}
             />
           ))}
         </div>
@@ -209,7 +225,7 @@ function renderVoteNote(
   return (
     <div className="p-3 flex flex-col gap-2">
       <textarea
-        className={`w-full bg-transparent resize-none outline-none placeholder-black/30 ${FONT_SIZE_MAP.medium}`}
+        className={`w-full bg-transparent resize-none outline-none placeholder-black/30 font-medium ${FONT_SIZE_MAP.medium}`}
         style={{ color: '#2D2D2D' }}
         placeholder="输入投票主题..."
         value={note.content}
@@ -219,18 +235,21 @@ function renderVoteNote(
       />
       <div className="flex items-center justify-between" data-no-drag>
         <button
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all btn-press ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all btn-press btn-hover ${
             hasVoted
               ? 'bg-fog text-white shadow-md'
-              : 'bg-white/60 text-fog-dark hover:bg-fog/20'
+              : 'bg-white/60 text-fog-dark hover:bg-fog/20 border border-fog/30'
           }`}
           onClick={onVote}
         >
           <Vote size={14} />
-          <span className={voteAnim ? 'animate-vote-pop' : ''}>{note.votes.length}</span>
+          <span className={voteAnim ? 'animate-vote-pop inline-block' : 'inline-block'}>
+            {note.votes.length}
+          </span>
+          <span className="ml-0.5">{hasVoted ? '已投票' : '投票'}</span>
         </button>
-        <span className="text-xs text-black/30">
-          {note.votes.length} 人投票
+        <span className="text-xs text-black/30 font-medium">
+          {note.votes.length} 票
         </span>
       </div>
     </div>
@@ -244,16 +263,16 @@ function renderAnnotationNote(
   return (
     <div className="flex flex-col">
       <div
-        className="border-2 border-dashed rounded-b-xl mx-3 mb-3"
+        className="border-2 border-dashed rounded-lg mx-3 mt-3"
         style={{
           borderColor: note.color + '66',
           backgroundColor: note.color + '11',
-          minHeight: 60,
+          minHeight: 50,
         }}
       />
-      <div className="px-3 pb-3" data-no-drag>
+      <div className="p-3" data-no-drag>
         <textarea
-          className="w-full bg-transparent resize-none outline-none placeholder-black/30 text-xs"
+          className="w-full bg-transparent resize-none outline-none placeholder-black/30 text-xs font-medium"
           style={{ color: '#2D2D2D' }}
           placeholder="添加标注说明..."
           value={note.content}
