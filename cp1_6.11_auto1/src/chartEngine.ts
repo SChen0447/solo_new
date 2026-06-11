@@ -1,5 +1,5 @@
 import type { Candle } from './dataFetcher';
-import { calculateSMA, formatPrice, formatVolume, formatTime } from './dataFetcher';
+import { calculateSMA, smoothMA, formatPrice, formatVolume, formatTime } from './dataFetcher';
 
 interface CrosshairInfo {
   dataIndex: number;
@@ -8,10 +8,18 @@ interface CrosshairInfo {
   price: number;
 }
 
+interface Pt {
+  x: number;
+  y: number;
+}
+
 export class ChartEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private dpr: number;
+
+  private bgCanvas: HTMLCanvasElement | null = null;
+  private bgCtx: CanvasRenderingContext2D | null = null;
 
   private data: Candle[] = [];
   private sma5: (number | null)[] = [];
@@ -37,6 +45,8 @@ export class ChartEngine {
   private minViewCount = 20;
   private maxViewCount = 0;
 
+  private targetMinPrice: number = 0;
+  private targetMaxPrice: number = 0;
   private minPrice: number = 0;
   private maxPrice: number = 0;
   private maxVolume: number = 0;
@@ -48,7 +58,9 @@ export class ChartEngine {
   private hovered: boolean = false;
 
   private rafId: number | null = null;
-  private needsRender: boolean = true;
+  private needsStatic: boolean = true;
+  private needsOverlay: boolean = true;
+  private lastFrameTs: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -64,7 +76,7 @@ export class ChartEngine {
     this.sma20 = calculateSMA(data, 20);
     this.viewStart = Math.max(0, data.length - this.viewCount);
     this.maxViewCount = data.length;
-    this.scheduleRender();
+    this.invalidateAll();
   }
 
   resize(): void {
@@ -84,7 +96,18 @@ export class ChartEngine {
     this.volumeAreaTop = this.priceAreaBottom + 1;
     this.volumeAreaBottom = this.volumeAreaTop + this.volumeAreaHeight;
 
-    this.scheduleRender();
+    if (!this.bgCanvas) {
+      this.bgCanvas = document.createElement('canvas');
+      const bg = this.bgCanvas.getContext('2d', { alpha: false });
+      if (bg) this.bgCtx = bg;
+    }
+    if (this.bgCanvas && this.bgCtx) {
+      this.bgCanvas.width = Math.floor(this.width * this.dpr);
+      this.bgCanvas.height = Math.floor(this.height * this.dpr);
+      this.bgCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    }
+
+    this.invalidateAll();
   }
 
   setView(start: number, count: number): void {
@@ -93,7 +116,7 @@ export class ChartEngine {
     if (s !== this.viewStart || c !== this.viewCount) {
       this.viewStart = s;
       this.viewCount = c;
-      this.scheduleRender();
+      this.invalidateAll();
     }
   }
 
@@ -129,7 +152,7 @@ export class ChartEngine {
       if (this.crosshair) {
         this.crosshair = null;
         this.hovered = false;
-        this.scheduleRender();
+        this.needsOverlay = true;
       }
       return;
     }
@@ -150,7 +173,7 @@ export class ChartEngine {
         Math.abs(this.crosshair.x - x) > 0.5 ||
         Math.abs(this.crosshair.price - price) > 0.5) {
       this.crosshair = { dataIndex: idx, x, y, price };
-      this.scheduleRender();
+      this.needsOverlay = true;
     }
   }
 
@@ -158,7 +181,7 @@ export class ChartEngine {
     if (this.crosshair) {
       this.crosshair = null;
       this.hovered = false;
-      this.scheduleRender();
+      this.needsOverlay = true;
     }
   }
 
@@ -168,11 +191,24 @@ export class ChartEngine {
   }
 
   startRenderLoop(): void {
-    const loop = () => {
-      if (this.needsRender) {
-        this.render();
-        this.needsRender = false;
+    const loop = (ts: number) => {
+      const delta = ts - this.lastFrameTs;
+      this.lastFrameTs = ts;
+
+      const rangeUpdated = this.easePriceRange(delta);
+      if (rangeUpdated) this.needsStatic = true;
+
+      if (this.needsStatic && this.bgCtx) {
+        this.renderStaticTo(this.bgCtx);
+        this.needsStatic = false;
+        this.needsOverlay = true;
       }
+
+      if (this.needsOverlay) {
+        this.renderComposite();
+        this.needsOverlay = false;
+      }
+
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -185,8 +221,12 @@ export class ChartEngine {
     }
   }
 
-  private scheduleRender(): void {
-    this.needsRender = true;
+  private invalidateAll(): void {
+    this.updateTargetRange();
+    this.minPrice = this.targetMinPrice;
+    this.maxPrice = this.targetMaxPrice;
+    this.needsStatic = true;
+    this.needsOverlay = true;
   }
 
   private indexToX(i: number): number {
@@ -197,21 +237,22 @@ export class ChartEngine {
 
   private priceToY(p: number): number {
     const range = this.maxPrice - this.minPrice;
-    if (range === 0) return this.priceAreaTop + this.priceAreaHeight / 2;
+    if (!isFinite(range) || range === 0) return this.priceAreaTop + this.priceAreaHeight / 2;
     return this.priceAreaBottom - ((p - this.minPrice) / range) * this.priceAreaHeight;
   }
 
   private yToPrice(y: number): number {
     const range = this.maxPrice - this.minPrice;
+    if (!isFinite(range) || range === 0) return this.minPrice;
     return this.minPrice + ((this.priceAreaBottom - y) / this.priceAreaHeight) * range;
   }
 
   private volumeToY(v: number): number {
-    if (this.maxVolume === 0) return this.volumeAreaBottom;
+    if (!isFinite(v) || this.maxVolume === 0) return this.volumeAreaBottom;
     return this.volumeAreaBottom - (v / this.maxVolume) * (this.volumeAreaHeight - 4);
   }
 
-  private updateVisibleRange(): void {
+  private updateTargetRange(): void {
     const end = this.viewStart + this.viewCount;
     let minP = Infinity;
     let maxP = -Infinity;
@@ -227,9 +268,10 @@ export class ChartEngine {
       if (this.sma20[i] !== null && this.sma20[i]! > maxP) maxP = this.sma20[i]!;
       if (c.volume > maxV) maxV = c.volume;
     }
+    if (!isFinite(minP) || !isFinite(maxP)) return;
     const padding = (maxP - minP) * 0.08;
-    this.minPrice = minP - padding;
-    this.maxPrice = maxP + padding;
+    this.targetMinPrice = minP - padding;
+    this.targetMaxPrice = maxP + padding;
     this.maxVolume = maxV * 1.1;
 
     const chartWidth = this.width - this.paddingLeft - this.paddingRight;
@@ -237,30 +279,53 @@ export class ChartEngine {
     this.candleWidth = Math.max(1, step - this.candleGap);
   }
 
-  private render(): void {
-    if (this.data.length === 0) return;
-    this.updateVisibleRange();
+  private easePriceRange(deltaMs: number): boolean {
+    if (this.targetMinPrice === this.minPrice && this.targetMaxPrice === this.maxPrice) return false;
+    const t = Math.min(1, deltaMs / 220);
+    const alpha = 1 - Math.pow(1 - t, 3);
+    const newMin = this.minPrice + (this.targetMinPrice - this.minPrice) * alpha;
+    const newMax = this.maxPrice + (this.targetMaxPrice - this.maxPrice) * alpha;
+    const eps = Math.abs(this.targetMaxPrice - this.targetMinPrice) * 1e-4;
+    if (Math.abs(newMin - this.targetMinPrice) < eps && Math.abs(newMax - this.targetMaxPrice) < eps) {
+      this.minPrice = this.targetMinPrice;
+      this.maxPrice = this.targetMaxPrice;
+    } else {
+      this.minPrice = newMin;
+      this.maxPrice = newMax;
+    }
+    return true;
+  }
 
+  private renderComposite(): void {
     const ctx = this.ctx;
-    ctx.fillStyle = '#0f0f1f';
-    ctx.fillRect(0, 0, this.width, this.height);
-
-    this.drawGrid();
-    this.drawVolume();
-    this.drawCandles();
-    this.drawMA(this.sma5, '#f97316', 'rgba(249, 115, 22, 0.12)');
-    this.drawMA(this.sma20, '#3b82f6', 'rgba(59, 130, 246, 0.12)');
-    this.drawDivider();
-    this.drawPriceLabels();
-    this.drawTimeLabels();
-
+    if (this.bgCanvas) {
+      ctx.drawImage(this.bgCanvas, 0, 0, this.width, this.height);
+    } else {
+      ctx.fillStyle = '#0f0f1f';
+      ctx.fillRect(0, 0, this.width, this.height);
+    }
     if (this.crosshair && this.hovered) {
-      this.drawCrosshair();
+      this.drawCrosshair(ctx);
     }
   }
 
-  private drawGrid(): void {
-    const ctx = this.ctx;
+  private renderStaticTo(ctx: CanvasRenderingContext2D): void {
+    if (this.data.length === 0) return;
+
+    ctx.fillStyle = '#0f0f1f';
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    this.drawGrid(ctx);
+    this.drawVolume(ctx);
+    this.drawCandles(ctx);
+    this.drawMA(ctx, this.sma5, '#f97316', 'rgba(249, 115, 22, 0.12)');
+    this.drawMA(ctx, this.sma20, '#3b82f6', 'rgba(59, 130, 246, 0.12)');
+    this.drawDivider(ctx);
+    this.drawPriceLabels(ctx);
+    this.drawTimeLabels(ctx);
+  }
+
+  private drawGrid(ctx: CanvasRenderingContext2D): void {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -289,8 +354,7 @@ export class ChartEngine {
     ctx.stroke();
   }
 
-  private drawCandles(): void {
-    const ctx = this.ctx;
+  private drawCandles(ctx: CanvasRenderingContext2D): void {
     const end = this.viewStart + this.viewCount;
     const halfW = this.candleWidth / 2;
 
@@ -321,23 +385,22 @@ export class ChartEngine {
     }
   }
 
-  private drawMA(values: (number | null)[], color: string, shadowColor: string): void {
-    const ctx = this.ctx;
-    const end = this.viewStart + this.viewCount;
-    const pts: { x: number; y: number }[] = [];
+  private buildSmoothedCurve(values: (number | null)[]): Pt[] {
+    const smoothed = smoothMA(values, this.viewStart, this.viewCount, 2);
+    if (smoothed.length < 2) return [];
+    const pts: Pt[] = smoothed.map(s => ({ x: this.indexToX(s.x), y: this.priceToY(s.y) }));
+    return pts;
+  }
 
-    for (let i = this.viewStart; i < end; i++) {
-      const v = values[i];
-      if (v === null || v === undefined) continue;
-      pts.push({ x: this.indexToX(i), y: this.priceToY(v) });
-    }
-
+  private drawMA(ctx: CanvasRenderingContext2D, values: (number | null)[], color: string, shadowColor: string): void {
+    const pts = this.buildSmoothedCurve(values);
     if (pts.length < 2) return;
 
     ctx.fillStyle = shadowColor;
     ctx.beginPath();
     ctx.moveTo(pts[0].x, this.priceAreaBottom);
-    for (const p of pts) ctx.lineTo(p.x, p.y);
+    ctx.lineTo(pts[0].x, pts[0].y);
+    this.strokeCurvePath(ctx, pts);
     ctx.lineTo(pts[pts.length - 1].x, this.priceAreaBottom);
     ctx.closePath();
     ctx.fill();
@@ -346,21 +409,32 @@ export class ChartEngine {
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length - 2; i++) {
-      const xc = (pts[i].x + pts[i + 1].x) / 2;
-      const yc = (pts[i].y + pts[i + 1].y) / 2;
-      ctx.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
-    }
-    if (pts.length >= 2) {
-      const last2 = pts[pts.length - 2];
-      const last1 = pts[pts.length - 1];
-      ctx.quadraticCurveTo(last2.x, last2.y, last1.x, last1.y);
-    }
+    this.strokeCurvePath(ctx, pts);
     ctx.stroke();
   }
 
-  private drawVolume(): void {
-    const ctx = this.ctx;
+  private strokeCurvePath(ctx: CanvasRenderingContext2D, pts: Pt[]): void {
+    if (pts.length < 2) return;
+    if (pts.length === 2) {
+      ctx.lineTo(pts[1].x, pts[1].y);
+      return;
+    }
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    }
+  }
+
+  private drawVolume(ctx: CanvasRenderingContext2D): void {
     const end = this.viewStart + this.viewCount;
     const halfW = this.candleWidth / 2;
 
@@ -375,8 +449,7 @@ export class ChartEngine {
     }
   }
 
-  private drawDivider(): void {
-    const ctx = this.ctx;
+  private drawDivider(ctx: CanvasRenderingContext2D): void {
     ctx.strokeStyle = '#374151';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -385,8 +458,7 @@ export class ChartEngine {
     ctx.stroke();
   }
 
-  private drawPriceLabels(): void {
-    const ctx = this.ctx;
+  private drawPriceLabels(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = '#e2e8f0';
     ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     ctx.textAlign = 'right';
@@ -414,8 +486,7 @@ export class ChartEngine {
     }
   }
 
-  private drawTimeLabels(): void {
-    const ctx = this.ctx;
+  private drawTimeLabels(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = '#e2e8f0';
     ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
@@ -432,9 +503,8 @@ export class ChartEngine {
     }
   }
 
-  private drawCrosshair(): void {
+  private drawCrosshair(ctx: CanvasRenderingContext2D): void {
     if (!this.crosshair) return;
-    const ctx = this.ctx;
     const { x, y, price, dataIndex } = this.crosshair;
     const candle = this.data[dataIndex];
 
@@ -468,14 +538,16 @@ export class ChartEngine {
       ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
       const textW = ctx.measureText(label).width + 14;
       let lx = this.width - this.paddingRight - textW;
+      let ly = y - 10;
+      ly = Math.max(this.priceAreaTop, Math.min(this.priceAreaBottom - 20, ly));
       ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
       ctx.beginPath();
-      roundRect(ctx, lx, y - 10, textW, 20, 4);
+      roundRect(ctx, lx, ly, textW, 20, 4);
       ctx.fill();
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, lx + textW / 2, y);
+      ctx.fillText(label, lx + textW / 2, ly + 10);
     }
 
     const timeLabel = formatTime(candle.timestamp);
@@ -493,13 +565,12 @@ export class ChartEngine {
     ctx.textBaseline = 'middle';
     ctx.fillText(timeLabel, tx + timeW / 2, ty + 10);
 
-    this.drawTooltip(candle, price);
+    this.drawTooltip(ctx, candle);
     ctx.restore();
   }
 
-  private drawTooltip(candle: Candle, _currentPrice: number): void {
+  private drawTooltip(ctx: CanvasRenderingContext2D, candle: Candle): void {
     if (!this.crosshair) return;
-    const ctx = this.ctx;
     const isUp = candle.close >= candle.open;
     const chg = candle.close - candle.open;
     const chgPct = (chg / candle.open) * 100;
@@ -526,13 +597,27 @@ export class ChartEngine {
     const lineH = 20;
     const boxW = maxW + padX * 2 + 42;
     const boxH = lines.length * lineH + padY * 2;
+    const gap = 14;
 
-    let bx = this.crosshair.x + 16;
-    let by = this.priceAreaTop + 10;
-    if (bx + boxW > this.width - this.paddingRight) {
-      bx = this.crosshair.x - boxW - 16;
+    let bx = this.crosshair.x + gap;
+    let by = this.crosshair.y + gap;
+
+    const minX = this.paddingLeft + 4;
+    const maxX = this.width - this.paddingRight - 4;
+    const minY = this.priceAreaTop + 4;
+    const maxY = this.priceAreaBottom - 4;
+
+    if (bx + boxW > maxX) {
+      bx = this.crosshair.x - boxW - gap;
     }
-    if (bx < this.paddingLeft + 4) bx = this.paddingLeft + 4;
+    if (bx < minX) bx = minX;
+    if (bx + boxW > maxX) bx = maxX - boxW;
+
+    if (by + boxH > maxY) {
+      by = this.crosshair.y - boxH - gap;
+    }
+    if (by < minY) by = minY;
+    if (by + boxH > maxY) by = maxY - boxH;
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';

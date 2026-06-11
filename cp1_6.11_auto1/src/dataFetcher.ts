@@ -19,42 +19,74 @@ export function generateKlineData(count: number = 500): Candle[] {
   const data: Candle[] = [];
   const intervalMs = 60 * 60 * 1000;
   const now = Date.now();
+
   let price = 42000 + Math.random() * 8000;
-  let trend = 0;
-  let trendStrength = 0;
-  let regimeChangeCounter = 0;
+  const longTermMean = price;
+
+  let mu = 0;
+  let sigma = 0.012;
+  let sigmaSq = sigma * sigma;
+
+  const garchOmega = 1.5e-6;
+  const garchAlpha = 0.12;
+  const garchBeta = 0.82;
+
+  const ouTheta = 0.018;
+  const regimeLenMin = 35;
+  const regimeLenMax = 95;
+  let regimeCounter = 0;
+  let regimeLen = regimeLenMin + Math.floor(Math.random() * (regimeLenMax - regimeLenMin));
+  let regimeDrift = (Math.random() - 0.5) * 0.004;
+
+  let prevReturn = 0;
 
   for (let i = count - 1; i >= 0; i--) {
     const timestamp = now - i * intervalMs;
 
-    regimeChangeCounter++;
-    if (regimeChangeCounter > 40 + Math.random() * 60) {
-      regimeChangeCounter = 0;
-      trendStrength = (Math.random() - 0.5) * 0.006;
+    regimeCounter++;
+    if (regimeCounter >= regimeLen) {
+      regimeCounter = 0;
+      regimeLen = regimeLenMin + Math.floor(Math.random() * (regimeLenMax - regimeLenMin));
+      regimeDrift = (Math.random() - 0.5) * 0.006;
     }
-    trend = trend * 0.92 + trendStrength * 0.08;
 
-    const volatility = 0.012 + Math.random() * 0.025;
-    const drift = trend + gaussianRandom() * volatility * 0.35;
+    mu = mu * 0.94 + regimeDrift * 0.06;
+
+    const innovation = gaussianRandom();
+    const shock = innovation * sigma;
+    sigmaSq = garchOmega + garchAlpha * prevReturn * prevReturn + garchBeta * sigmaSq;
+    sigma = Math.sqrt(sigmaSq);
+
+    const ouPull = ouTheta * (longTermMean - price) / price;
+
+    const dt = 1;
+    const drift = (mu + ouPull - 0.5 * sigmaSq) * dt;
+    const ret = drift + shock;
+
+    prevReturn = ret;
 
     let gapFactor = 1;
-    if (Math.random() < 0.015) {
-      gapFactor = 1 + (Math.random() - 0.5) * 0.035;
+    const gapProb = Math.random();
+    if (gapProb < 0.008) {
+      gapFactor = 1 + (Math.random() - 0.5) * 0.025;
+    } else if (gapProb < 0.012) {
+      gapFactor = 1 + (Math.random() - 0.5) * 0.05;
     }
 
     const open = price * gapFactor;
-    const closeChange = drift + gaussianRandom() * volatility * 0.55;
-    let close = open * (1 + closeChange);
+    let close = open * (1 + ret);
+    if (close <= 0) close = open * 0.95;
 
-    const wickUp = Math.abs(gaussianRandom()) * volatility * 0.45;
-    const wickDown = Math.abs(gaussianRandom()) * volatility * 0.45;
+    const wickUp = Math.abs(gaussianRandom()) * sigma * 0.65;
+    const wickDown = Math.abs(gaussianRandom()) * sigma * 0.65;
 
-    const high = Math.max(open, close) * (1 + wickUp);
-    const low = Math.min(open, close) * (1 - wickDown);
+    const high = Math.max(open, close) * (1 + Math.max(0, wickUp + ret * 0.3));
+    const low = Math.min(open, close) * (1 - Math.max(0, wickDown - ret * 0.3));
 
-    const baseVolume = 800000 + Math.random() * 1500000;
-    const volMultiplier = 1 + Math.abs(closeChange / volatility) * 2.2;
-    const volume = Math.floor(baseVolume * volMultiplier * (0.6 + Math.random() * 0.8));
+    const baseVolume = 600000 + Math.random() * 1200000;
+    const volMultiplier = 1 + Math.abs(ret) / sigma * 2.5;
+    const volRegimeMod = 0.8 + Math.abs(regimeDrift) * 120;
+    const volume = Math.floor(baseVolume * volMultiplier * volRegimeMod * (0.55 + Math.random() * 0.9));
 
     data.push({
       timestamp,
@@ -88,7 +120,36 @@ export function calculateSMA(data: Candle[], period: number): (number | null)[] 
   return result;
 }
 
+export function smoothMA(
+  values: (number | null)[],
+  viewStart: number,
+  viewCount: number,
+  passes: number = 2
+): { x: number; y: number }[] {
+  const raw: { idx: number; v: number }[] = [];
+  const end = viewStart + viewCount;
+  for (let i = viewStart; i < end; i++) {
+    const v = values[i];
+    if (v !== null && v !== undefined) raw.push({ idx: i, v });
+  }
+  if (raw.length < 2) return [];
+
+  let ys = raw.map(r => r.v);
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Array(ys.length);
+    next[0] = ys[0];
+    next[ys.length - 1] = ys[ys.length - 1];
+    for (let i = 1; i < ys.length - 1; i++) {
+      next[i] = (ys[i - 1] + 2 * ys[i] + ys[i + 1]) / 4;
+    }
+    ys = next;
+  }
+
+  return raw.map((r, i) => ({ x: r.idx, y: ys[i] }));
+}
+
 export function formatPrice(price: number): string {
+  if (!isFinite(price)) return '0.00';
   if (price >= 1000) {
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -96,6 +157,7 @@ export function formatPrice(price: number): string {
 }
 
 export function formatVolume(vol: number): string {
+  if (!isFinite(vol)) return '0';
   if (vol >= 1e9) return (vol / 1e9).toFixed(2) + 'B';
   if (vol >= 1e6) return (vol / 1e6).toFixed(2) + 'M';
   if (vol >= 1e3) return (vol / 1e3).toFixed(2) + 'K';
