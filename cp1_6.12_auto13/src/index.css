@@ -521,6 +521,7 @@ button {
   transition: all var(--transition-fast);
   position: relative;
   min-height: 52px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .option-btn:hover:not(.disabled):not([disabled]) {
@@ -765,18 +766,31 @@ button {
 
   .app-main {
     padding: 16px 12px 32px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .card {
     padding: 16px;
+    width: 100%;
   }
 
   .nav-controls {
     flex-wrap: wrap;
+    justify-content: center;
   }
 
   .stats-overview {
     grid-template-columns: 1fr;
+  }
+
+  .stats-dashboard {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .question-panel {
+    width: 100%;
   }
 
   .question-title {
@@ -787,6 +801,12 @@ button {
     padding: 12px 14px;
     font-size: 14px;
     min-height: 52px;
+    width: 100%;
+  }
+
+  .submit-btn {
+    min-height: 48px;
+    width: 100%;
   }
 
   .ctrl-btn {
@@ -814,10 +834,6 @@ button {
     font-size: 24px;
   }
 
-  .nav-controls {
-    justify-content: center;
-  }
-
   .question-dots {
     justify-content: center;
   }
@@ -829,10 +845,12 @@ button {
   .charts-row {
     flex-direction: column;
     gap: 16px;
+    width: 100%;
   }
 
   .chart-half {
     width: 100%;
+    flex: none;
   }
 
   .option-input-row {
@@ -842,6 +860,24 @@ button {
   .option-input-row input[type='text'] {
     min-width: 180px;
     flex: 1;
+  }
+
+  .question-panel,
+  .stats-chart,
+  .stat-card {
+    box-sizing: border-box;
+  }
+
+  .stats-chart {
+    width: 100%;
+  }
+
+  .student-stats-toggle {
+    width: 100%;
+  }
+
+  .student-stats-toggle .ctrl-btn {
+    width: 100%;
   }
 }
 

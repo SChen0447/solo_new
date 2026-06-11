@@ -141,17 +141,22 @@ function App() {
   };
 
   const handleEndQuestion = async () => {
-    await fetch('/api/questions/end', { method: 'POST' });
-    await fetchQuestions();
+    setQuestionEnded(true);
     setSubmitted(true);
+    await fetch('/api/questions/end', { method: 'POST' });
+    fetchQuestions();
   };
 
   const handleNewQuestion = async () => {
-    await fetch('/api/questions/new', { method: 'POST' });
-    await fetchQuestions();
     setSelectedOptions([]);
     setSubmitted(false);
     setFeedback(null);
+    setQuestionEnded(false);
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    }
+    await fetch('/api/questions/new', { method: 'POST' });
+    fetchQuestions();
   };
 
   const handleCreateQuestion = async () => {

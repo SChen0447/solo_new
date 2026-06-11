@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Question, AnswerFeedback } from '../types';
 
 interface QuestionPanelProps {
@@ -17,29 +17,57 @@ function QuestionPanel({
   question,
   questionIndex,
   totalQuestions,
-  selectedOptions,
-  submitted,
+  selectedOptions: parentSelectedOptions,
+  submitted: parentSubmitted,
   feedback,
   questionEnded,
   onToggleOption,
   onSubmit,
 }: QuestionPanelProps) {
+  const [localSelected, setLocalSelected] = useState<number[]>(parentSelectedOptions);
   const [localSubmitted, setLocalSubmitted] = useState(false);
   const [localIsCorrect, setLocalIsCorrect] = useState<boolean | null>(null);
 
   useEffect(() => {
+    setLocalSelected(parentSelectedOptions);
+  }, [parentSelectedOptions]);
+
+  useEffect(() => {
+    setLocalSelected([]);
     setLocalSubmitted(false);
     setLocalIsCorrect(null);
   }, [question?.id, questionIndex]);
 
-  const handleLocalSubmit = () => {
-    if (!question || selectedOptions.length === 0 || localSubmitted || questionEnded) return;
-
-    const correctAnswerArr = Array.isArray(question.correctAnswer)
+  const correctAnswerArr = question
+    ? Array.isArray(question.correctAnswer)
       ? question.correctAnswer
-      : [question.correctAnswer];
+      : [question.correctAnswer]
+    : [];
+
+  const handleToggleOption = useCallback(
+    (optionIndex: number) => {
+      if (localSubmitted || questionEnded || !question) return;
+
+      let next: number[];
+      if (question.type === 'multiple') {
+        next = localSelected.includes(optionIndex)
+          ? localSelected.filter((i) => i !== optionIndex)
+          : [...localSelected, optionIndex];
+      } else {
+        next = [optionIndex];
+      }
+
+      setLocalSelected(next);
+      onToggleOption(optionIndex);
+    },
+    [localSelected, localSubmitted, questionEnded, question, onToggleOption]
+  );
+
+  const handleLocalSubmit = useCallback(() => {
+    if (!question || localSelected.length === 0 || localSubmitted || questionEnded) return;
+
     const sortedCorrect = [...correctAnswerArr].sort();
-    const sortedSelected = [...selectedOptions].sort();
+    const sortedSelected = [...localSelected].sort();
     const isCorrect =
       sortedCorrect.length === sortedSelected.length &&
       sortedCorrect.every((v, i) => v === sortedSelected[i]);
@@ -48,7 +76,7 @@ function QuestionPanel({
     setLocalSubmitted(true);
 
     onSubmit();
-  };
+  }, [question, localSelected, localSubmitted, questionEnded, correctAnswerArr, onSubmit]);
 
   if (!question) {
     return (
@@ -66,27 +94,25 @@ function QuestionPanel({
     boolean: '判断题',
   }[question.type];
 
-  const correctAnswerArr = Array.isArray(question.correctAnswer)
-    ? question.correctAnswer
-    : [question.correctAnswer];
-
   const showFeedbackStates = localSubmitted || questionEnded;
 
   const getOptionClass = (index: number) => {
     const base = 'option-btn';
     if (!showFeedbackStates) {
-      return selectedOptions.includes(index) ? `${base} selected` : base;
+      return localSelected.includes(index) ? `${base} selected` : base;
     }
     const isCorrectOption = correctAnswerArr.includes(index);
-    const isSelected = selectedOptions.includes(index);
+    const isSelected = localSelected.includes(index);
     if (isCorrectOption) return `${base} correct`;
     if (isSelected && !isCorrectOption) return `${base} wrong`;
     return `${base} disabled`;
   };
 
-  const showFeedback = localSubmitted || (questionEnded && (submitted || selectedOptions.length > 0));
+  const showFeedback =
+    localSubmitted || (questionEnded && (parentSubmitted || localSelected.length > 0));
 
-  const effectiveIsCorrect = localIsCorrect ?? feedback?.isCorrect ?? null;
+  const effectiveIsCorrect =
+    localIsCorrect ?? feedback?.isCorrect ?? null;
   const effectiveExplanation = feedback?.explanation || question.explanation;
 
   return (
@@ -112,7 +138,7 @@ function QuestionPanel({
           <button
             key={`${question.id}-${index}`}
             className={getOptionClass(index)}
-            onClick={() => onToggleOption(index)}
+            onClick={() => handleToggleOption(index)}
             disabled={showFeedbackStates}
           >
             <span className="option-letter">{String.fromCharCode(65 + index)}</span>
@@ -120,9 +146,11 @@ function QuestionPanel({
             {showFeedbackStates && correctAnswerArr.includes(index) && (
               <span className="option-icon correct-icon">✓</span>
             )}
-            {showFeedbackStates && selectedOptions.includes(index) && !correctAnswerArr.includes(index) && (
-              <span className="option-icon wrong-icon">✗</span>
-            )}
+            {showFeedbackStates &&
+              localSelected.includes(index) &&
+              !correctAnswerArr.includes(index) && (
+                <span className="option-icon wrong-icon">✗</span>
+              )}
           </button>
         ))}
       </div>
@@ -131,7 +159,7 @@ function QuestionPanel({
         <button
           className="submit-btn"
           onClick={handleLocalSubmit}
-          disabled={selectedOptions.length === 0}
+          disabled={localSelected.length === 0}
         >
           提交答案
         </button>
@@ -139,7 +167,9 @@ function QuestionPanel({
 
       {showFeedback && effectiveIsCorrect !== null && (
         <div
-          className={`feedback ${effectiveIsCorrect ? 'feedback-correct' : 'feedback-wrong'}`}
+          className={`feedback ${
+            effectiveIsCorrect ? 'feedback-correct' : 'feedback-wrong'
+          }`}
         >
           <div className="feedback-result">
             {effectiveIsCorrect ? '🎉 回答正确！' : '❌ 回答错误'}
