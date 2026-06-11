@@ -4,6 +4,9 @@ import { FluidEngine } from './fluid/fluidEngine';
 import { FluidRenderer } from './fluid/fluidRenderer';
 import { ControlPanel } from './ui/controlPanel';
 import { ExportData, PerformanceStats } from './types';
+import { eventBus } from './eventBus';
+
+const EXPORT_VERSION = '1.1';
 
 class App {
   private canvas: HTMLCanvasElement;
@@ -45,25 +48,21 @@ class App {
     this.controlPanel = new ControlPanel(appEl);
 
     this.terrainRenderer.setTerrainEditor(this.terrainEditor);
-    this.fluidEngine.setTerrainEditor(this.terrainEditor);
 
-    const cellSize = this.terrainRenderer.getCellSize();
-    this.fluidEngine.setCellSize(cellSize);
+    const hm = this.terrainEditor.getHeightMap();
+    this.fluidEngine.setHeightMapReader(this.terrainEditor, hm.cols, hm.rows);
+    this.fluidEngine.setCellSize(this.terrainRenderer.getCellSize());
 
     this.setupCallbacks();
     this.handleResize();
 
     window.addEventListener('resize', () => this.handleResize());
 
-    this.terrainEditor.onChange((hm) => {
-      this.fluidEngine.notifyTerrainModified(this.terrainEditor.getModifiedCells());
-    });
-
-    this.terrainRenderer.onEdit((_gx, _gy, tool) => {
-      this.controlPanel.setToolChangeHandler((t) => {
-        this.terrainRenderer.setTool(t);
-      });
-      void tool;
+    eventBus.on('terrain:heights:changed', (payload) => {
+      const hm = payload as ReturnType<TerrainEditor['getHeightMap']>;
+      if (hm && hm.cols && hm.rows) {
+        this.fluidEngine.setHeightMapReader(this.terrainEditor, hm.cols, hm.rows);
+      }
     });
 
     this.lastTime = performance.now();
@@ -74,11 +73,11 @@ class App {
   private setupCallbacks(): void {
     this.controlPanel.setToolChangeHandler((tool) => {
       this.terrainRenderer.setTool(tool);
+      eventBus.emit('tool:changed', tool);
     });
 
     this.controlPanel.setWeatherChangeHandler((weather) => {
       this.fluidEngine.setWeather(weather);
-      this.controlPanel.updateWeatherLabel(weather);
     });
 
     this.controlPanel.setExportHandler(() => {
@@ -135,7 +134,8 @@ class App {
       this.fluidEngine.getRipples(),
       this.fluidEngine.getSnowCover(),
       hm,
-      this.terrainRenderer.getCellSize()
+      this.terrainRenderer.getCellSize(),
+      this.fluidEngine.getLodClusters()
     );
 
     const stats: PerformanceStats = {
@@ -150,12 +150,17 @@ class App {
 
   private exportState(): void {
     const terrainData = this.terrainEditor.exportData();
+    const viewTransform = this.terrainRenderer.getViewTransform();
     const exportData: ExportData = {
+      version: EXPORT_VERSION,
       heightMap: terrainData.heightMap,
       cols: terrainData.cols,
       rows: terrainData.rows,
       seed: this.fluidEngine.exportSeed(),
       weather: this.fluidEngine.getWeather(),
+      tool: this.controlPanel.getCurrentTool(),
+      viewTransform,
+      cellSize: this.terrainRenderer.getCellSize(),
     };
 
     const json = JSON.stringify(exportData, null, 2);
@@ -177,12 +182,24 @@ class App {
       }
       const floatData = new Float32Array(data.heightMap);
       this.terrainEditor.loadHeightMap(floatData, data.cols, data.rows);
+
+      this.fluidEngine.setHeightMapReader(this.terrainEditor, data.cols, data.rows);
+
       if (data.weather) {
         this.fluidEngine.setWeather(data.weather);
-        this.controlPanel.updateWeatherLabel(data.weather);
+        this.controlPanel.setWeather(data.weather);
       }
-      const hm = this.terrainEditor.getHeightMap();
-      this.terrainRenderer.centerView(hm.cols, hm.rows);
+      if (data.tool) {
+        this.terrainRenderer.setTool(data.tool);
+        this.controlPanel.setTool(data.tool);
+      }
+      if (data.viewTransform) {
+        this.terrainRenderer.setViewTransform(data.viewTransform);
+      }
+      if (data.cellSize) {
+        this.terrainRenderer.setCellSize(data.cellSize);
+        this.fluidEngine.setCellSize(data.cellSize);
+      }
     } catch (e) {
       console.error('Failed to import config:', e);
     }
@@ -193,6 +210,7 @@ class App {
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
     }
+    eventBus.clear();
   }
 }
 

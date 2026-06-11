@@ -1,26 +1,53 @@
-import { HeightMap, ToolType } from '../types';
+import { HeightMap, ToolType, TerrainModifiedPayload } from '../types';
+import { eventBus } from '../eventBus';
+
+const LOW_AREA_THRESHOLD = 0.2;
 
 export class TerrainEditor {
   private heightMap: HeightMap;
-  private onChangeCallback: ((hm: HeightMap) => void) | null = null;
-  private modifiedCells: Set<number> = new Set();
   private brushRadius: number = 3;
   private brushStrength: number = 0.02;
   private lastEditTime: number = 0;
+  private modifiedCells: Set<number> = new Set();
+  private flowFieldDirty: boolean = true;
+  private gaussianKernel: number[] = [];
+  private gaussianRadius: number = 0;
 
   constructor(cols: number = 100, rows: number = 60) {
     this.heightMap = {
       cols,
       rows,
       data: new Float32Array(cols * rows),
+      flowFieldX: new Float32Array(cols * rows),
+      flowFieldY: new Float32Array(cols * rows),
+      flowFieldComputed: false,
     };
+    this.buildGaussianKernel(this.brushRadius);
     this.generateDefaultTerrain();
+  }
+
+  private buildGaussianKernel(radius: number): void {
+    const size = radius * 2 + 1;
+    this.gaussianKernel = new Array(size * size);
+    this.gaussianRadius = radius;
+    const sigma = radius / 2.0;
+    let sum = 0;
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const dist2 = dx * dx + dy * dy;
+        const v = Math.exp(-dist2 / (2 * sigma * sigma));
+        this.gaussianKernel[(dy + radius) * size + (dx + radius)] = v;
+        sum += v;
+      }
+    }
+    for (let i = 0; i < this.gaussianKernel.length; i++) {
+      this.gaussianKernel[i] /= sum;
+    }
   }
 
   private generateDefaultTerrain(): void {
     const { cols, rows, data } = this.heightMap;
     const cx = cols / 2;
-    const cy = rows / 2;
 
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
@@ -46,32 +73,36 @@ export class TerrainEditor {
 
         const riverX = cx + 8 * Math.sin(y * 0.15);
         const riverDist = Math.abs(x - riverX);
-        if (riverDist < 4) {
-          h -= 0.15 * (1.0 - riverDist / 4);
+        if (riverDist < 5) {
+          h -= 0.18 * (1.0 - riverDist / 5);
         }
 
         const lakeCx = cols * 0.65;
-        const lakeCy = rows * 0.65;
+        const lakeCy = rows * 0.7;
         const lakeDist = Math.sqrt((x - lakeCx) ** 2 + (y - lakeCy) ** 2) / (rows * 0.18);
         if (lakeDist < 1.0) {
-          h -= 0.2 * (1.0 - lakeDist * lakeDist);
+          h -= 0.22 * (1.0 - lakeDist * lakeDist);
         }
 
         const cliffY = rows * 0.45;
-        if (y > cliffY && y < cliffY + 2 && x > cols * 0.25 && x < cols * 0.45) {
-          h += 0.25;
+        if (y > cliffY - 1 && y < cliffY + 3 && x > cols * 0.25 && x < cols * 0.48) {
+          if (y < cliffY) {
+            h += 0.12 * (1 - (cliffY - y) / 2);
+          } else {
+            h -= 0.15 * (1 - (y - cliffY) / 3);
+          }
         }
 
         data[idx] = Math.max(0.0, Math.min(1.0, h));
       }
     }
-  }
-
-  onChange(cb: (hm: HeightMap) => void): void {
-    this.onChangeCallback = cb;
+    this.flowFieldDirty = true;
   }
 
   getHeightMap(): HeightMap {
+    if (this.flowFieldDirty) {
+      this.computeGlobalFlowField();
+    }
     return this.heightMap;
   }
 
@@ -104,18 +135,168 @@ export class TerrainEditor {
 
   getGradient(gridX: number, gridY: number): { dx: number; dy: number } {
     const { cols, rows } = this.heightMap;
-    const gx = Math.floor(gridX);
-    const gy = Math.floor(gridY);
-    const h = this.getHeight(gx, gy);
-    const hRight = this.getHeight(Math.min(gx + 1, cols - 1), gy);
-    const hDown = this.getHeight(gx, Math.min(gy + 1, rows - 1));
+    const h = this.getHeight(gridX, gridY);
+    const hRight = this.getHeight(Math.min(gridX + 1, cols - 1), gridY);
+    const hDown = this.getHeight(gridX, Math.min(gridY + 1, rows - 1));
+    return { dx: hRight - h, dy: hDown - h };
+  }
+
+  getFlowDirection(gridX: number, gridY: number): { dx: number; dy: number } {
+    if (this.flowFieldDirty) {
+      this.computeGlobalFlowField();
+    }
+    const { cols, rows, flowFieldX, flowFieldY } = this.heightMap;
+    const gx = Math.max(0, Math.min(cols - 1, Math.floor(gridX)));
+    const gy = Math.max(0, Math.min(rows - 1, Math.floor(gridY)));
+    const idx = gy * cols + gx;
     return {
-      dx: hRight - h,
-      dy: hDown - h,
+      dx: flowFieldX ? flowFieldX[idx] : 0,
+      dy: flowFieldY ? flowFieldY[idx] : 0,
     };
   }
 
-  isLowArea(gridX: number, gridY: number, threshold: number = 0.2): boolean {
+  private computeGlobalFlowField(): void {
+    const { cols, rows, data, flowFieldX, flowFieldY } = this.heightMap;
+    if (!flowFieldX || !flowFieldY) {
+      this.heightMap.flowFieldX = new Float32Array(cols * rows);
+      this.heightMap.flowFieldY = new Float32Array(cols * rows);
+      this.computeGlobalFlowField();
+      return;
+    }
+
+    const exitPoints: { x: number; y: number }[] = [];
+    for (let x = 0; x < cols; x++) {
+      if (data[x] < LOW_AREA_THRESHOLD) exitPoints.push({ x, y: 0 });
+      const bottomIdx = (rows - 1) * cols + x;
+      if (data[bottomIdx] < LOW_AREA_THRESHOLD + 0.05) exitPoints.push({ x, y: rows - 1 });
+    }
+    for (let y = 0; y < rows; y++) {
+      if (data[y * cols] < LOW_AREA_THRESHOLD) exitPoints.push({ x: 0, y });
+      const rightIdx = y * cols + (cols - 1);
+      if (data[rightIdx] < LOW_AREA_THRESHOLD) exitPoints.push({ x: cols - 1, y });
+    }
+
+    const dist = new Float32Array(cols * rows);
+    dist.fill(Infinity);
+    const visited = new Uint8Array(cols * rows);
+    const queue: number[] = [];
+
+    for (const ep of exitPoints) {
+      const idx = ep.y * cols + ep.x;
+      dist[idx] = data[idx];
+      queue.push(idx);
+      visited[idx] = 1;
+    }
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = y * cols + x;
+        if (data[idx] < LOW_AREA_THRESHOLD) {
+          dist[idx] = Math.min(dist[idx], data[idx]);
+          if (!visited[idx]) {
+            queue.push(idx);
+            visited[idx] = 1;
+          }
+        }
+      }
+    }
+
+    while (queue.length > 0) {
+      const idx = queue.shift()!;
+      const cx = idx % cols;
+      const cy = Math.floor(idx / cols);
+      const neighbors = [
+        [cx - 1, cy],
+        [cx + 1, cy],
+        [cx, cy - 1],
+        [cx, cy + 1],
+      ];
+      for (const [nx, ny] of neighbors) {
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+        const nidx = ny * cols + nx;
+        const newDist = Math.max(dist[idx], data[nidx]);
+        if (newDist < dist[nidx]) {
+          dist[nidx] = newDist;
+          if (!visited[nidx]) {
+            queue.push(nidx);
+            visited[nidx] = 1;
+          }
+        }
+      }
+    }
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = y * cols + x;
+        const cx = x;
+        const cy = y;
+
+        let bestIdx = -1;
+        let bestDist = dist[idx];
+        const neighbors = [
+          [cx - 1, cy],
+          [cx + 1, cy],
+          [cx, cy - 1],
+          [cx, cy + 1],
+          [cx - 1, cy - 1],
+          [cx + 1, cy - 1],
+          [cx - 1, cy + 1],
+          [cx + 1, cy + 1],
+        ];
+        for (const [nx, ny] of neighbors) {
+          if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+          const nidx = ny * cols + nx;
+          if (dist[nidx] < bestDist) {
+            bestDist = dist[nidx];
+            bestIdx = nidx;
+          }
+        }
+
+        if (bestIdx >= 0) {
+          const bx = bestIdx % cols;
+          const by = Math.floor(bestIdx / cols);
+          let ddx = bx - cx;
+          let ddy = by - cy;
+          const len = Math.sqrt(ddx * ddx + ddy * ddy);
+          if (len > 0) {
+            ddx /= len;
+            ddy /= len;
+          }
+
+          const localGrad = this.getGradient(cx, cy);
+          const localLen = Math.sqrt(localGrad.dx * localGrad.dx + localGrad.dy * localGrad.dy);
+          if (localLen > 0.001) {
+            const blend = Math.min(1.0, localLen * 10);
+            ddx = ddx * (1 - blend) + (localGrad.dx / localLen) * blend;
+            ddy = ddy * (1 - blend) + (localGrad.dy / localLen) * blend;
+            const bl = Math.sqrt(ddx * ddx + ddy * ddy);
+            if (bl > 0) {
+              ddx /= bl;
+              ddy /= bl;
+            }
+          }
+
+          flowFieldX[idx] = ddx;
+          flowFieldY[idx] = ddy;
+        } else {
+          const g = this.getGradient(cx, cy);
+          const gl = Math.sqrt(g.dx * g.dx + g.dy * g.dy);
+          if (gl > 0) {
+            flowFieldX[idx] = g.dx / gl;
+            flowFieldY[idx] = g.dy / gl;
+          } else {
+            flowFieldX[idx] = 0;
+            flowFieldY[idx] = 0.3;
+          }
+        }
+      }
+    }
+
+    this.heightMap.flowFieldComputed = true;
+    this.flowFieldDirty = false;
+  }
+
+  isLowArea(gridX: number, gridY: number, threshold: number = LOW_AREA_THRESHOLD): boolean {
     return this.getHeight(gridX, gridY) < threshold;
   }
 
@@ -129,6 +310,9 @@ export class TerrainEditor {
     const { cols, rows, data } = this.heightMap;
     const r = this.brushRadius;
     this.modifiedCells.clear();
+    const size = r * 2 + 1;
+
+    let minX = cols, minY = rows, maxX = -1, maxY = -1;
 
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
@@ -137,7 +321,10 @@ export class TerrainEditor {
         if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > r) continue;
-        const falloff = 1.0 - dist / r;
+
+        const kernelV = this.gaussianKernel[(dy + r) * size + (dx + r)];
+        const falloff = kernelV * ((r + 1) * (r + 1) * 3.14159);
+
         const idx = ny * cols + nx;
 
         switch (tool) {
@@ -161,18 +348,31 @@ export class TerrainEditor {
               }
             }
             const avg = sum / count;
-            data[idx] += (avg - data[idx]) * 0.3 * falloff;
+            data[idx] += (avg - data[idx]) * 0.35 * falloff;
             break;
           }
         }
         this.modifiedCells.add(idx);
+        if (nx < minX) minX = nx;
+        if (ny < minY) minY = ny;
+        if (nx > maxX) maxX = nx;
+        if (ny > maxY) maxY = ny;
       }
     }
 
     this.lastEditTime = performance.now();
-    if (this.onChangeCallback) {
-      this.onChangeCallback(this.heightMap);
-    }
+    this.flowFieldDirty = true;
+
+    const payload: TerrainModifiedPayload = {
+      heightMap: this.heightMap,
+      modifiedCells: this.modifiedCells,
+      modifiedBounds:
+        minX <= maxX && minY <= maxY
+          ? { minX: minX - r, minY: minY - r, maxX: maxX + r, maxY: maxY + r }
+          : null,
+    };
+    eventBus.emit('terrain:modified', payload);
+    eventBus.emit('terrain:heights:changed', this.heightMap);
 
     return performance.now() - startTime;
   }
@@ -186,18 +386,30 @@ export class TerrainEditor {
   }
 
   setBrushRadius(r: number): void {
-    this.brushRadius = Math.max(1, Math.min(10, r));
+    this.brushRadius = Math.max(1, Math.min(12, r));
+    this.buildGaussianKernel(this.brushRadius);
   }
 
   setBrushStrength(s: number): void {
-    this.brushStrength = Math.max(0.005, Math.min(0.1, s));
+    this.brushStrength = Math.max(0.005, Math.min(0.15, s));
   }
 
   loadHeightMap(data: Float32Array, cols: number, rows: number): void {
-    this.heightMap = { cols, rows, data: new Float32Array(data) };
-    if (this.onChangeCallback) {
-      this.onChangeCallback(this.heightMap);
-    }
+    this.heightMap = {
+      cols,
+      rows,
+      data: new Float32Array(data),
+      flowFieldX: new Float32Array(cols * rows),
+      flowFieldY: new Float32Array(cols * rows),
+      flowFieldComputed: false,
+    };
+    this.flowFieldDirty = true;
+    eventBus.emit('terrain:heights:changed', this.heightMap);
+    eventBus.emit('terrain:modified', {
+      heightMap: this.heightMap,
+      modifiedCells: new Set<number>(),
+      modifiedBounds: null,
+    } as TerrainModifiedPayload);
   }
 
   exportData(): { heightMap: number[]; cols: number; rows: number } {

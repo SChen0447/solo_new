@@ -358,4 +358,23 @@ export class ControlPanel {
   getCurrentWeather(): WeatherType {
     return this.currentWeather;
   }
+
+  setTool(tool: ToolType): void {
+    this.currentTool = tool;
+    this.toolbar.querySelectorAll('[data-tool]').forEach((b) => {
+      const btn = b as HTMLElement;
+      if (btn.dataset.tool === tool) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  }
+
+  setWeather(weather: WeatherType): void {
+    this.currentWeather = weather;
+    this.toolbar.querySelectorAll('[data-weather]').forEach((b) => {
+      const btn = b as HTMLElement;
+      if (btn.dataset.weather === weather) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+    this.updateWeatherLabel(weather);
+  }
 }

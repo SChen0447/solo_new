@@ -122,6 +122,10 @@ export class TerrainRenderer {
     return { ...this.viewTransform };
   }
 
+  setViewTransform(vt: ViewTransform): void {
+    this.viewTransform = { ...vt };
+  }
+
   setCellSize(size: number): void {
     this.cellSize = size;
   }
