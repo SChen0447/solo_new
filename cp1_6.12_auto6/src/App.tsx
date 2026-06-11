@@ -6,7 +6,6 @@ import {
   add,
   update,
   remove,
-  reorder,
   filterAndSort,
   getAllTags,
   type Inspiration,
@@ -27,7 +26,7 @@ function loadPrefs(): Prefs {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) return JSON.parse(raw)
   } catch {}
-  return { selectedTag: '', sortField: 'createdAt', sortOrder: 'desc' }
+  return { selectedTag: '', sortField: 'order', sortOrder: 'asc' }
 }
 
 function savePrefs(prefs: Prefs) {
@@ -41,42 +40,42 @@ function generateSampleData(): Inspiration[] {
     {
       title: '极简主义设计灵感',
       url: 'https://dribbble.com',
-      description: '收集了一些极简主义的UI设计案例，留白和排版都非常考究',
+      description: '收集了一些极简主义的UI设计案例，留白和排版都非常考究，适合做产品设计参考。',
       colorTag: '#7158e2',
       notes: '可以参考用于下一个项目的首页设计'
     },
     {
       title: 'Midjourney 提示词技巧',
       url: 'https://midjourney.com',
-      description: '整理了一些好用的AI绘画提示词，适合生成概念图',
+      description: '整理了一些好用的AI绘画提示词，适合生成概念图。',
       colorTag: '#ff6b9d',
       notes: ''
     },
     {
       title: 'CSS Grid 完全指南',
       url: 'https://css-tricks.com',
-      description: '非常详细的 Grid 布局教程，从入门到精通',
+      description: '非常详细的 Grid 布局教程，从入门到精通，包含大量实战案例。',
       colorTag: '#3ae374',
       notes: '瀑布流布局可以参考这里的技巧'
     },
     {
       title: '配色方案收集',
       url: 'https://coolors.co',
-      description: '一个在线配色工具，可以生成和谐的配色方案',
+      description: '一个在线配色工具，可以生成和谐的配色方案，支持导出多种格式。',
       colorTag: '#ff9f43',
       notes: ''
     },
     {
       title: 'Preact 性能优化',
       url: 'https://preactjs.com',
-      description: 'Preact 官方文档中的性能优化最佳实践',
+      description: 'Preact 官方文档中的性能优化最佳实践，还有 signals 的使用教程。',
       colorTag: '#00d2d3',
       notes: '记得看看 signals 部分'
     },
     {
       title: '毛玻璃效果实现',
       url: 'https://developer.mozilla.org',
-      description: 'backdrop-filter 的各种用法和兼容性说明',
+      description: 'backdrop-filter 的各种用法和兼容性说明，以及降级方案。',
       colorTag: '#c56cf0',
       notes: '需要考虑不支持时的降级方案'
     }
@@ -94,8 +93,8 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [prefs, setPrefs] = useState<Prefs>(loadPrefs())
   const [showAddForm, setShowAddForm] = useState(false)
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [columnCount, setColumnCount] = useState(3)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -167,7 +166,7 @@ export function App() {
       }
       cols[minIdx].push(item)
       const estHeight = estimateCardHeight(item)
-      colHeights[minIdx] += estHeight + 20
+      colHeights[minIdx] += estHeight + 16
     })
 
     return cols
@@ -176,6 +175,10 @@ export function App() {
   const selectedItem = useMemo(() => {
     return items.find(i => i.id === selectedId) || null
   }, [items, selectedId])
+
+  const refreshItems = useCallback(() => {
+    setItems([...getAll()])
+  }, [])
 
   const handleAdd = useCallback(() => {
     if (!formData.title.trim()) return
@@ -186,50 +189,96 @@ export function App() {
       colorTag: formData.colorTag,
       notes: ''
     })
-    setItems(getAll())
+    refreshItems()
     setFormData({ title: '', url: '', description: '', colorTag: '#7158e2' })
     setShowAddForm(false)
-  }, [formData])
+  }, [formData, refreshItems])
 
   const handleUpdateNotes = useCallback((id: string, notes: string) => {
     update(id, { notes })
-    setItems(getAll())
-  }, [])
+    refreshItems()
+  }, [refreshItems])
 
   const handleDelete = useCallback((id: string) => {
     remove(id)
-    setItems(getAll())
+    refreshItems()
     setSelectedId(null)
-  }, [])
+  }, [refreshItems])
 
-  const handleDragStart = useCallback((index: number) => {
-    setDragIndex(index)
-  }, [])
-
-  const handleDragOver = useCallback((index: number) => {
-    if (dragOverIndex !== index) {
-      setDragOverIndex(index)
+  const handleDragStart = useCallback((id: string) => {
+    setDraggedId(id)
+    if (prefs.sortField !== 'order') {
+      setPrefs({ ...prefs, sortField: 'order', sortOrder: 'asc' })
     }
-  }, [dragOverIndex])
+  }, [prefs])
+
+  const handleDragOver = useCallback((id: string) => {
+    if (dragOverId !== id && id !== draggedId) {
+      setDragOverId(id)
+    }
+  }, [dragOverId, draggedId])
+
+  const handleDrop = useCallback((targetId: string) => {
+    if (!draggedId || draggedId === targetId) return
+    
+    const currentItems = filterAndSort(items, {
+      tag: prefs.selectedTag,
+      sortField: prefs.sortField,
+      sortOrder: prefs.sortOrder
+    })
+    
+    const fromIdx = currentItems.findIndex(i => i.id === draggedId)
+    const toIdx = currentItems.findIndex(i => i.id === targetId)
+    
+    if (fromIdx === -1 || toIdx === -1) return
+    
+    const newItems = [...currentItems]
+    const [moved] = newItems.splice(fromIdx, 1)
+    newItems.splice(toIdx, 0, moved)
+    
+    const allItems = getAll()
+    const orderMap = new Map<string, number>()
+    newItems.forEach((item, idx) => {
+      orderMap.set(item.id, idx)
+    })
+    
+    let maxOrder = newItems.length
+    allItems.forEach(item => {
+      if (!orderMap.has(item.id)) {
+        orderMap.set(item.id, maxOrder++)
+      }
+    })
+    
+    allItems.forEach(item => {
+      const newOrder = orderMap.get(item.id)
+      if (newOrder !== undefined && item.order !== newOrder) {
+        item.order = newOrder
+      }
+    })
+    
+    localStorage.setItem('inspiration_board_data', JSON.stringify(allItems))
+    refreshItems()
+    
+    setDraggedId(null)
+    setDragOverId(null)
+  }, [draggedId, items, prefs, refreshItems])
 
   const handleDragEnd = useCallback(() => {
-    if (dragIndex !== null && dragOverIndex !== null && dragIndex !== dragOverIndex) {
-      reorder(dragIndex, dragOverIndex)
-      setItems(getAll())
-    }
-    setDragIndex(null)
-    setDragOverIndex(null)
-  }, [dragIndex, dragOverIndex])
+    setDraggedId(null)
+    setDragOverId(null)
+  }, [])
 
   const tags = getAllTags()
 
   return (
     <div class="app">
-      <div class="bg-gradient-1" />
-      <div class="bg-gradient-2" />
-      <div class="bg-gradient-3" />
+      <div class="bg-gradient bg-gradient-1" />
+      <div class="bg-gradient bg-gradient-2" />
+      <div class="bg-gradient bg-gradient-3" />
+      <div class="bg-noise" />
 
       <header class="header">
+        <div class="header-glass" />
         <div class="header-content">
           <div class="logo">
             <span class="logo-icon">✨</span>
@@ -256,7 +305,7 @@ export function App() {
                 value={formData.title}
                 onInput={(e) => setFormData({ ...formData, title: (e.target as HTMLInputElement).value })}
                 placeholder="给这个灵感起个名字"
-                autofocus
+                autoFocus
               />
             </div>
             <div class="form-row">
@@ -320,6 +369,7 @@ export function App() {
               key={tag}
               class={`tag-btn ${prefs.selectedTag === tag ? 'active' : ''}`}
               onClick={() => setPrefs({ ...prefs, selectedTag: tag })}
+              title={`筛选 ${tag} 标签`}
             >
               <span class="tag-dot" style={{ background: tag }} />
             </button>
@@ -332,6 +382,7 @@ export function App() {
             value={prefs.sortField}
             onChange={(e) => setPrefs({ ...prefs, sortField: (e.target as HTMLSelectElement).value as SortField })}
           >
+            <option value="order">手动排序</option>
             <option value="createdAt">按创建时间</option>
             <option value="title">按标题</option>
           </select>
@@ -352,23 +403,21 @@ export function App() {
         <div class="masonry-container">
           {columns.map((col, colIdx) => (
             <div key={colIdx} class="masonry-column">
-              {col.map((item) => {
-                const globalIndex = displayedItems.findIndex(i => i.id === item.id)
-                return (
-                  <div key={item.id} class="card-wrapper">
-                    <Card
-                      item={item}
-                      index={globalIndex}
-                      onClick={() => setSelectedId(item.id)}
-                      onDragStart={handleDragStart}
-                      onDragOver={handleDragOver}
-                      onDragEnd={handleDragEnd}
-                      isDragging={dragIndex === globalIndex}
-                      isDragOver={dragOverIndex === globalIndex && dragIndex !== globalIndex}
-                    />
-                  </div>
-                )
-              })}
+              {col.map((item) => (
+                <div key={item.id} class="card-wrapper">
+                  <Card
+                    item={item}
+                    index={0}
+                    onClick={() => setSelectedId(item.id)}
+                    onDragStart={() => handleDragStart(item.id)}
+                    onDragOver={() => handleDragOver(item.id)}
+                    onDrop={() => handleDrop(item.id)}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggedId === item.id}
+                    isDragOver={dragOverId === item.id && draggedId !== item.id}
+                  />
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -398,55 +447,94 @@ export function App() {
           min-height: 100vh;
           position: relative;
           overflow-x: hidden;
+          background: #0a081e;
         }
 
-        .bg-gradient-1,
-        .bg-gradient-2,
-        .bg-gradient-3 {
+        .bg-gradient {
           position: fixed;
           border-radius: 50%;
-          filter: blur(100px);
-          opacity: 0.4;
+          filter: blur(120px);
           pointer-events: none;
           z-index: 0;
         }
 
         .bg-gradient-1 {
-          width: 600px;
-          height: 600px;
-          background: #1a1a4e;
-          top: -200px;
-          left: -100px;
+          width: 700px;
+          height: 700px;
+          background: radial-gradient(circle, #2d1b69 0%, transparent 70%);
+          top: -250px;
+          left: -150px;
+          opacity: 0.6;
+          animation: float1 20s ease-in-out infinite;
         }
 
         .bg-gradient-2 {
-          width: 500px;
-          height: 500px;
-          background: #2d1b69;
-          top: 30%;
-          right: -150px;
+          width: 600px;
+          height: 600px;
+          background: radial-gradient(circle, #1a1a4e 0%, transparent 70%);
+          top: 20%;
+          right: -200px;
+          opacity: 0.5;
+          animation: float2 25s ease-in-out infinite;
         }
 
         .bg-gradient-3 {
-          width: 400px;
-          height: 400px;
-          background: #0f4c5c;
-          bottom: -100px;
-          left: 30%;
-          opacity: 0.3;
+          width: 500px;
+          height: 500px;
+          background: radial-gradient(circle, #0f4c5c 0%, transparent 70%);
+          bottom: -150px;
+          left: 20%;
+          opacity: 0.4;
+          animation: float3 30s ease-in-out infinite;
+        }
+
+        .bg-noise {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 1;
+          opacity: 0.5;
+        }
+
+        @keyframes float1 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(30px, 20px) scale(1.05); }
+        }
+
+        @keyframes float2 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-20px, 30px) scale(1.02); }
+        }
+
+        @keyframes float3 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(20px, -20px) scale(0.98); }
         }
 
         .header {
           position: sticky;
           top: 0;
           z-index: 100;
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          background: rgba(10, 8, 30, 0.6);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .header-glass {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(15, 12, 40, 0.7);
+          backdrop-filter: blur(30px) saturate(180%);
+          -webkit-backdrop-filter: blur(30px) saturate(180%);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .header-content {
+          position: relative;
           max-width: 1200px;
           margin: 0 auto;
           padding: 16px 24px;
@@ -463,13 +551,14 @@ export function App() {
 
         .logo-icon {
           font-size: 28px;
+          filter: drop-shadow(0 0 10px rgba(58, 227, 116, 0.5));
         }
 
         .logo-text {
           margin: 0;
           font-size: 22px;
           font-weight: 700;
-          background: linear-gradient(135deg, #fff 0%, #3ae374 100%);
+          background: linear-gradient(135deg, #fff 0%, #3ae374 50%, #00d2d3 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -481,24 +570,31 @@ export function App() {
           gap: 8px;
           padding: 10px 20px;
           border-radius: 12px;
-          border: none;
-          background: linear-gradient(135deg, #3ae374 0%, #00d2d3 100%);
-          color: #0a0a1e;
+          border: 1px solid rgba(58, 227, 116, 0.3);
+          background: linear-gradient(135deg, rgba(58, 227, 116, 0.15) 0%, rgba(0, 210, 211, 0.15) 100%);
+          backdrop-filter: blur(10px);
+          color: #3ae374;
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-          box-shadow: 0 4px 15px rgba(58, 227, 116, 0.3);
+          box-shadow: 0 4px 20px rgba(58, 227, 116, 0.15),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
 
         .add-btn:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(58, 227, 116, 0.4);
+          box-shadow: 0 8px 30px rgba(58, 227, 116, 0.3),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+          border-color: rgba(58, 227, 116, 0.5);
         }
 
         .add-btn.active {
-          background: linear-gradient(135deg, #ff6b6b 0%, #ff9f43 100%);
-          box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+          background: linear-gradient(135deg, rgba(255, 107, 107, 0.2) 0%, rgba(255, 159, 67, 0.2) 100%);
+          border-color: rgba(255, 107, 107, 0.4);
+          color: #ff6b6b;
+          box-shadow: 0 4px 20px rgba(255, 107, 107, 0.2),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
 
         .add-icon {
@@ -516,23 +612,25 @@ export function App() {
         }
 
         .add-form {
-          background: rgba(30, 27, 75, 0.7);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-radius: 16px;
-          padding: 24px;
+          background: rgba(25, 20, 60, 0.6);
+          backdrop-filter: blur(30px) saturate(180%);
+          -webkit-backdrop-filter: blur(30px) saturate(180%);
+          border-radius: 20px;
+          padding: 28px;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          animation: slideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          animation: slideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         @keyframes slideDown {
           from {
             opacity: 0;
-            transform: translateY(-20px);
+            transform: translateY(-30px) scale(0.95);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
           }
         }
 
@@ -557,21 +655,22 @@ export function App() {
         .form-row input,
         .form-row textarea {
           width: 100%;
-          padding: 10px 14px;
-          border-radius: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 12px 16px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.06);
           background: rgba(10, 8, 30, 0.5);
           color: #e0e0f0;
           font-size: 14px;
           font-family: inherit;
-          transition: border-color 0.2s, box-shadow 0.2s;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
 
         .form-row input:focus,
         .form-row textarea:focus {
           outline: none;
           border-color: rgba(58, 227, 116, 0.5);
-          box-shadow: 0 0 0 3px rgba(58, 227, 116, 0.1);
+          box-shadow: 0 0 0 4px rgba(58, 227, 116, 0.1);
+          background: rgba(10, 8, 30, 0.7);
         }
 
         .form-row textarea {
@@ -591,24 +690,28 @@ export function App() {
           border-radius: 50%;
           border: 3px solid transparent;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
           padding: 0;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .color-option:hover {
-          transform: scale(1.15);
+          transform: scale(1.2);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .color-option.selected {
-          border-color: #fff;
-          box-shadow: 0 0 0 2px rgba(58, 227, 116, 0.5);
+          border-color: rgba(255, 255, 255, 0.9);
+          box-shadow: 0 0 0 3px rgba(58, 227, 116, 0.3),
+                      0 4px 12px rgba(0, 0, 0, 0.3);
+          transform: scale(1.15);
         }
 
         .form-actions {
           display: flex;
           justify-content: flex-end;
           gap: 12px;
-          margin-top: 20px;
+          margin-top: 24px;
         }
 
         .btn-secondary,
@@ -618,27 +721,30 @@ export function App() {
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s ease;
-          border: none;
+          transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+          border: 1px solid transparent;
         }
 
         .btn-secondary {
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(255, 255, 255, 0.08);
           color: #e0e0f0;
         }
 
         .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.15);
+          background: rgba(255, 255, 255, 0.12);
+          transform: translateY(-1px);
         }
 
         .btn-primary {
           background: linear-gradient(135deg, #3ae374 0%, #00d2d3 100%);
           color: #0a0a1e;
+          box-shadow: 0 4px 15px rgba(58, 227, 116, 0.3);
         }
 
         .btn-primary:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 15px rgba(58, 227, 116, 0.3);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(58, 227, 116, 0.4);
         }
 
         .btn-primary:disabled {
@@ -649,7 +755,7 @@ export function App() {
         .toolbar {
           max-width: 1200px;
           margin: 0 auto;
-          padding: 20px 24px;
+          padding: 24px 24px 16px;
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -669,31 +775,36 @@ export function App() {
           display: flex;
           align-items: center;
           gap: 6px;
-          padding: 8px 14px;
+          padding: 8px 16px;
           border-radius: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(30, 27, 75, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(25, 20, 60, 0.5);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
           color: rgba(200, 200, 230, 0.7);
           font-size: 13px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         .tag-btn:hover {
-          border-color: rgba(255, 255, 255, 0.2);
-          background: rgba(30, 27, 75, 0.8);
+          border-color: rgba(255, 255, 255, 0.15);
+          background: rgba(25, 20, 60, 0.8);
+          transform: translateY(-1px);
         }
 
         .tag-btn.active {
-          background: rgba(58, 227, 116, 0.15);
-          border-color: rgba(58, 227, 116, 0.4);
+          background: rgba(58, 227, 116, 0.12);
+          border-color: rgba(58, 227, 116, 0.35);
           color: #3ae374;
+          box-shadow: 0 0 20px rgba(58, 227, 116, 0.1);
         }
 
         .tag-dot {
           width: 10px;
           height: 10px;
           border-radius: 50%;
+          box-shadow: 0 0 6px currentColor;
         }
 
         .sort-controls {
@@ -703,10 +814,12 @@ export function App() {
         }
 
         .sort-select {
-          padding: 8px 12px;
+          padding: 9px 14px;
           border-radius: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(30, 27, 75, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(25, 20, 60, 0.5);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
           color: #e0e0f0;
           font-size: 13px;
           cursor: pointer;
@@ -714,7 +827,7 @@ export function App() {
         }
 
         .sort-select:hover {
-          border-color: rgba(255, 255, 255, 0.2);
+          border-color: rgba(255, 255, 255, 0.15);
         }
 
         .sort-select:focus {
@@ -723,33 +836,36 @@ export function App() {
         }
 
         .sort-order-btn {
-          width: 36px;
-          height: 36px;
+          width: 38px;
+          height: 38px;
           border-radius: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(30, 27, 75, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(25, 20, 60, 0.5);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
           color: #e0e0f0;
           font-size: 16px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         .sort-order-btn:hover {
-          border-color: rgba(58, 227, 116, 0.4);
+          border-color: rgba(58, 227, 116, 0.35);
           color: #3ae374;
+          transform: translateY(-1px);
         }
 
         .main-content {
           max-width: 1200px;
           margin: 0 auto;
-          padding: 0 24px 40px;
+          padding: 8px 24px 40px;
           position: relative;
           z-index: 1;
         }
 
         .masonry-container {
           display: flex;
-          gap: 20px;
+          gap: 16px;
           align-items: flex-start;
         }
 
@@ -757,11 +873,12 @@ export function App() {
           flex: 1;
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 16px;
         }
 
         .card-wrapper {
-          transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                      opacity 0.3s ease;
         }
 
         .empty-state {
@@ -773,6 +890,7 @@ export function App() {
         .empty-icon {
           font-size: 48px;
           margin-bottom: 16px;
+          filter: grayscale(0.3);
         }
 
         .empty-state p {
@@ -804,7 +922,8 @@ export function App() {
           }
 
           .add-form {
-            padding: 18px;
+            padding: 20px;
+            border-radius: 16px;
           }
 
           .toolbar {
@@ -812,15 +931,15 @@ export function App() {
           }
 
           .main-content {
-            padding: 0 16px 30px;
+            padding: 8px 16px 30px;
           }
 
           .masonry-container {
-            gap: 16px;
+            gap: 12px;
           }
 
           .masonry-column {
-            gap: 16px;
+            gap: 12px;
           }
         }
 
@@ -844,9 +963,12 @@ export function App() {
 }
 
 function estimateCardHeight(item: Inspiration): number {
-  const baseHeight = 100
-  const titleLines = Math.ceil(item.title.length / 18)
-  const descLines = item.description ? Math.ceil(item.description.length / 22) : 0
+  const baseHeight = 90
+  const titleLength = item.title.length
+  const titleLines = Math.max(1, Math.ceil(titleLength / 16))
+  const descLength = item.description ? item.description.length : 0
+  const descLines = descLength > 0 ? Math.max(1, Math.ceil(descLength / 20)) : 0
   const urlHeight = item.url ? 24 : 0
-  return baseHeight + titleLines * 22 + descLines * 19 + urlHeight + 20
+  const footerHeight = 40
+  return baseHeight + titleLines * 22 + descLines * 18 + urlHeight + footerHeight
 }
