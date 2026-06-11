@@ -70,6 +70,9 @@ const Canvas: React.FC<CanvasProps> = ({
   const [resizeStart, setResizeStart] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const lastCursorEmit = useRef(0);
+  const currentElementRef = useRef<DrawElement | null>(null);
+  const [editingStickyId, setEditingStickyId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
 
   const getCanvasPoint = useCallback(
     (clientX: number, clientY: number): Point => {
@@ -121,12 +124,12 @@ const Canvas: React.FC<CanvasProps> = ({
       drawElement(ctx, element);
     });
 
-    if (currentElement) {
-      drawElement(ctx, currentElement, true);
+    if (currentElementRef.current) {
+      drawElement(ctx, currentElementRef.current, true);
     }
 
     ctx.restore();
-  }, [drawings, currentElement, offset, scale]);
+  }, [drawings, offset, scale]);
 
   const drawElement = (ctx: CanvasRenderingContext2D, element: DrawElement, isPreview = false) => {
     ctx.save();
@@ -242,6 +245,7 @@ const Canvas: React.FC<CanvasProps> = ({
           userId,
         };
         setCurrentElement(element);
+        currentElementRef.current = element;
         onDrawStart(element);
       } else {
         const element: DrawShape = {
@@ -254,6 +258,7 @@ const Canvas: React.FC<CanvasProps> = ({
           userId,
         };
         setCurrentElement(element);
+        currentElementRef.current = element;
         onDrawStart(element);
       }
     }
@@ -263,7 +268,7 @@ const Canvas: React.FC<CanvasProps> = ({
     const point = getCanvasPoint(e.clientX, e.clientY);
 
     const now = Date.now();
-    if (now - lastCursorEmit.current > 30) {
+    if (now - lastCursorEmit.current > 50) {
       lastCursorEmit.current = now;
       const name = cursors.get(userId)?.name || '我';
       onCursorMove({ userId, x: point.x, y: point.y, color: userColor, name });
@@ -317,19 +322,31 @@ const Canvas: React.FC<CanvasProps> = ({
       return;
     }
 
-    if (isDrawing && currentElement) {
-      if (currentElement.type === 'pen') {
+    if (isDrawing && currentElementRef.current) {
+      const el = currentElementRef.current;
+      if (el.type === 'pen') {
         const updated: DrawPath = {
-          ...currentElement,
-          points: [...currentElement.points, point],
+          id: el.id,
+          type: 'pen',
+          points: [...el.points, point],
+          color: el.color,
+          thickness: el.thickness,
+          userId: el.userId,
         };
+        currentElementRef.current = updated;
         setCurrentElement(updated);
         onDrawUpdate(updated);
       } else {
         const updated: DrawShape = {
-          ...currentElement,
+          id: el.id,
+          type: el.type,
+          start: el.start,
           end: point,
+          color: el.color,
+          thickness: el.thickness,
+          userId: el.userId,
         };
+        currentElementRef.current = updated;
         setCurrentElement(updated);
         onDrawUpdate(updated);
       }
@@ -354,10 +371,11 @@ const Canvas: React.FC<CanvasProps> = ({
       setResizeStart(null);
       return;
     }
-    if (isDrawing && currentElement) {
-      onDrawFinish(currentElement);
+    if (isDrawing && currentElementRef.current) {
+      onDrawFinish(currentElementRef.current);
       setIsDrawing(false);
       setCurrentElement(null);
+      currentElementRef.current = null;
     }
   };
 
@@ -390,7 +408,24 @@ const Canvas: React.FC<CanvasProps> = ({
   };
 
   const handleStickyChange = (sticky: StickyNote, content: string) => {
-    onStickyUpdate({ ...sticky, content });
+    if (editingStickyId === sticky.id) {
+      setEditingContent(content);
+    }
+  };
+
+  const handleStickyFocus = (sticky: StickyNote) => {
+    setEditingStickyId(sticky.id);
+    setEditingContent(sticky.content);
+  };
+
+  const handleStickyBlur = (sticky: StickyNote) => {
+    if (editingStickyId === sticky.id) {
+      const newContent = editingContent;
+      setEditingStickyId(null);
+      if (newContent !== sticky.content) {
+        onStickyUpdate({ ...sticky, content: newContent });
+      }
+    }
   };
 
   const handleImageMouseDown = (e: React.MouseEvent, img: CanvasImage) => {
@@ -459,8 +494,10 @@ const Canvas: React.FC<CanvasProps> = ({
           onMouseDown={(e) => handleStickyMouseDown(e, sticky)}
         >
           <textarea
-            value={sticky.content}
+            value={editingStickyId === sticky.id ? editingContent : sticky.content}
             onChange={(e) => handleStickyChange(sticky, e.target.value)}
+            onFocus={() => handleStickyFocus(sticky)}
+            onBlur={() => handleStickyBlur(sticky)}
             placeholder="输入便签内容..."
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}

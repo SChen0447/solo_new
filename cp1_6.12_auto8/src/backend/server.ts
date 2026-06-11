@@ -3,8 +3,6 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import type {
-  CanvasState,
-  HistoryVersion,
   ServerMessage,
   ClientMessage,
   UserCursor,
@@ -12,6 +10,7 @@ import type {
   StickyNote,
   CanvasImage,
 } from '../shared/types';
+import { CanvasStateManager } from './canvasStateManager';
 
 const app = express();
 const server = createServer(app);
@@ -32,16 +31,8 @@ const USER_COLORS = [
   '#3f51b5',
 ];
 
-let canvasState: CanvasState = {
-  drawings: [],
-  stickies: [],
-  images: [],
-};
-
+const manager = new CanvasStateManager();
 const connectedUsers = new Map<string, { ws: WebSocket; cursor: UserCursor }>();
-
-let historyVersions: HistoryVersion[] = [];
-const MAX_HISTORY_VERSIONS = 50;
 
 function getRandomColor(): string {
   return USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
@@ -63,32 +54,8 @@ function broadcast(message: ServerMessage, excludeId?: string) {
 }
 
 function saveHistoryVersion() {
-  const hasContent =
-    canvasState.drawings.length > 0 ||
-    canvasState.stickies.length > 0 ||
-    canvasState.images.length > 0;
-
-  const lastVersion = historyVersions[historyVersions.length - 1];
-  const isChanged =
-    !lastVersion ||
-    JSON.stringify(lastVersion.drawings) !== JSON.stringify(canvasState.drawings) ||
-    JSON.stringify(lastVersion.stickies) !== JSON.stringify(canvasState.stickies) ||
-    JSON.stringify(lastVersion.images) !== JSON.stringify(canvasState.images);
-
-  if (hasContent && isChanged) {
-    const version: HistoryVersion = {
-      id: uuidv4(),
-      timestamp: Date.now(),
-      drawings: JSON.parse(JSON.stringify(canvasState.drawings)),
-      stickies: JSON.parse(JSON.stringify(canvasState.stickies)),
-      images: JSON.parse(JSON.stringify(canvasState.images)),
-    };
-
-    historyVersions.push(version);
-    if (historyVersions.length > MAX_HISTORY_VERSIONS) {
-      historyVersions = historyVersions.slice(-MAX_HISTORY_VERSIONS);
-    }
-
+  const version = manager.saveVersion();
+  if (version) {
     broadcast({ type: 'version-saved', version });
   }
 }
@@ -105,11 +72,12 @@ wss.on('connection', (ws: WebSocket) => {
     cursor: { userId, x: 0, y: 0, color: userColor, name: userName },
   });
 
+  const state = manager.getState();
   const initMsg: ServerMessage = {
     type: 'init',
-    state: JSON.parse(JSON.stringify(canvasState)),
+    state: JSON.parse(JSON.stringify(state)),
     userId,
-    versions: [...historyVersions],
+    versions: [...manager.getVersions()],
   };
   ws.send(JSON.stringify(initMsg));
 
@@ -124,68 +92,47 @@ wss.on('connection', (ws: WebSocket) => {
 
       switch (message.type) {
         case 'draw': {
-          const element: DrawElement = message.element;
-          canvasState.drawings.push(element);
-          broadcast({ type: 'draw', element }, userId);
+          manager.addDrawElement(message.element);
+          broadcast({ type: 'draw', element: message.element }, userId);
           break;
         }
         case 'draw-update': {
-          const element: DrawElement = message.element;
-          const idx = canvasState.drawings.findIndex((d) => d.id === element.id);
-          if (idx !== -1) {
-            canvasState.drawings[idx] = element;
-          }
-          broadcast({ type: 'draw-update', element }, userId);
+          manager.updateDrawElement(message.element);
+          broadcast({ type: 'draw-update', element: message.element }, userId);
           break;
         }
         case 'draw-finish': {
-          const element: DrawElement = message.element;
-          const idx = canvasState.drawings.findIndex((d) => d.id === element.id);
-          if (idx !== -1) {
-            canvasState.drawings[idx] = element;
-          } else {
-            canvasState.drawings.push(element);
-          }
-          broadcast({ type: 'draw-finish', element }, userId);
+          manager.finishDrawElement(message.element);
+          broadcast({ type: 'draw-finish', element: message.element }, userId);
           break;
         }
         case 'sticky-add': {
-          const sticky: StickyNote = message.sticky;
-          canvasState.stickies.push(sticky);
-          broadcast({ type: 'sticky-add', sticky }, userId);
+          manager.addSticky(message.sticky);
+          broadcast({ type: 'sticky-add', sticky: message.sticky }, userId);
           break;
         }
         case 'sticky-update': {
-          const sticky: StickyNote = message.sticky;
-          const idx = canvasState.stickies.findIndex((s) => s.id === sticky.id);
-          if (idx !== -1) {
-            canvasState.stickies[idx] = sticky;
-          }
-          broadcast({ type: 'sticky-update', sticky }, userId);
+          manager.updateSticky(message.sticky);
+          broadcast({ type: 'sticky-update', sticky: message.sticky }, userId);
           break;
         }
         case 'sticky-delete': {
-          canvasState.stickies = canvasState.stickies.filter((s) => s.id !== message.id);
+          manager.deleteSticky(message.id);
           broadcast({ type: 'sticky-delete', id: message.id }, userId);
           break;
         }
         case 'image-add': {
-          const image: CanvasImage = message.image;
-          canvasState.images.push(image);
-          broadcast({ type: 'image-add', image }, userId);
+          manager.addImage(message.image);
+          broadcast({ type: 'image-add', image: message.image }, userId);
           break;
         }
         case 'image-update': {
-          const image: CanvasImage = message.image;
-          const idx = canvasState.images.findIndex((i) => i.id === image.id);
-          if (idx !== -1) {
-            canvasState.images[idx] = image;
-          }
-          broadcast({ type: 'image-update', image }, userId);
+          manager.updateImage(message.image);
+          broadcast({ type: 'image-update', image: message.image }, userId);
           break;
         }
         case 'image-delete': {
-          canvasState.images = canvasState.images.filter((i) => i.id !== message.id);
+          manager.deleteImage(message.id);
           broadcast({ type: 'image-delete', id: message.id }, userId);
           break;
         }
@@ -198,27 +145,23 @@ wss.on('connection', (ws: WebSocket) => {
           break;
         }
         case 'restore-version': {
-          const version = historyVersions.find((v) => v.id === message.versionId);
-          if (version) {
-            canvasState = {
-              drawings: JSON.parse(JSON.stringify(version.drawings)),
-              stickies: JSON.parse(JSON.stringify(version.stickies)),
-              images: JSON.parse(JSON.stringify(version.images)),
-            };
+          const restored = manager.restoreVersion(message.versionId);
+          if (restored) {
+            const state = manager.getState();
             broadcast({
               type: 'version-restore',
-              state: JSON.parse(JSON.stringify(canvasState)),
-              versionId: version.id,
+              state: JSON.parse(JSON.stringify(state)),
+              versionId: message.versionId,
             });
           }
           break;
         }
         case 'get-versions': {
-          ws.send(JSON.stringify({ type: 'versions-list', versions: [...historyVersions] } as ServerMessage));
+          ws.send(JSON.stringify({ type: 'versions-list', versions: [...manager.getVersions()] } as ServerMessage));
           break;
         }
         case 'clear-canvas': {
-          canvasState = { drawings: [], stickies: [], images: [] };
+          manager.clear();
           broadcast({ type: 'clear-canvas' });
           break;
         }

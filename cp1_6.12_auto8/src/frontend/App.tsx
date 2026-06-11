@@ -246,7 +246,18 @@ const App: React.FC = () => {
     handleStickyAdd(sticky);
   };
 
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+  const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
+
   const uploadImageAt = (x: number, y: number, file: File) => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      alert('仅支持 PNG 和 JPG 格式的图片');
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      alert('图片大小不能超过 5MB');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const src = reader.result as string;
@@ -303,7 +314,13 @@ const App: React.FC = () => {
   };
 
   const handleRestoreVersion = (versionId: string) => {
-    if (confirm('确定恢复到此版本吗？当前内容会被覆盖并同步给所有人。')) {
+    const activeUsers = Array.from(cursors.keys()).filter((id) => id !== userId);
+    const hasActiveEditors = activeUsers.length > 0;
+    let message = '确定恢复到此版本吗？当前画布内容会被覆盖并同步给所有人。';
+    if (hasActiveEditors) {
+      message = `当前有 ${activeUsers.length} 位其他用户在线编辑，恢复版本会覆盖他们正在编辑的内容。确定继续吗？`;
+    }
+    if (confirm(message)) {
       socketClient.send({ type: 'restore-version', versionId });
     }
   };
