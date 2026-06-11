@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { StarField, StarInfo } from './StarField';
+import { StarField } from './StarField';
 import { InteractionManager, ViewMode } from './InteractionManager';
 import { UIController } from './UIController';
 
@@ -20,13 +20,18 @@ class GalaxyApp {
   private lastFpsUpdate: number = 0;
   private currentFps: number = 60;
   
-  private hoveredStarIndex: number | null = null;
   private clickedStarIndex: number | null = null;
+  
+  private boundHandleResize: () => void;
+  private boundHandleDocumentMouseMove: (event: MouseEvent) => void;
 
   constructor() {
     this.container = document.getElementById('canvas-container')!;
     
     this.clock = new THREE.Clock();
+    
+    this.boundHandleResize = this.handleResize.bind(this);
+    this.boundHandleDocumentMouseMove = this.handleDocumentMouseMove.bind(this);
     
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);
@@ -37,11 +42,13 @@ class GalaxyApp {
       0.1,
       5000
     );
-    this.camera.position.set(0, 300, 900);
+    this.camera.position.set(0, 250, 950);
+    this.camera.lookAt(0, 0, 0);
     
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
-      powerPreference: 'high-performance'
+      powerPreference: 'high-performance',
+      alpha: false
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -62,11 +69,11 @@ class GalaxyApp {
       this.renderer.domElement,
       this.starField.points,
       {
-        onStarHover: (info, screenX, screenY) => {
-          this.handleStarHover(info, screenX, screenY);
+        onStarHover: (starId, screenX, screenY) => {
+          this.handleStarHover(starId, screenX, screenY);
         },
-        onStarClick: (info, screenX, screenY) => {
-          this.handleStarClick(info, screenX, screenY);
+        onStarClick: (starId, screenX, screenY) => {
+          this.handleStarClick(starId, screenX, screenY);
         },
         onViewModeChange: (mode) => {
           this.handleViewModeChange(mode);
@@ -80,63 +87,79 @@ class GalaxyApp {
     this.animate();
   }
 
-  private handleStarHover(info: StarInfo | null, screenX: number, screenY: number): void {
-    if (info !== null) {
-      const fullInfo = this.starField.getStarInfo(info.id);
-      if (fullInfo) {
-        this.hoveredStarIndex = info.id;
-        this.starField.highlightStar(info.id);
-        this.uiController.showStarCard(fullInfo, screenX, screenY);
-        document.body.style.cursor = 'pointer';
+  private handleStarHover(starId: number | null, screenX: number, screenY: number): void {
+    if (starId !== null) {
+      const info = this.starField.getStarInfo(starId);
+      if (info) {
+        if (this.clickedStarIndex === null) {
+          this.starField.highlightStar(starId);
+          this.uiController.showStarCard(info, screenX, screenY);
+        } else {
+          this.uiController.updateStarCardPosition(screenX, screenY);
+        }
+        this.renderer.domElement.style.cursor = 'pointer';
+        return;
       }
-    } else {
-      if (this.hoveredStarIndex !== null) {
-        this.hoveredStarIndex = null;
-        this.starField.highlightStar(this.clickedStarIndex);
-      }
-      if (this.clickedStarIndex === null) {
-        this.uiController.hideStarCard();
-      }
-      document.body.style.cursor = 'default';
     }
+    
+    if (this.clickedStarIndex === null) {
+      this.starField.highlightStar(null);
+      this.uiController.hideStarCard();
+    }
+    this.renderer.domElement.style.cursor = 'default';
   }
 
-  private handleStarClick(info: StarInfo | null, screenX: number, screenY: number): void {
-    if (info !== null) {
-      const fullInfo = this.starField.getStarInfo(info.id);
-      if (fullInfo) {
-        this.clickedStarIndex = info.id;
-        this.hoveredStarIndex = info.id;
-        this.starField.highlightStar(info.id);
-        this.uiController.showStarCard(fullInfo, screenX, screenY);
+  private handleStarClick(starId: number | null, screenX: number, screenY: number): void {
+    if (starId !== null) {
+      const info = this.starField.getStarInfo(starId);
+      if (info) {
+        if (this.clickedStarIndex === starId) {
+          this.clickedStarIndex = null;
+          this.starField.highlightStar(null);
+          this.uiController.hideStarCard();
+        } else {
+          this.clickedStarIndex = starId;
+          this.starField.highlightStar(starId);
+          this.uiController.showStarCard(info, screenX, screenY);
+        }
+        return;
       }
-    } else {
+    }
+    
+    this.clickedStarIndex = null;
+    this.starField.highlightStar(null);
+    this.uiController.hideStarCard();
+  }
+
+  private handleViewModeChange(mode: ViewMode): void {
+    this.uiController.updateViewMode(mode);
+    if (mode === 'auto') {
       this.clickedStarIndex = null;
       this.starField.highlightStar(null);
       this.uiController.hideStarCard();
     }
   }
 
-  private handleViewModeChange(mode: ViewMode): void {
-    this.uiController.updateViewMode(mode);
-  }
-
   private setupEventListeners(): void {
-    window.addEventListener('resize', this.handleResize.bind(this));
-    document.addEventListener('mousemove', this.handleDocumentMouseMove.bind(this));
+    window.addEventListener('resize', this.boundHandleResize);
+    document.addEventListener('mousemove', this.boundHandleDocumentMouseMove);
   }
 
   private handleDocumentMouseMove(event: MouseEvent): void {
-    if (this.hoveredStarIndex !== null || this.clickedStarIndex !== null) {
+    if (this.clickedStarIndex !== null) {
       this.uiController.updateStarCardPosition(event.clientX, event.clientY);
     }
   }
 
   private handleResize(): void {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(w, h);
+    const ratio = Math.min(window.devicePixelRatio, 2);
+    this.renderer.setPixelRatio(ratio);
+    this.starField.setPixelRatio(ratio);
   }
 
   private animate(): void {
@@ -162,8 +185,8 @@ class GalaxyApp {
   }
 
   public dispose(): void {
-    window.removeEventListener('resize', this.handleResize.bind(this));
-    document.removeEventListener('mousemove', this.handleDocumentMouseMove.bind(this));
+    window.removeEventListener('resize', this.boundHandleResize);
+    document.removeEventListener('mousemove', this.boundHandleDocumentMouseMove);
     
     this.starField.dispose();
     this.interactionManager.dispose();

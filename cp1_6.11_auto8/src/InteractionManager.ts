@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { StarInfo } from './StarField';
 
 export type ViewMode = 'free' | 'auto';
 
 interface InteractionCallbacks {
-  onStarHover: (info: StarInfo | null, screenX: number, screenY: number) => void;
-  onStarClick: (info: StarInfo | null, screenX: number, screenY: number) => void;
+  onStarHover: (starId: number | null, screenX: number, screenY: number) => void;
+  onStarClick: (starId: number | null, screenX: number, screenY: number) => void;
   onViewModeChange: (mode: ViewMode) => void;
 }
 
@@ -27,7 +26,7 @@ export class InteractionManager {
   private autoRotateSpeed: number = 0.5;
   private isDragging: boolean = false;
   private lastMouseMoveTime: number = 0;
-  private raycastThrottle: number = 50;
+  private raycastThrottle: number = 30;
   
   private boundHandleMouseMove: (event: MouseEvent) => void;
   private boundHandleMouseDown: (event: MouseEvent) => void;
@@ -59,7 +58,7 @@ export class InteractionManager {
     this.onDragEnd = () => { setTimeout(() => { this.isDragging = false; }, 100); };
     
     this.raycaster = new THREE.Raycaster();
-    this.raycaster.params.Points = { threshold: 8 };
+    this.raycaster.params.Points = { threshold: 12 };
     this.mouse = new THREE.Vector2();
     
     this.controls = new OrbitControls(this.camera, this.domElement);
@@ -84,7 +83,7 @@ export class InteractionManager {
     this.domElement.addEventListener('mousedown', this.boundHandleMouseDown);
     this.domElement.addEventListener('mouseup', this.boundHandleMouseUp);
     this.domElement.addEventListener('click', this.boundHandleClick);
-    this.domElement.addEventListener('wheel', this.boundHandleWheel);
+    this.domElement.addEventListener('wheel', this.boundHandleWheel, { passive: true });
     this.domElement.addEventListener('mouseleave', this.boundHandleMouseLeave);
     
     this.controls.addEventListener('start', this.onDragStart);
@@ -98,9 +97,7 @@ export class InteractionManager {
     }
     this.lastMouseMoveTime = now;
     
-    const rect = this.domElement.getBoundingClientRect();
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    this.updateMouse(event);
     
     if (!this.isDragging && this.viewMode === 'free') {
       this.performRaycast(event.clientX, event.clientY, 'hover');
@@ -122,10 +119,7 @@ export class InteractionManager {
   private handleClick(event: MouseEvent): void {
     if (this.isDragging) return;
     
-    const rect = this.domElement.getBoundingClientRect();
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    
+    this.updateMouseFromEvent(event);
     this.performRaycast(event.clientX, event.clientY, 'click');
   }
 
@@ -142,36 +136,37 @@ export class InteractionManager {
     }
   }
 
+  private updateMouse(event: MouseEvent): void {
+    const rect = this.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  }
+
+  private updateMouseFromEvent(event: MouseEvent): void {
+    const rect = this.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  }
+
   private performRaycast(screenX: number, screenY: number, type: 'hover' | 'click'): void {
     this.raycaster.setFromCamera(this.mouse, this.camera);
     
-    const intersects = this.raycaster.intersectObject(this.points);
+    const intersects = this.raycaster.intersectObject(this.points, false);
     
     if (intersects.length > 0) {
-      const index = intersects[0].index;
+      const hit = intersects[0];
+      const index = hit.index;
       if (typeof index === 'number') {
         if (type === 'hover') {
           if (this.hoveredIndex !== index) {
             this.hoveredIndex = index;
-            const position = intersects[0].point.clone();
-            position.project(this.camera);
-            const screenPos = this.worldToScreen(position);
-            this.callbacks.onStarHover(
-              { id: index, name: '', spectralType: 'G', brightness: 0, distance: 0, color: '#ffffff' },
-              screenPos.x,
-              screenPos.y
-            );
+            this.callbacks.onStarHover(index, screenX, screenY);
+          } else {
+            this.callbacks.onStarHover(index, screenX, screenY);
           }
         } else if (type === 'click') {
           this.clickedIndex = index;
-          const position = intersects[0].point.clone();
-          position.project(this.camera);
-          const screenPos = this.worldToScreen(position);
-          this.callbacks.onStarClick(
-            { id: index, name: '', spectralType: 'G', brightness: 0, distance: 0, color: '#ffffff' },
-            screenPos.x,
-            screenPos.y
-          );
+          this.callbacks.onStarClick(index, screenX, screenY);
         }
         return;
       }
@@ -181,13 +176,10 @@ export class InteractionManager {
       this.hoveredIndex = null;
       this.callbacks.onStarHover(null, 0, 0);
     }
-  }
-
-  private worldToScreen(position: THREE.Vector3): { x: number; y: number } {
-    return {
-      x: (position.x + 1) / 2 * this.domElement.clientWidth,
-      y: (-position.y + 1) / 2 * this.domElement.clientHeight
-    };
+    if (type === 'click') {
+      this.clickedIndex = null;
+      this.callbacks.onStarClick(null, 0, 0);
+    }
   }
 
   public setViewMode(mode: ViewMode): void {
@@ -223,7 +215,7 @@ export class InteractionManager {
     return this.clickedIndex;
   }
 
-  public update(delta: number): void {
+  public update(_delta: number): void {
     this.controls.update();
   }
 
