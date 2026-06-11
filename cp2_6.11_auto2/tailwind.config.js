@@ -17,6 +17,7 @@ export default {
         accent: '#ff6f00',
         lightBlue: '#e3f2fd',
         lightYellow: '#fff3e0',
+        bg: '#f5f5f5',
       },
       fontFamily: {
         sans: ['"Noto Sans SC"', 'sans-serif'],
