@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback, useMemo, useState, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Task, Sprint, initialTasks, sprint as initialSprint } from './utils/taskData';
 import KanbanBoard from './components/KanbanBoard';
@@ -78,7 +78,6 @@ export const useTaskContext = () => {
 
 const App: React.FC = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const [showAddModal, setShowAddModal] = useState(false);
 
   const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
     dispatch({ type: 'UPDATE_TASK', payload: { taskId, updates } });
@@ -173,15 +172,7 @@ const App: React.FC = () => {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
             >
-              {state.viewMode === 'kanban' ? (
-                <KanbanBoard tasks={filteredTasks} onTaskUpdate={updateTask} />
-              ) : (
-                <GanttChart
-                  tasks={filteredTasks}
-                  sprint={state.sprint}
-                  onTaskUpdate={updateTask}
-                />
-              )}
+              {state.viewMode === 'kanban' ? <KanbanBoard /> : <GanttChart />}
             </motion.div>
           </AnimatePresence>
         </main>

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -20,11 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Task, TaskStatus } from '../utils/taskData';
-
-interface KanbanBoardProps {
-  tasks: Task[];
-  onTaskUpdate: (taskId: string, updates: Partial<Task>) => void;
-}
+import { useTaskContext } from '../App';
 
 const columns: { id: TaskStatus; title: string; className: string }[] = [
   { id: 'todo', title: '待办', className: 'todo' },
@@ -36,7 +32,7 @@ interface SortableTaskCardProps {
   task: Task;
 }
 
-const SortableTaskCard: React.FC<SortableTaskCardProps> = React.memo(({ task }) => {
+const SortableTaskCard: React.FC<SortableTaskCardProps> = React.memo(React.forwardRef(({ task }, ref) => {
   const {
     attributes,
     listeners,
@@ -51,20 +47,24 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = React.memo(({ task }) 
     transition,
   };
 
-  const priorityLabels = { high: '高', medium: '中', low: '低' };
+  const priorityLabels: Record<string, string> = { high: '高', medium: '中', low: '低' };
 
-  const getInitial = (name: string) => {
-    return name.charAt(0);
-  };
+  const mergedRef = useCallback((node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    if (typeof ref === 'function') {
+      ref(node);
+    } else if (ref) {
+      (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    }
+  }, [setNodeRef, ref]);
 
   return (
     <motion.div
-      ref={setNodeRef}
+      ref={mergedRef}
       style={style}
       className={`task-card ${isDragging ? 'dragging' : ''}`}
       {...attributes}
       {...listeners}
-      layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -77,7 +77,7 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = React.memo(({ task }) 
       </div>
       <div className="task-card-footer">
         <div className="task-assignee">
-          <div className="avatar">{getInitial(task.assignee)}</div>
+          <div className="avatar">{task.assignee.charAt(0)}</div>
           <span className="assignee-name">{task.assignee}</span>
         </div>
         <span className={`priority-tag priority-${task.priority}`}>
@@ -86,7 +86,7 @@ const SortableTaskCard: React.FC<SortableTaskCardProps> = React.memo(({ task }) 
       </div>
     </motion.div>
   );
-});
+}));
 
 SortableTaskCard.displayName = 'SortableTaskCard';
 
@@ -124,7 +124,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = React.memo(({ status, title, t
 
 KanbanColumn.displayName = 'KanbanColumn';
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onTaskUpdate }) => {
+const KanbanBoard: React.FC = () => {
+  const { state, updateTask, filteredTasks: tasks } = useTaskContext();
   const [activeId, setActiveId] = React.useState<string | null>(null);
 
   const sensors = useSensors(
@@ -164,44 +165,48 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onTaskUpdate }) => {
 
     if (!over) return;
 
-    const activeTask = tasks.find(t => t.id === active.id);
+    const activeTaskData = tasks.find(t => t.id === active.id);
     const overTask = tasks.find(t => t.id === over.id);
 
-    if (!activeTask) return;
+    if (!activeTaskData) return;
 
     if (overTask) {
-      const activeStatus = activeTask.status;
       const overStatus = overTask.status;
 
-      if (activeStatus === overStatus) {
-        const statusTasks = tasksByStatus[activeStatus];
+      if (activeTaskData.status !== overStatus) {
+        updateTask(active.id as string, { status: overStatus });
+      } else {
+        const statusTasks = tasksByStatus[activeTaskData.status];
         const oldIndex = statusTasks.findIndex(t => t.id === active.id);
         const newIndex = statusTasks.findIndex(t => t.id === over.id);
         if (oldIndex !== newIndex) {
           arrayMove(statusTasks, oldIndex, newIndex);
         }
-      } else {
-        onTaskUpdate(active.id as string, { status: overStatus });
       }
     }
   };
 
   const handleDragOver = (event: any) => {
-    const { active, over } = event;
-    if (!over) return;
+    const { active } = event;
+    if (!active) return;
 
-    const activeTask = tasks.find(t => t.id === active.id);
-    if (!activeTask) return;
+    const activeTaskData = tasks.find(t => t.id === active.id);
+    if (!activeTaskData) return;
 
-    const overElement = document.elementFromPoint(event.activatorEvent?.clientX || 0, event.activatorEvent?.clientY || 0);
+    const overElement = document.elementFromPoint(
+      event.activatorEvent?.clientX || 0,
+      event.activatorEvent?.clientY || 0
+    );
     const columnElement = overElement?.closest('.column-content');
     if (columnElement) {
       const status = columnElement.getAttribute('data-status') as TaskStatus;
-      if (status && status !== activeTask.status) {
-        onTaskUpdate(active.id as string, { status });
+      if (status && status !== activeTaskData.status) {
+        updateTask(active.id as string, { status });
       }
     }
   };
+
+  const priorityLabels: Record<string, string> = { high: '高', medium: '中', low: '低' };
 
   return (
     <DndContext
@@ -236,7 +241,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onTaskUpdate }) => {
                 <span className="assignee-name">{activeTask.assignee}</span>
               </div>
               <span className={`priority-tag priority-${activeTask.priority}`}>
-                {{ high: '高', medium: '中', low: '低' }[activeTask.priority]}
+                {priorityLabels[activeTask.priority]}
               </span>
             </div>
           </div>
@@ -246,4 +251,4 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks, onTaskUpdate }) => {
   );
 };
 
-export default KanbanBoard;
+export default React.memo(KanbanBoard);
