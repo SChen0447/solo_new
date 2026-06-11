@@ -403,13 +403,32 @@ body {
 /* Particles */
 .particle {
   position: fixed;
-  border-radius: 50%;
   pointer-events: none;
   z-index: 2000;
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
   animation: particleExplode 0.6s ease-out forwards;
   will-change: transform, opacity;
+}
+
+.particle-circle {
+  border-radius: 50%;
+}
+
+.particle-heart {
+  background: none;
+  border: none;
+}
+
+.particle-heart::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  clip-path: path('M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z');
+  transform: scale(0.5);
+  transform-origin: center;
 }
 
 @keyframes flyIn {
@@ -460,7 +479,7 @@ body {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
-  40% {
+  30% {
     opacity: 1;
   }
   100% {
@@ -468,15 +487,42 @@ body {
     transform: translate(
       calc(-50% + var(--px)),
       calc(-50% + var(--py))
-    ) scale(0.1);
+    ) scale(0.15);
   }
 }
 
-/* Responsive: Tablet */
+/* Responsive: Large Tablet / Small Desktop */
 @media (max-width: 1200px) {
+  .gallery-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding: 136px 28px 48px;
+  }
+}
+
+@media (max-width: 1024px) {
   .gallery-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: var(--gap-tablet);
+    padding: 132px 24px 44px;
+  }
+
+  .navbar-inner {
+    padding: 15px 24px;
+  }
+
+  .filter-inner {
+    padding: 0 24px;
+  }
+
+  .filter-btn {
+    padding: 14px 16px;
+    font-size: 13.5px;
+  }
+
+  .photo-title-overlay {
+    padding: 32px 12px 10px;
+    font-size: 12.5px;
   }
 }
 
@@ -490,7 +536,13 @@ body {
   }
 
   .gallery-grid {
-    padding: 130px 20px 40px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    padding: 128px 16px 40px;
+  }
+
+  .photo-card:hover {
+    transform: translateY(-6px);
   }
 }
 

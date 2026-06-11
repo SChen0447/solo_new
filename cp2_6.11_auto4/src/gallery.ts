@@ -30,7 +30,6 @@ const animator = new Animator();
 const renderer = new Renderer('app');
 
 let currentCategory: Category = 'all';
-let lightboxOpen = false;
 
 function getFilteredPhotos(): Photo[] {
   if (currentCategory === 'all') return PHOTOS;
@@ -43,47 +42,39 @@ function handleCategoryChange(category: Category): void {
   renderer.setActiveCategory(category);
   const filtered = getFilteredPhotos();
   renderer.renderGrid(filtered);
-  const cards = renderer.getGridCards();
   requestAnimationFrame(() => {
-    animator.staggerFlyIn(cards, 70);
+    const cards = renderer.getGridCards();
+    animator.staggerFlyIn(cards, 100);
   });
 }
 
 function handlePhotoClick(index: number): void {
-  lightboxOpen = true;
   renderer.openLightbox(index);
 }
 
 function handleLightboxClose(): void {
-  lightboxOpen = false;
   renderer.closeLightbox();
 }
 
 function handleLightboxPrev(): void {
-  if (!lightboxOpen) return;
   renderer.navigateLightbox(-1);
 }
 
 function handleLightboxNext(): void {
-  if (!lightboxOpen) return;
   renderer.navigateLightbox(1);
 }
 
-function handleFavoriteToggle(photoId: number): void {
+function handleFavoriteToggle(photoId: number, heartRect: DOMRect): void {
   const { isFav } = renderer.toggleFavorite(photoId);
   const heartBtn = renderer.getHeartButton(photoId);
   if (heartBtn && isFav) {
     animator.triggerHeartAnimation(heartBtn);
-    const rect = heartBtn.getBoundingClientRect();
-    animator.createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    animator.createParticles(
+      heartRect.left + heartRect.width / 2,
+      heartRect.top + heartRect.height / 2,
+      heartRect,
+    );
   }
-}
-
-function handleKeydown(e: KeyboardEvent): void {
-  if (!lightboxOpen) return;
-  if (e.key === 'ArrowLeft') handleLightboxPrev();
-  if (e.key === 'ArrowRight') handleLightboxNext();
-  if (e.key === 'Escape') handleLightboxClose();
 }
 
 function init(): void {
@@ -102,10 +93,8 @@ function init(): void {
 
   requestAnimationFrame(() => {
     const cards = renderer.getGridCards();
-    animator.staggerFlyIn(cards, 80);
+    animator.staggerFlyIn(cards, 100);
   });
-
-  document.addEventListener('keydown', handleKeydown);
 }
 
 init();

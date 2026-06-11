@@ -13,7 +13,7 @@ interface Callbacks {
   onLightboxClose?: () => void;
   onLightboxPrev?: () => void;
   onLightboxNext?: () => void;
-  onFavoriteToggle?: (photoId: number) => void;
+  onFavoriteToggle?: (photoId: number, heartRect: DOMRect) => void;
 }
 
 interface UIState {
@@ -41,6 +41,7 @@ export class Renderer {
   private state: UIState;
   private dom: DOMElements;
   private callbacks: Callbacks;
+  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(appId: string) {
     this.app = document.getElementById(appId)!;
@@ -237,7 +238,8 @@ export class Renderer {
 
     heartBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.callbacks.onFavoriteToggle?.(photoId);
+      const rect = heartBtn.getBoundingClientRect();
+      this.callbacks.onFavoriteToggle?.(photoId, rect);
     });
 
     return heartBtn;
@@ -307,6 +309,8 @@ export class Renderer {
     this.dom.lightboxTitle.textContent = photo.title;
     this.dom.lightbox.classList.add('open');
     document.body.style.overflow = 'hidden';
+
+    this.bindKeydown();
   }
 
   closeLightbox(): void {
@@ -314,12 +318,18 @@ export class Renderer {
     this.dom.lightbox.classList.remove('open');
     document.body.style.overflow = '';
     this.state.currentLightboxIndex = -1;
+
+    this.unbindKeydown();
   }
 
   navigateLightbox(direction: -1 | 1): void {
     if (!this.dom.lightboxImg || !this.dom.lightboxTitle) return;
-    const newIndex = this.state.currentLightboxIndex + direction;
-    if (newIndex < 0 || newIndex >= this.displayedPhotos.length) return;
+    const len = this.displayedPhotos.length;
+    if (len === 0) return;
+
+    let newIndex = this.state.currentLightboxIndex + direction;
+    if (newIndex < 0) newIndex = len - 1;
+    if (newIndex >= len) newIndex = 0;
 
     this.state.currentLightboxIndex = newIndex;
     const photo = this.displayedPhotos[newIndex];
@@ -377,5 +387,29 @@ export class Renderer {
   getHeartButton(photoId: number): HTMLElement | null {
     if (!this.dom.grid) return null;
     return this.dom.grid.querySelector(`.heart-btn[data-photo-id="${photoId}"]`);
+  }
+
+  private bindKeydown(): void {
+    this.unbindKeydown();
+    this.keydownHandler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        this.callbacks.onLightboxPrev?.();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        this.callbacks.onLightboxNext?.();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        this.callbacks.onLightboxClose?.();
+      }
+    };
+    document.addEventListener('keydown', this.keydownHandler);
+  }
+
+  private unbindKeydown(): void {
+    if (this.keydownHandler) {
+      document.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = null;
+    }
   }
 }
