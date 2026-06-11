@@ -1,28 +1,58 @@
 import type { Shape, User, HistoryEntry, RoomState } from '../src/types'
 
 const MAX_HISTORY = 50
+const TRIM_BATCH = 10
+
+interface RoomData {
+  shapes: Shape[]
+  users: Map<string, User>
+  history: HistoryEntry[]
+  historyStart: number
+  historyCount: number
+  historyIndex: number
+}
 
 export class RoomManager {
-  private rooms: Map<
-    string,
-    {
-      shapes: Shape[]
-      users: Map<string, User>
-      history: HistoryEntry[]
-      historyIndex: number
-    }
-  > = new Map()
+  private rooms: Map<string, RoomData> = new Map()
 
-  private ensureRoom(roomId: string) {
+  private ensureRoom(roomId: string): RoomData {
     if (!this.rooms.has(roomId)) {
+      const initialEntry: HistoryEntry = {
+        snapshot: [],
+        timestamp: Date.now(),
+        userId: 'system',
+      }
+      const history = new Array(MAX_HISTORY)
+      history[0] = initialEntry
       this.rooms.set(roomId, {
         shapes: [],
         users: new Map(),
-        history: [{ snapshot: [], timestamp: Date.now(), userId: 'system' }],
+        history,
+        historyStart: 0,
+        historyCount: 1,
         historyIndex: 0,
       })
     }
     return this.rooms.get(roomId)!
+  }
+
+  private getHistoryAt(room: RoomData, index: number): HistoryEntry {
+    const pos = (room.historyStart + index) % MAX_HISTORY
+    return room.history[pos]
+  }
+
+  private setHistoryAt(room: RoomData, index: number, entry: HistoryEntry): void {
+    const pos = (room.historyStart + index) % MAX_HISTORY
+    room.history[pos] = entry
+  }
+
+  private trimHistoryIfNeeded(room: RoomData): void {
+    if (room.historyCount > MAX_HISTORY + TRIM_BATCH) {
+      const overflow = room.historyCount - MAX_HISTORY
+      room.historyStart = (room.historyStart + overflow) % MAX_HISTORY
+      room.historyCount = MAX_HISTORY
+      room.historyIndex -= overflow
+    }
   }
 
   getRoomState(roomId: string): RoomState {
@@ -58,7 +88,7 @@ export class RoomManager {
     return isFirst
   }
 
-  removeUser(roomId: string, userId: string) {
+  removeUser(roomId: string, userId: string): void {
     const room = this.rooms.get(roomId)
     if (room) {
       room.users.delete(userId)
@@ -73,26 +103,30 @@ export class RoomManager {
     }
   }
 
-  private pushHistory(roomId: string, userId: string) {
+  private pushHistory(roomId: string, userId: string): void {
     const room = this.ensureRoom(roomId)
     const snapshot = JSON.parse(JSON.stringify(room.shapes)) as Shape[]
 
-    if (room.historyIndex < room.history.length - 1) {
-      room.history = room.history.slice(0, room.historyIndex + 1)
+    if (room.historyIndex < room.historyCount - 1) {
+      room.historyCount = room.historyIndex + 1
     }
 
-    room.history.push({
+    const newEntry: HistoryEntry = {
       snapshot,
       timestamp: Date.now(),
       userId,
-    })
-
-    if (room.history.length > MAX_HISTORY) {
-      const overflow = room.history.length - MAX_HISTORY
-      room.history = room.history.slice(overflow)
     }
 
-    room.historyIndex = room.history.length - 1
+    if (room.historyCount >= MAX_HISTORY) {
+      room.historyStart = (room.historyStart + 1) % MAX_HISTORY
+    } else {
+      room.historyCount++
+    }
+
+    room.historyIndex = room.historyCount - 1
+    this.setHistoryAt(room, room.historyIndex, newEntry)
+
+    this.trimHistoryIfNeeded(room)
   }
 
   addShape(roomId: string, shape: Shape, userId: string): Shape[] {
@@ -102,7 +136,12 @@ export class RoomManager {
     return [...room.shapes]
   }
 
-  updateShape(roomId: string, shapeId: string, updates: Partial<Shape>, userId: string): Shape[] | null {
+  updateShape(
+    roomId: string,
+    shapeId: string,
+    updates: Partial<Shape>,
+    userId: string
+  ): Shape[] | null {
     const room = this.ensureRoom(roomId)
     const idx = room.shapes.findIndex((s) => s.id === shapeId)
     if (idx === -1) return null
@@ -123,7 +162,7 @@ export class RoomManager {
     if (room.historyIndex <= 0) return null
 
     room.historyIndex -= 1
-    const entry = room.history[room.historyIndex]
+    const entry = this.getHistoryAt(room, room.historyIndex)
     room.shapes = JSON.parse(JSON.stringify(entry.snapshot)) as Shape[]
 
     const undoEntry: HistoryEntry = {
@@ -132,8 +171,8 @@ export class RoomManager {
       userId,
     }
 
-    if (room.historyIndex < room.history.length - 1) {
-      room.history[room.historyIndex + 1] = undoEntry
+    if (room.historyIndex < room.historyCount - 1) {
+      this.setHistoryAt(room, room.historyIndex + 1, undoEntry)
     }
 
     return [...room.shapes]
@@ -141,10 +180,10 @@ export class RoomManager {
 
   redo(roomId: string, userId: string): Shape[] | null {
     const room = this.ensureRoom(roomId)
-    if (room.historyIndex >= room.history.length - 1) return null
+    if (room.historyIndex >= room.historyCount - 1) return null
 
     room.historyIndex += 1
-    const entry = room.history[room.historyIndex]
+    const entry = this.getHistoryAt(room, room.historyIndex)
     room.shapes = JSON.parse(JSON.stringify(entry.snapshot)) as Shape[]
     return [...room.shapes]
   }
@@ -156,7 +195,7 @@ export class RoomManager {
 
   canRedo(roomId: string): boolean {
     const room = this.ensureRoom(roomId)
-    return room.historyIndex < room.history.length - 1
+    return room.historyIndex < room.historyCount - 1
   }
 }
 
