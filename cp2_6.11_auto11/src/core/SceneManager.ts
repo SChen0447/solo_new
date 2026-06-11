@@ -16,6 +16,7 @@ export class SceneManager {
   private particles: Particle[] = []
   private animationId: number = 0
   private clock: THREE.Clock
+  private externalObjects: Set<THREE.Object3D> = new Set()
 
   constructor(container: HTMLElement) {
     this.container = container
@@ -167,11 +168,69 @@ export class SceneManager {
   }
 
   public addObject(object: THREE.Object3D): void {
+    if (!object || this.externalObjects.has(object)) return
     this.scene.add(object)
+    this.externalObjects.add(object)
   }
 
   public removeObject(object: THREE.Object3D): void {
+    if (!object || !this.externalObjects.has(object)) return
     this.scene.remove(object)
+    this.externalObjects.delete(object)
+    this.disposeObject(object)
+  }
+
+  private disposeObject(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        if (child.geometry) {
+          child.geometry.dispose()
+        }
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose())
+          } else {
+            child.material.dispose()
+          }
+        }
+      }
+      if (child instanceof THREE.Points) {
+        if (child.geometry) {
+          child.geometry.dispose()
+        }
+        if (child.material) {
+          (child.material as THREE.Material).dispose()
+        }
+      }
+      if (child instanceof THREE.Line) {
+        if (child.geometry) {
+          child.geometry.dispose()
+        }
+        if (child.material) {
+          (child.material as THREE.Material).dispose()
+        }
+      }
+    })
+  }
+
+  public addObjects(objects: THREE.Object3D[]): void {
+    objects.forEach(obj => this.addObject(obj))
+  }
+
+  public removeObjects(objects: THREE.Object3D[]): void {
+    objects.forEach(obj => this.removeObject(obj))
+  }
+
+  public clearExternalObjects(): void {
+    this.externalObjects.forEach(obj => {
+      this.scene.remove(obj)
+      this.disposeObject(obj)
+    })
+    this.externalObjects.clear()
+  }
+
+  public hasObject(object: THREE.Object3D): boolean {
+    return this.externalObjects.has(object)
   }
 
   public createParticles(position: THREE.Vector3, count: number): void {
@@ -245,17 +304,47 @@ export class SceneManager {
   public destroy(): void {
     cancelAnimationFrame(this.animationId)
     
+    this.clearExternalObjects()
+    
     if (this.clayMesh) {
+      this.scene.remove(this.clayMesh)
       this.clayMesh.geometry.dispose()
-      ;(this.clayMesh.material as THREE.Material).dispose()
+      if (this.clayMesh.material) {
+        if (Array.isArray(this.clayMesh.material)) {
+          this.clayMesh.material.forEach(m => m.dispose())
+        } else {
+          this.clayMesh.material.dispose()
+        }
+      }
+      this.clayMesh = null
     }
     
     this.particles.forEach(particle => {
+      this.scene.remove(particle.mesh)
       particle.mesh.geometry.dispose()
-      ;(particle.mesh.material as THREE.Material).dispose()
+      if (particle.mesh.material) {
+        if (Array.isArray(particle.mesh.material)) {
+          particle.mesh.material.forEach(m => m.dispose())
+        } else {
+          particle.mesh.material.dispose()
+        }
+      }
     })
+    this.particles = []
+    
+    if (this.scene) {
+      this.scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Points || obj instanceof THREE.Line) {
+          if (obj.geometry) {
+            obj.geometry.dispose()
+          }
+        }
+      })
+    }
     
     this.renderer.dispose()
-    this.container.removeChild(this.renderer.domElement)
+    if (this.container && this.renderer.domElement.parentNode === this.container) {
+      this.container.removeChild(this.renderer.domElement)
+    }
   }
 }

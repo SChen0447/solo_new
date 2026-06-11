@@ -8,11 +8,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.4.0",
-    "three": "^0.160.0",
-    "@mediapipe/hands": "^0.4.1675469240",
-    "@mediapipe/camera_utils": "^0.3.1675466862",
-    "@mediapipe/drawing_utils": "^0.3.1675466124"
+    "vue": "3.4.21",
+    "three": "0.160.0",
+    "@mediapipe/hands": "0.4.1675469240",
+    "@mediapipe/camera_utils": "0.3.1675466862",
+    "@mediapipe/drawing_utils": "0.3.1675466124"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",

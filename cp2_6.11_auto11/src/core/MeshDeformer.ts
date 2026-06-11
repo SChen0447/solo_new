@@ -18,12 +18,16 @@ export class MeshDeformer {
   private indices: Uint32Array
   private normals: Float32Array
   private adjacencyList: number[][]
+  private edgeWeights: number[][]
+  private valence: number[]
   private subdivisionLevel: number
   private baseRadius: number
   private vertexCount: number
   private history: HistoryState[] = []
   private historyIndex: number = -1
   private maxHistory: number = 50
+  private maxSmoothIterations: number = 5
+  private smoothConvergenceThreshold: number = 0.001
 
   constructor(subdivisionLevel: number = 3, baseRadius: number = 5) {
     this.subdivisionLevel = Math.min(subdivisionLevel, 4)
@@ -63,8 +67,11 @@ export class MeshDeformer {
     this.originalVertices = new Float32Array(this.vertices)
     this.indices = new Uint32Array(indexAttr.array as Uint32Array)
     this.normals = new Float32Array(this.vertices.length)
+    this.edgeWeights = []
+    this.valence = []
     
     this.buildAdjacencyList()
+    this.computeEdgeWeights()
     this.computeNormals()
   }
 
@@ -89,6 +96,38 @@ export class MeshDeformer {
     if (!this.adjacencyList[vertex].includes(neighbor)) {
       this.adjacencyList[vertex].push(neighbor)
     }
+  }
+
+  private computeEdgeWeights(): void {
+    this.edgeWeights = Array.from({ length: this.vertexCount }, () => [] as number[])
+    this.valence = new Array(this.vertexCount).fill(0)
+
+    for (let i = 0; i < this.vertexCount; i++) {
+      const neighbors = this.adjacencyList[i]
+      this.valence[i] = neighbors.length
+      const weights: number[] = []
+
+      for (let j = 0; j < neighbors.length; j++) {
+        const neighbor = neighbors[j]
+        const distance = this.getVertexDistance(i, neighbor)
+        const weight = distance > 0 ? 1.0 / distance : 1.0
+        weights.push(weight)
+      }
+
+      const weightSum = weights.reduce((sum, w) => sum + w, 0)
+      for (let j = 0; j < weights.length; j++) {
+        weights[j] = weights[j] / weightSum
+      }
+
+      this.edgeWeights[i] = weights
+    }
+  }
+
+  private getVertexDistance(i: number, j: number): number {
+    const dx = this.vertices[i * 3] - this.vertices[j * 3]
+    const dy = this.vertices[i * 3 + 1] - this.vertices[j * 3 + 1]
+    const dz = this.vertices[i * 3 + 2] - this.vertices[j * 3 + 2]
+    return Math.sqrt(dx * dx + dy * dy + dz * dz)
   }
 
   private computeNormals(): void {
@@ -134,36 +173,132 @@ export class MeshDeformer {
     }
   }
 
-  private laplacianSmooth(vertexIndex: number, strength: number = 0.5): THREE.Vector3 {
+  private laplacianSmooth(
+    vertexIndex: number,
+    strength: number = 0.5,
+    iterations: number = 3
+  ): THREE.Vector3 {
     const neighbors = this.adjacencyList[vertexIndex]
-    if (neighbors.length === 0) {
+    const weights = this.edgeWeights[vertexIndex]
+    
+    if (neighbors.length === 0 || weights.length === 0) {
       return new THREE.Vector3(
         this.vertices[vertexIndex * 3],
         this.vertices[vertexIndex * 3 + 1],
         this.vertices[vertexIndex * 3 + 2]
       )
     }
-    
-    let sumX = 0, sumY = 0, sumZ = 0
-    for (const neighbor of neighbors) {
-      sumX += this.vertices[neighbor * 3]
-      sumY += this.vertices[neighbor * 3 + 1]
-      sumZ += this.vertices[neighbor * 3 + 2]
-    }
-    
-    const avgX = sumX / neighbors.length
-    const avgY = sumY / neighbors.length
-    const avgZ = sumZ / neighbors.length
-    
-    const currentX = this.vertices[vertexIndex * 3]
-    const currentY = this.vertices[vertexIndex * 3 + 1]
-    const currentZ = this.vertices[vertexIndex * 3 + 2]
-    
-    return new THREE.Vector3(
-      currentX + (avgX - currentX) * strength,
-      currentY + (avgY - currentY) * strength,
-      currentZ + (avgZ - currentZ) * strength
+
+    let result = new THREE.Vector3(
+      this.vertices[vertexIndex * 3],
+      this.vertices[vertexIndex * 3 + 1],
+      this.vertices[vertexIndex * 3 + 2]
     )
+
+    const tempPositions: THREE.Vector3[] = []
+    for (let i = 0; i < this.vertexCount; i++) {
+      tempPositions.push(new THREE.Vector3(
+        this.vertices[i * 3],
+        this.vertices[i * 3 + 1],
+        this.vertices[i * 3 + 2]
+      ))
+    }
+
+    const maxIter = Math.min(iterations, this.maxSmoothIterations)
+    
+    for (let iter = 0; iter < maxIter; iter++) {
+      const prevPos = result.clone()
+      
+      let laplacianX = 0
+      let laplacianY = 0
+      let laplacianZ = 0
+      
+      for (let j = 0; j < neighbors.length; j++) {
+        const neighborIdx = neighbors[j]
+        const weight = weights[j]
+        laplacianX += tempPositions[neighborIdx].x * weight
+        laplacianY += tempPositions[neighborIdx].y * weight
+        laplacianZ += tempPositions[neighborIdx].z * weight
+      }
+      
+      const displacement = new THREE.Vector3(
+        (laplacianX - result.x) * strength,
+        (laplacianY - result.y) * strength,
+        (laplacianZ - result.z) * strength
+      )
+      
+      result.add(displacement)
+      
+      const delta = result.distanceTo(prevPos)
+      if (delta < this.smoothConvergenceThreshold) {
+        break
+      }
+      
+      tempPositions[vertexIndex] = result.clone()
+    }
+
+    return result
+  }
+
+  private smoothRegion(
+    affectedVertices: number[],
+    strength: number = 0.5
+  ): void {
+    const tempVertices = new Float32Array(this.vertices)
+    const convergenceThreshold = this.smoothConvergenceThreshold * strength
+    const maxIter = Math.min(3, this.maxSmoothIterations)
+
+    for (let iter = 0; iter < maxIter; iter++) {
+      let maxDelta = 0
+
+      for (const vertexIdx of affectedVertices) {
+        const neighbors = this.adjacencyList[vertexIdx]
+        const weights = this.edgeWeights[vertexIdx]
+
+        if (neighbors.length === 0) continue
+
+        let smoothX = 0, smoothY = 0, smoothZ = 0
+
+        for (let j = 0; j < neighbors.length; j++) {
+          const neighborIdx = neighbors[j]
+          const weight = weights[j]
+          smoothX += tempVertices[neighborIdx * 3] * weight
+          smoothY += tempVertices[neighborIdx * 3 + 1] * weight
+          smoothZ += tempVertices[neighborIdx * 3 + 2] * weight
+        }
+
+        const idx = vertexIdx * 3
+        const currentX = tempVertices[idx]
+        const currentY = tempVertices[idx + 1]
+        const currentZ = tempVertices[idx + 2]
+
+        const newX = currentX + (smoothX - currentX) * strength
+        const newY = currentY + (smoothY - currentY) * strength
+        const newZ = currentZ + (smoothZ - currentZ) * strength
+
+        const delta = Math.sqrt(
+          (newX - currentX) ** 2 +
+          (newY - currentY) ** 2 +
+          (newZ - currentZ) ** 2
+        )
+        maxDelta = Math.max(maxDelta, delta)
+
+        tempVertices[idx] = newX
+        tempVertices[idx + 1] = newY
+        tempVertices[idx + 2] = newZ
+      }
+
+      if (maxDelta < convergenceThreshold) {
+        break
+      }
+    }
+
+    for (const vertexIdx of affectedVertices) {
+      const idx = vertexIdx * 3
+      this.vertices[idx] = tempVertices[idx]
+      this.vertices[idx + 1] = tempVertices[idx + 1]
+      this.vertices[idx + 2] = tempVertices[idx + 2]
+    }
   }
 
   private getBrushFalloff(distance: number, radius: number): number {
@@ -182,61 +317,107 @@ export class MeshDeformer {
     const savedVertices = new Float32Array(this.vertices)
     let deformed = false
     
-    const brushStrength = 0.15 * intensity
+    const brushStrength = 0.12 * intensity
     
-    for (let i = 0; i < this.vertexCount; i++) {
-      const vx = this.vertices[i * 3]
-      const vy = this.vertices[i * 3 + 1]
-      const vz = this.vertices[i * 3 + 2]
+    if (mode === 'smooth') {
+      const smoothStrength = 0.3 * intensity
+      const tempVertices = new Float32Array(this.vertices)
       
-      const dx = vx - brushPosition.x
-      const dy = vy - brushPosition.y
-      const dz = vz - brushPosition.z
-      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-      
-      if (distance < radius) {
-        const falloff = this.getBrushFalloff(distance, radius)
-        const strength = falloff * brushStrength
+      for (let i = 0; i < this.vertexCount; i++) {
+        const vx = this.vertices[i * 3]
+        const vy = this.vertices[i * 3 + 1]
+        const vz = this.vertices[i * 3 + 2]
         
-        if (strength > 0.0001) {
-          affectedVertices.push(i)
+        const dx = vx - brushPosition.x
+        const dy = vy - brushPosition.y
+        const dz = vz - brushPosition.z
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+        
+        if (distance < radius) {
+          const falloff = this.getBrushFalloff(distance, radius)
+          const strength = falloff * smoothStrength
           
-          const nx = this.normals[i * 3]
-          const ny = this.normals[i * 3 + 1]
-          const nz = this.normals[i * 3 + 2]
-          
-          let displacement: THREE.Vector3
-          
-          switch (mode) {
-            case 'inflate':
-              displacement = new THREE.Vector3(nx, ny, nz).multiplyScalar(strength * 3)
-              break
-            case 'deflate':
-              displacement = new THREE.Vector3(-nx, -ny, -nz).multiplyScalar(strength * 3)
-              break
-            case 'smooth':
-              const smoothed = this.laplacianSmooth(i, strength * 2)
-              displacement = new THREE.Vector3(
-                smoothed.x - vx,
-                smoothed.y - vy,
-                smoothed.z - vz
-              )
-              break
-            case 'scrape':
-              const toCenter = new THREE.Vector3(0, 0, 0)
-                .sub(new THREE.Vector3(vx, vy, vz))
-                .normalize()
-              displacement = toCenter.multiplyScalar(strength * 2)
-              break
-            default:
-              displacement = new THREE.Vector3()
+          if (strength > 0.001) {
+            affectedVertices.push(i)
+            
+            const neighbors = this.adjacencyList[i]
+            const weights = this.edgeWeights[i]
+            
+            if (neighbors.length > 0 && weights.length > 0) {
+              let smoothX = 0, smoothY = 0, smoothZ = 0
+              
+              for (let j = 0; j < neighbors.length; j++) {
+                const neighborIdx = neighbors[j]
+                const weight = weights[j]
+                smoothX += this.vertices[neighborIdx * 3] * weight
+                smoothY += this.vertices[neighborIdx * 3 + 1] * weight
+                smoothZ += this.vertices[neighborIdx * 3 + 2] * weight
+              }
+              
+              const idx = i * 3
+              tempVertices[idx] = vx + (smoothX - vx) * strength
+              tempVertices[idx + 1] = vy + (smoothY - vy) * strength
+              tempVertices[idx + 2] = vz + (smoothZ - vz) * strength
+              
+              deformed = true
+            }
           }
+        }
+      }
+      
+      if (deformed) {
+        for (const vertexIdx of affectedVertices) {
+          const idx = vertexIdx * 3
+          this.vertices[idx] = tempVertices[idx]
+          this.vertices[idx + 1] = tempVertices[idx + 1]
+          this.vertices[idx + 2] = tempVertices[idx + 2]
+        }
+      }
+    } else {
+      for (let i = 0; i < this.vertexCount; i++) {
+        const vx = this.vertices[i * 3]
+        const vy = this.vertices[i * 3 + 1]
+        const vz = this.vertices[i * 3 + 2]
+        
+        const dx = vx - brushPosition.x
+        const dy = vy - brushPosition.y
+        const dz = vz - brushPosition.z
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+        
+        if (distance < radius) {
+          const falloff = this.getBrushFalloff(distance, radius)
+          const strength = falloff * brushStrength
           
-          if (displacement.length() > 0.0001) {
-            this.vertices[i * 3] += displacement.x
-            this.vertices[i * 3 + 1] += displacement.y
-            this.vertices[i * 3 + 2] += displacement.z
-            deformed = true
+          if (strength > 0.0001) {
+            affectedVertices.push(i)
+            
+            const nx = this.normals[i * 3]
+            const ny = this.normals[i * 3 + 1]
+            const nz = this.normals[i * 3 + 2]
+            
+            let displacement: THREE.Vector3
+            
+            switch (mode) {
+              case 'inflate':
+                displacement = new THREE.Vector3(nx, ny, nz).multiplyScalar(strength * 2.5)
+                break
+              case 'deflate':
+                displacement = new THREE.Vector3(-nx, -ny, -nz).multiplyScalar(strength * 2.5)
+                break
+              case 'scrape':
+                const toCenter = new THREE.Vector3(vx, vy, vz).normalize()
+                displacement = toCenter.multiplyScalar(-strength * 2)
+                break
+              default:
+                displacement = new THREE.Vector3()
+            }
+            
+            if (displacement.length() > 0.0001) {
+              this.vertices[i * 3] += displacement.x
+              this.vertices[i * 3 + 1] += displacement.y
+              this.vertices[i * 3 + 2] += displacement.z
+              deformed = true
+            }
           }
         }
       }
@@ -244,10 +425,34 @@ export class MeshDeformer {
     
     if (deformed && affectedVertices.length > 0) {
       this.computeNormals()
+      this.updateEdgeWeights(affectedVertices)
       this.saveHistory(savedVertices, affectedVertices)
     }
     
     return { deformed, affectedVertices }
+  }
+
+  private updateEdgeWeights(affectedVertices: number[]): void {
+    for (const vertexIdx of affectedVertices) {
+      const neighbors = this.adjacencyList[vertexIdx]
+      const weights: number[] = []
+      
+      for (let j = 0; j < neighbors.length; j++) {
+        const neighbor = neighbors[j]
+        const distance = this.getVertexDistance(vertexIdx, neighbor)
+        const weight = distance > 0 ? 1.0 / distance : 1.0
+        weights.push(weight)
+      }
+      
+      const weightSum = weights.reduce((sum, w) => sum + w, 0)
+      if (weightSum > 0) {
+        for (let j = 0; j < weights.length; j++) {
+          weights[j] = weights[j] / weightSum
+        }
+      }
+      
+      this.edgeWeights[vertexIdx] = weights
+    }
   }
 
   private saveHistory(vertices: Float32Array, affectedVertices: number[]): void {
