@@ -7,65 +7,93 @@ const CATEGORIES: CategoryInfo[] = [
   { key: 'street', label: '街拍' },
 ];
 
+interface Callbacks {
+  onCategoryChange?: (category: Category) => void;
+  onPhotoClick?: (index: number) => void;
+  onLightboxClose?: () => void;
+  onLightboxPrev?: () => void;
+  onLightboxNext?: () => void;
+  onFavoriteToggle?: (photoId: number) => void;
+}
+
+interface UIState {
+  activeCategory: Category;
+  currentLightboxIndex: number;
+  favorites: Set<number>;
+  favCount: number;
+}
+
+interface DOMElements {
+  navbar: HTMLElement | null;
+  favCounter: HTMLElement | null;
+  filterBar: HTMLElement | null;
+  filterUnderline: HTMLElement | null;
+  grid: HTMLElement | null;
+  lightbox: HTMLElement | null;
+  lightboxImg: HTMLImageElement | null;
+  lightboxTitle: HTMLElement | null;
+}
+
 export class Renderer {
   private app: HTMLElement;
-  private navbar!: HTMLElement;
-  private filterBar!: HTMLElement;
-  private filterUnderline!: HTMLElement;
-  private grid!: HTMLElement;
-  private lightbox!: HTMLElement;
-  private lightboxImg!: HTMLImageElement;
-  private lightboxTitle!: HTMLElement;
-  private favCounter!: HTMLElement;
-
-  private filteredPhotos: Photo[] = [];
-  private favorites: Set<number> = new Set();
-  private favCount: number = 0;
-  private currentLightboxIndex: number = -1;
-
-  private onCategoryChange?: (category: Category) => void;
-  private onPhotoClick?: (index: number) => void;
-  private onLightboxClose?: () => void;
-  private onLightboxPrev?: () => void;
-  private onLightboxNext?: () => void;
-  private onFavoriteToggle?: (photoId: number) => void;
+  private allPhotos: Photo[] = [];
+  private displayedPhotos: Photo[] = [];
+  private state: UIState;
+  private dom: DOMElements;
+  private callbacks: Callbacks;
 
   constructor(appId: string) {
     this.app = document.getElementById(appId)!;
+    this.state = {
+      activeCategory: 'all',
+      currentLightboxIndex: -1,
+      favorites: new Set<number>(),
+      favCount: 0,
+    };
+    this.dom = {
+      navbar: null,
+      favCounter: null,
+      filterBar: null,
+      filterUnderline: null,
+      grid: null,
+      lightbox: null,
+      lightboxImg: null,
+      lightboxTitle: null,
+    };
+    this.callbacks = {};
   }
 
-  setCallbacks(callbacks: {
-    onCategoryChange?: (category: Category) => void;
-    onPhotoClick?: (index: number) => void;
-    onLightboxClose?: () => void;
-    onLightboxPrev?: () => void;
-    onLightboxNext?: () => void;
-    onFavoriteToggle?: (photoId: number) => void;
-  }): void {
-    this.onCategoryChange = callbacks.onCategoryChange;
-    this.onPhotoClick = callbacks.onPhotoClick;
-    this.onLightboxClose = callbacks.onLightboxClose;
-    this.onLightboxPrev = callbacks.onLightboxPrev;
-    this.onLightboxNext = callbacks.onLightboxNext;
-    this.onFavoriteToggle = callbacks.onFavoriteToggle;
+  setPhotos(photos: Photo[]): void {
+    this.allPhotos = photos;
+  }
+
+  setCallbacks(callbacks: Callbacks): void {
+    this.callbacks = { ...callbacks };
+  }
+
+  setActiveCategory(category: Category): void {
+    this.state.activeCategory = category;
+    this.updateFilterUI();
   }
 
   render(photos: Photo[]): void {
-    this.filteredPhotos = photos;
+    this.displayedPhotos = photos;
+    this.allPhotos = photos;
     this.app.innerHTML = '';
     this.renderNavbar();
     this.renderFilterBar();
     this.renderGrid(photos);
     this.renderLightbox();
+    this.bindResizeHandler();
   }
 
   private renderNavbar(): void {
-    this.navbar = document.createElement('nav');
-    this.navbar.classList.add('navbar');
-    this.navbar.innerHTML = `
+    const navbar = document.createElement('nav');
+    navbar.classList.add('navbar');
+    navbar.innerHTML = `
       <div class="navbar-inner">
         <div class="fav-counter">
-          <svg class="fav-heart-icon" viewBox="0 0 24 24" width="18" height="18">
+          <svg class="fav-heart-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="var(--color-accent)" stroke="var(--color-accent)" stroke-width="1"/>
           </svg>
           <span class="fav-count-text">0</span>
@@ -74,66 +102,84 @@ export class Renderer {
         <div class="navbar-spacer"></div>
       </div>
     `;
-    this.app.appendChild(this.navbar);
-    this.favCounter = this.navbar.querySelector('.fav-count-text')!;
+    this.dom.navbar = navbar;
+    this.dom.favCounter = navbar.querySelector('.fav-count-text');
+    this.app.appendChild(navbar);
   }
 
   private renderFilterBar(): void {
-    this.filterBar = document.createElement('div');
-    this.filterBar.classList.add('filter-bar');
+    const filterBar = document.createElement('div');
+    filterBar.classList.add('filter-bar');
     const inner = document.createElement('div');
     inner.classList.add('filter-inner');
 
-    CATEGORIES.forEach(cat => {
+    CATEGORIES.forEach((cat, idx) => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.classList.add('filter-btn');
-      if (cat.key === 'all') btn.classList.add('active');
+      if (idx === 0) btn.classList.add('active');
       btn.dataset.category = cat.key;
       btn.textContent = cat.label;
       btn.addEventListener('click', () => {
-        this.onCategoryChange?.(cat.key);
+        this.callbacks.onCategoryChange?.(cat.key);
       });
       inner.appendChild(btn);
     });
 
-    this.filterUnderline = document.createElement('div');
-    this.filterUnderline.classList.add('filter-underline');
-    inner.appendChild(this.filterUnderline);
-    this.filterBar.appendChild(inner);
-    this.app.appendChild(this.filterBar);
+    const underline = document.createElement('div');
+    underline.classList.add('filter-underline');
+    inner.appendChild(underline);
 
-    requestAnimationFrame(() => {
-      const activeBtn = this.filterBar.querySelector('.filter-btn.active') as HTMLElement;
-      if (activeBtn) {
-        this.slideUnderlineTo(activeBtn);
-      }
-    });
+    filterBar.appendChild(inner);
+    this.dom.filterBar = filterBar;
+    this.dom.filterUnderline = underline;
+    this.app.appendChild(filterBar);
 
-    window.addEventListener('resize', () => {
-      const activeBtn = this.filterBar.querySelector('.filter-btn.active') as HTMLElement;
-      if (activeBtn) {
-        this.slideUnderlineTo(activeBtn);
-      }
-    });
+    requestAnimationFrame(() => this.updateUnderlinePosition());
   }
 
-  private slideUnderlineTo(btn: HTMLElement): void {
-    const parent = btn.parentElement;
+  private updateFilterUI(): void {
+    if (!this.dom.filterBar || !this.dom.filterUnderline) return;
+    const buttons = this.dom.filterBar.querySelectorAll('.filter-btn');
+    buttons.forEach(btn => {
+      const catKey = (btn as HTMLElement).dataset.category as Category;
+      const isActive = catKey === this.state.activeCategory;
+      btn.classList.toggle('active', isActive);
+    });
+    this.updateUnderlinePosition();
+  }
+
+  private updateUnderlinePosition(): void {
+    if (!this.dom.filterBar || !this.dom.filterUnderline) return;
+    const activeBtn = this.dom.filterBar.querySelector('.filter-btn.active') as HTMLElement | null;
+    if (!activeBtn) return;
+    const parent = activeBtn.parentElement;
     if (!parent) return;
-    const rect = btn.getBoundingClientRect();
+    const rect = activeBtn.getBoundingClientRect();
     const parentRect = parent.getBoundingClientRect();
-    this.filterUnderline.style.left = `${rect.left - parentRect.left}px`;
-    this.filterUnderline.style.width = `${rect.width}px`;
+    this.dom.filterUnderline.style.left = `${rect.left - parentRect.left}px`;
+    this.dom.filterUnderline.style.width = `${rect.width}px`;
   }
 
-  private renderGrid(photos: Photo[]): void {
-    this.grid = document.createElement('div');
-    this.grid.classList.add('gallery-grid');
+  private bindResizeHandler(): void {
+    window.addEventListener('resize', () => {
+      this.updateUnderlinePosition();
+    });
+  }
+
+  renderGrid(photos: Photo[]): void {
+    this.displayedPhotos = photos;
+    if (!this.dom.grid) {
+      const grid = document.createElement('div');
+      grid.classList.add('gallery-grid');
+      this.dom.grid = grid;
+      this.app.appendChild(grid);
+    }
+    this.dom.grid.innerHTML = '';
     photos.forEach((photo, index) => {
       const card = this.createPhotoCard(photo, index);
-      this.grid.appendChild(card);
+      this.dom.grid!.appendChild(card);
     });
-    this.app.appendChild(this.grid);
   }
 
   private createPhotoCard(photo: Photo, index: number): HTMLElement {
@@ -157,42 +203,60 @@ export class Renderer {
     titleOverlay.textContent = photo.title;
     imgWrapper.appendChild(titleOverlay);
 
-    const heartBtn = document.createElement('button');
-    heartBtn.classList.add('heart-btn');
-    heartBtn.dataset.photoId = String(photo.id);
-    heartBtn.setAttribute('aria-label', '收藏');
-    heartBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" width="20" height="20">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="none" stroke="currentColor" stroke-width="1.8"/>
-      </svg>
-    `;
-    heartBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.onFavoriteToggle?.(photo.id);
-    });
+    const heartBtn = this.createHeartButton(photo.id);
 
     card.appendChild(imgWrapper);
     card.appendChild(heartBtn);
 
     card.addEventListener('click', () => {
-      this.onPhotoClick?.(index);
+      this.callbacks.onPhotoClick?.(index);
     });
 
     return card;
   }
 
+  private createHeartButton(photoId: number): HTMLElement {
+    const heartBtn = document.createElement('button');
+    heartBtn.type = 'button';
+    heartBtn.classList.add('heart-btn');
+    heartBtn.dataset.photoId = String(photoId);
+    heartBtn.setAttribute('aria-label', '收藏');
+
+    const isFav = this.state.favorites.has(photoId);
+    if (isFav) {
+      heartBtn.classList.add('favorited');
+    }
+
+    const fill = isFav ? 'var(--color-heart)' : 'none';
+    const stroke = isFav ? 'var(--color-heart)' : 'currentColor';
+    heartBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="${fill}" stroke="${stroke}" stroke-width="1.8" stroke-linejoin="round"/>
+      </svg>
+    `;
+
+    heartBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.callbacks.onFavoriteToggle?.(photoId);
+    });
+
+    return heartBtn;
+  }
+
   private renderLightbox(): void {
-    this.lightbox = document.createElement('div');
-    this.lightbox.classList.add('lightbox');
-    this.lightbox.innerHTML = `
+    const lightbox = document.createElement('div');
+    lightbox.classList.add('lightbox');
+    lightbox.setAttribute('role', 'dialog');
+    lightbox.setAttribute('aria-modal', 'true');
+    lightbox.innerHTML = `
       <button class="lightbox-close" aria-label="关闭">
-        <svg viewBox="0 0 24 24" width="28" height="28">
+        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
           <line x1="18" y1="6" x2="6" y2="18" stroke="white" stroke-width="2" stroke-linecap="round"/>
           <line x1="6" y1="6" x2="18" y2="18" stroke="white" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
       <button class="lightbox-arrow lightbox-prev" aria-label="上一张">
-        <svg viewBox="0 0 24 24" width="36" height="36">
+        <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
           <polyline points="15 18 9 12 15 6" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
@@ -201,112 +265,117 @@ export class Renderer {
         <div class="lightbox-title"></div>
       </div>
       <button class="lightbox-arrow lightbox-next" aria-label="下一张">
-        <svg viewBox="0 0 24 24" width="36" height="36">
+        <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
           <polyline points="9 18 15 12 9 6" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     `;
-    this.lightboxImg = this.lightbox.querySelector('.lightbox-img')!;
-    this.lightboxTitle = this.lightbox.querySelector('.lightbox-title')!;
 
-    this.lightbox.querySelector('.lightbox-close')!.addEventListener('click', () => {
-      this.onLightboxClose?.();
+    this.dom.lightbox = lightbox;
+    this.dom.lightboxImg = lightbox.querySelector('.lightbox-img');
+    this.dom.lightboxTitle = lightbox.querySelector('.lightbox-title');
+
+    lightbox.querySelector('.lightbox-close')!.addEventListener('click', () => {
+      this.callbacks.onLightboxClose?.();
     });
-    this.lightbox.querySelector('.lightbox-prev')!.addEventListener('click', (e) => {
+    lightbox.querySelector('.lightbox-prev')!.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.onLightboxPrev?.();
+      this.callbacks.onLightboxPrev?.();
     });
-    this.lightbox.querySelector('.lightbox-next')!.addEventListener('click', (e) => {
+    lightbox.querySelector('.lightbox-next')!.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.onLightboxNext?.();
+      this.callbacks.onLightboxNext?.();
     });
-    this.lightbox.querySelector('.lightbox-content')!.addEventListener('click', (e) => {
+    lightbox.querySelector('.lightbox-content')!.addEventListener('click', (e) => {
       e.stopPropagation();
     });
-    this.lightbox.addEventListener('click', () => {
-      this.onLightboxClose?.();
+    lightbox.addEventListener('click', () => {
+      this.callbacks.onLightboxClose?.();
     });
 
-    this.app.appendChild(this.lightbox);
-  }
-
-  updateGrid(photos: Photo[]): void {
-    this.filteredPhotos = photos;
-    this.grid.innerHTML = '';
-    photos.forEach((photo, index) => {
-      const card = this.createPhotoCard(photo, index);
-      this.grid.appendChild(card);
-    });
-  }
-
-  updateFilterActive(category: Category): void {
-    const buttons = this.filterBar.querySelectorAll('.filter-btn');
-    buttons.forEach(btn => {
-      const isActive = (btn as HTMLElement).dataset.category === category;
-      btn.classList.toggle('active', isActive);
-      if (isActive) {
-        this.slideUnderlineTo(btn as HTMLElement);
-      }
-    });
+    this.app.appendChild(lightbox);
   }
 
   openLightbox(index: number): void {
-    if (index < 0 || index >= this.filteredPhotos.length) return;
-    this.currentLightboxIndex = index;
-    const photo = this.filteredPhotos[index];
-    this.lightboxImg.src = photo.url;
-    this.lightboxImg.alt = photo.title;
-    this.lightboxTitle.textContent = photo.title;
-    this.lightbox.classList.add('open');
+    if (index < 0 || index >= this.displayedPhotos.length) return;
+    if (!this.dom.lightbox || !this.dom.lightboxImg || !this.dom.lightboxTitle) return;
+
+    this.state.currentLightboxIndex = index;
+    const photo = this.displayedPhotos[index];
+    this.dom.lightboxImg.src = photo.url;
+    this.dom.lightboxImg.alt = photo.title;
+    this.dom.lightboxTitle.textContent = photo.title;
+    this.dom.lightbox.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
 
   closeLightbox(): void {
-    this.lightbox.classList.remove('open');
+    if (!this.dom.lightbox) return;
+    this.dom.lightbox.classList.remove('open');
     document.body.style.overflow = '';
-    this.currentLightboxIndex = -1;
+    this.state.currentLightboxIndex = -1;
   }
 
   navigateLightbox(direction: -1 | 1): void {
-    const newIndex = this.currentLightboxIndex + direction;
-    if (newIndex < 0 || newIndex >= this.filteredPhotos.length) return;
-    this.currentLightboxIndex = newIndex;
-    const photo = this.filteredPhotos[newIndex];
-    this.lightboxImg.classList.remove('img-fade');
-    void this.lightboxImg.offsetHeight;
-    this.lightboxImg.src = photo.url;
-    this.lightboxImg.alt = photo.title;
-    this.lightboxTitle.textContent = photo.title;
-    this.lightboxImg.classList.add('img-fade');
+    if (!this.dom.lightboxImg || !this.dom.lightboxTitle) return;
+    const newIndex = this.state.currentLightboxIndex + direction;
+    if (newIndex < 0 || newIndex >= this.displayedPhotos.length) return;
+
+    this.state.currentLightboxIndex = newIndex;
+    const photo = this.displayedPhotos[newIndex];
+
+    const img = this.dom.lightboxImg;
+    img.classList.remove('img-fade');
+    void img.offsetWidth;
+    img.src = photo.url;
+    img.alt = photo.title;
+    this.dom.lightboxTitle.textContent = photo.title;
+    img.classList.add('img-fade');
   }
 
   toggleFavorite(photoId: number): { isFav: boolean; newCount: number } {
-    if (this.favorites.has(photoId)) {
-      this.favorites.delete(photoId);
-      this.favCount--;
+    const currentlyFav = this.state.favorites.has(photoId);
+
+    if (currentlyFav) {
+      this.state.favorites.delete(photoId);
+      this.state.favCount--;
     } else {
-      this.favorites.add(photoId);
-      this.favCount++;
+      this.state.favorites.add(photoId);
+      this.state.favCount++;
     }
 
-    const isFav = this.favorites.has(photoId);
-    const heartBtn = this.grid.querySelector(`.heart-btn[data-photo-id="${photoId}"]`) as HTMLElement;
-    if (heartBtn) {
-      heartBtn.classList.toggle('favorited', isFav);
-      const svgPath = heartBtn.querySelector('svg path')!;
+    const isFav = !currentlyFav;
+    this.updateHeartButtonUI(photoId, isFav);
+    this.updateFavCounter();
+
+    return { isFav, newCount: this.state.favCount };
+  }
+
+  private updateHeartButtonUI(photoId: number, isFav: boolean): void {
+    const heartBtn = this.getHeartButton(photoId);
+    if (!heartBtn) return;
+
+    heartBtn.classList.toggle('favorited', isFav);
+    const svgPath = heartBtn.querySelector('svg path');
+    if (svgPath) {
       svgPath.setAttribute('fill', isFav ? 'var(--color-heart)' : 'none');
       svgPath.setAttribute('stroke', isFav ? 'var(--color-heart)' : 'currentColor');
     }
+  }
 
-    this.favCounter.textContent = String(this.favCount);
-    return { isFav, newCount: this.favCount };
+  private updateFavCounter(): void {
+    if (this.dom.favCounter) {
+      this.dom.favCounter.textContent = String(this.state.favCount);
+    }
   }
 
   getGridCards(): HTMLElement[] {
-    return Array.from(this.grid.querySelectorAll('.photo-card'));
+    if (!this.dom.grid) return [];
+    return Array.from(this.dom.grid.querySelectorAll('.photo-card'));
   }
 
   getHeartButton(photoId: number): HTMLElement | null {
-    return this.grid.querySelector(`.heart-btn[data-photo-id="${photoId}"]`);
+    if (!this.dom.grid) return null;
+    return this.dom.grid.querySelector(`.heart-btn[data-photo-id="${photoId}"]`);
   }
 }

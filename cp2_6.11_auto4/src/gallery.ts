@@ -12,20 +12,25 @@ const PHOTOS: Photo[] = [
   { id: 2, url: imageUrl('Serene ocean waves crashing on rocky shore at sunset with warm golden light, fine art seascape photography'), title: '海岸暮色', category: 'landscape' },
   { id: 3, url: imageUrl('Misty forest path with ancient trees and sun rays filtering through green canopy, atmospheric landscape photography'), title: '林间晨光', category: 'landscape' },
   { id: 4, url: imageUrl('Rolling green hills covered in wildflowers under pastel pink sky at dawn, pastoral landscape photography'), title: '花野牧歌', category: 'landscape' },
-  { id: 5, url: imageUrl('Elegant woman portrait in soft natural window light with warm bokeh background, professional portrait photography'), title: '柔光丽影', category: 'portrait' },
-  { id: 6, url: imageUrl('Thoughtful man looking away in dramatic side lighting, artistic black and white portrait photography studio'), title: '沉思者', category: 'portrait' },
-  { id: 7, url: imageUrl('Joyful young woman laughing in a field of daisies with golden hour backlight, candid portrait photography'), title: '雏菊少女', category: 'portrait' },
-  { id: 8, url: imageUrl('Artistic double exposure portrait merging face silhouette with blooming cherry blossoms, creative photography'), title: '花间叠影', category: 'portrait' },
-  { id: 9, url: imageUrl('Busy Tokyo street at night with neon signs reflecting on wet rain pavement, urban street photography moody'), title: '霓虹雨夜', category: 'street' },
-  { id: 10, url: imageUrl('Charming Parisian cafe terrace with warm afternoon light and people, classic street photography style'), title: '午后巴黎', category: 'street' },
-  { id: 11, url: imageUrl('Vibrant spice market stall with colorful pyramids of spices and vendor, travel documentary street photography'), title: '香料市集', category: 'street' },
-  { id: 12, url: imageUrl('Empty subway station with lone figure and geometric architectural lines, minimalist urban street photography'), title: '几何归途', category: 'street' },
+  { id: 5, url: imageUrl('Aerial view of turquoise lake surrounded by autumn mountains with reflection, epic landscape photography'), title: '镜湖秋韵', category: 'landscape' },
+  { id: 6, url: imageUrl('Elegant woman portrait in soft natural window light with warm bokeh background, professional portrait photography'), title: '柔光丽影', category: 'portrait' },
+  { id: 7, url: imageUrl('Thoughtful man looking away in dramatic side lighting, artistic black and white portrait photography studio'), title: '沉思者', category: 'portrait' },
+  { id: 8, url: imageUrl('Joyful young woman laughing in a field of daisies with golden hour backlight, candid portrait photography'), title: '雏菊少女', category: 'portrait' },
+  { id: 9, url: imageUrl('Artistic double exposure portrait merging face silhouette with blooming cherry blossoms, creative photography'), title: '花间叠影', category: 'portrait' },
+  { id: 10, url: imageUrl('Close-up portrait of elderly man with weathered face and kind eyes, natural light, documentary photography'), title: '岁月印记', category: 'portrait' },
+  { id: 11, url: imageUrl('Busy Tokyo street at night with neon signs reflecting on wet rain pavement, urban street photography moody'), title: '霓虹雨夜', category: 'street' },
+  { id: 12, url: imageUrl('Charming Parisian cafe terrace with warm afternoon light and people, classic street photography style'), title: '午后巴黎', category: 'street' },
+  { id: 13, url: imageUrl('Vibrant spice market stall with colorful pyramids of spices and vendor, travel documentary street photography'), title: '香料市集', category: 'street' },
+  { id: 14, url: imageUrl('Empty subway station with lone figure and geometric architectural lines, minimalist urban street photography'), title: '几何归途', category: 'street' },
+  { id: 15, url: imageUrl('Silhouette of street musician playing guitar under bridge at sunset, cinematic street photography'), title: '桥上乐章', category: 'street' },
+  { id: 16, url: imageUrl('Group of friends walking across zebra crossing in busy city at night, motion blur, dynamic street photography'), title: '夜色行人', category: 'street' },
 ];
 
 const animator = new Animator();
 const renderer = new Renderer('app');
 
 let currentCategory: Category = 'all';
+let lightboxOpen = false;
 
 function getFilteredPhotos(): Photo[] {
   if (currentCategory === 'all') return PHOTOS;
@@ -33,27 +38,34 @@ function getFilteredPhotos(): Photo[] {
 }
 
 function handleCategoryChange(category: Category): void {
+  if (category === currentCategory) return;
   currentCategory = category;
-  renderer.updateFilterActive(category);
+  renderer.setActiveCategory(category);
   const filtered = getFilteredPhotos();
-  renderer.updateGrid(filtered);
+  renderer.renderGrid(filtered);
   const cards = renderer.getGridCards();
-  animator.staggerFlyIn(cards);
+  requestAnimationFrame(() => {
+    animator.staggerFlyIn(cards, 70);
+  });
 }
 
 function handlePhotoClick(index: number): void {
+  lightboxOpen = true;
   renderer.openLightbox(index);
 }
 
 function handleLightboxClose(): void {
+  lightboxOpen = false;
   renderer.closeLightbox();
 }
 
 function handleLightboxPrev(): void {
+  if (!lightboxOpen) return;
   renderer.navigateLightbox(-1);
 }
 
 function handleLightboxNext(): void {
+  if (!lightboxOpen) return;
   renderer.navigateLightbox(1);
 }
 
@@ -61,19 +73,21 @@ function handleFavoriteToggle(photoId: number): void {
   const { isFav } = renderer.toggleFavorite(photoId);
   const heartBtn = renderer.getHeartButton(photoId);
   if (heartBtn && isFav) {
-    animator.heartPop(heartBtn);
+    animator.triggerHeartAnimation(heartBtn);
     const rect = heartBtn.getBoundingClientRect();
     animator.createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
   }
 }
 
 function handleKeydown(e: KeyboardEvent): void {
+  if (!lightboxOpen) return;
   if (e.key === 'ArrowLeft') handleLightboxPrev();
   if (e.key === 'ArrowRight') handleLightboxNext();
   if (e.key === 'Escape') handleLightboxClose();
 }
 
 function init(): void {
+  renderer.setPhotos(PHOTOS);
   renderer.setCallbacks({
     onCategoryChange: handleCategoryChange,
     onPhotoClick: handlePhotoClick,
@@ -86,8 +100,10 @@ function init(): void {
   const filtered = getFilteredPhotos();
   renderer.render(filtered);
 
-  const cards = renderer.getGridCards();
-  animator.staggerFlyIn(cards, 80);
+  requestAnimationFrame(() => {
+    const cards = renderer.getGridCards();
+    animator.staggerFlyIn(cards, 80);
+  });
 
   document.addEventListener('keydown', handleKeydown);
 }
