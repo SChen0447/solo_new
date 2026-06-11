@@ -1,0 +1,160 @@
+import express, { Request, Response } from 'express';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
+
+const app = express();
+const PORT = 3001;
+
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.use(express.static(path.join(__dirname, '..', 'dist')));
+
+interface ImageData {
+  id: string;
+  filename: string;
+  originalName: string;
+  url: string;
+  createdAt: number;
+}
+
+interface AnnotationData {
+  id: string;
+  type: 'rectangle' | 'circle' | 'arrow' | 'brush';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  points?: { x: number; y: number }[];
+  color: string;
+  strokeWidth: number;
+  note?: string;
+}
+
+interface ShareData {
+  id: string;
+  imageId: string;
+  annotations: AnnotationData[];
+  createdAt: number;
+}
+
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const id = uuidv4();
+    cb(null, `${id}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('只支持 PNG、JPEG、WebP 格式图片'));
+    }
+  },
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+const imagesStore: Map<string, ImageData> = new Map();
+const annotationsStore: Map<string, AnnotationData[]> = new Map();
+const sharesStore: Map<string, ShareData> = new Map();
+
+app.post('/api/images', upload.single('image'), (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: '未上传图片' });
+      return;
+    }
+    const id = path.parse(req.file.filename).name;
+    const imageData: ImageData = {
+      id,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      url: `/uploads/${req.file.filename}`,
+      createdAt: Date.now(),
+    };
+    imagesStore.set(id, imageData);
+    annotationsStore.set(id, []);
+    res.json(imageData);
+  } catch (err) {
+    res.status(500).json({ error: '上传失败' });
+  }
+});
+
+app.get('/api/images', (_req: Request, res: Response) => {
+  const images = Array.from(imagesStore.values()).sort((a, b) => b.createdAt - a.createdAt);
+  res.json(images);
+});
+
+app.get('/api/images/:id', (req: Request, res: Response) => {
+  const image = imagesStore.get(req.params.id);
+  if (!image) {
+    res.status(404).json({ error: '图片不存在' });
+    return;
+  }
+  res.json(image);
+});
+
+app.get('/api/images/:id/annotations', (req: Request, res: Response) => {
+  const annotations = annotationsStore.get(req.params.id) || [];
+  res.json(annotations);
+});
+
+app.put('/api/images/:id/annotations', (req: Request, res: Response) => {
+  const annotations: AnnotationData[] = req.body.annotations || [];
+  annotationsStore.set(req.params.id, annotations);
+  res.json({ success: true });
+});
+
+app.post('/api/share', (req: Request, res: Response) => {
+  const { imageId, annotations } = req.body;
+  if (!imageId || !imagesStore.has(imageId)) {
+    res.status(400).json({ error: '无效的图片ID' });
+    return;
+  }
+  const shareId = uuidv4();
+  const shareData: ShareData = {
+    id: shareId,
+    imageId,
+    annotations: annotations || [],
+    createdAt: Date.now(),
+  };
+  sharesStore.set(shareId, shareData);
+  res.json({ shareId, shareUrl: `/share/${shareId}` });
+});
+
+app.get('/api/share/:id', (req: Request, res: Response) => {
+  const share = sharesStore.get(req.params.id);
+  if (!share) {
+    res.status(404).json({ error: '分享链接不存在或已过期' });
+    return;
+  }
+  const image = imagesStore.get(share.imageId);
+  res.json({ image, annotations: share.annotations });
+});
+
+app.get('*', (_req, res) => {
+  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
