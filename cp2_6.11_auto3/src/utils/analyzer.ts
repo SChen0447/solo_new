@@ -140,6 +140,18 @@ function backward_quick(modules: ModuleNode[], target: string): string[] {
   return result;
 }
 
+export function findCycles(modules: ModuleNode[]): string[][] {
+  return findCircularDependencies(modules);
+}
+
+export function calculateDepth(modules: ModuleNode[]): Map<string, number> {
+  return computeDepths(modules);
+}
+
+export function generateReport(modules: ModuleNode[]): AnalysisReport {
+  return generateAnalysisReport(modules);
+}
+
 export function findCircularDependencies(modules: ModuleNode[]): string[][] {
   const { forward, moduleMap } = buildAdjacencyList(modules);
   const allNames = Array.from(moduleMap.keys());
