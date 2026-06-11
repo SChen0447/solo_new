@@ -25,48 +25,47 @@ const colorTags = [
   '#feca57'
 ]
 
-let cache: {
-  items: Inspiration[] | null
-  sortedResults: Map<string, Inspiration[]>
-} = {
-  items: null,
-  sortedResults: new Map()
-}
+let cachedItems: Inspiration[] | null = null
+let cacheVersion = 0
 
-function invalidateCache() {
-  cache.items = null
-  cache.sortedResults.clear()
+function bumpCacheVersion() {
+  cacheVersion++
+  cachedItems = null
 }
 
 export function getAllTags(): string[] {
   return colorTags
 }
 
+export function getCacheVersion(): number {
+  return cacheVersion
+}
+
 export function getAll(): Inspiration[] {
-  if (cache.items) {
-    return cache.items
+  if (cachedItems !== null) {
+    return cachedItems
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      cache.items = []
+      cachedItems = []
       return []
     }
     const data = JSON.parse(raw)
     if (!Array.isArray(data)) {
-      cache.items = []
+      cachedItems = []
       return []
     }
-    cache.items = data
+    cachedItems = data
     return data
   } catch {
-    cache.items = []
+    cachedItems = []
     return []
   }
 }
 
 export function add(item: Omit<Inspiration, 'id' | 'createdAt' | 'order'>): Inspiration {
-  const items = getAll()
+  const items = getAll().slice()
   const newItem: Inspiration = {
     ...item,
     id: generateId(),
@@ -75,78 +74,72 @@ export function add(item: Omit<Inspiration, 'id' | 'createdAt' | 'order'>): Insp
   }
   items.push(newItem)
   save(items)
-  invalidateCache()
+  bumpCacheVersion()
   return newItem
 }
 
 export function update(id: string, changes: Partial<Inspiration>): Inspiration | null {
-  const items = getAll()
+  const items = getAll().slice()
   const idx = items.findIndex(i => i.id === id)
   if (idx === -1) return null
   items[idx] = { ...items[idx], ...changes }
   save(items)
-  invalidateCache()
+  bumpCacheVersion()
   return items[idx]
 }
 
 export function remove(id: string): boolean {
-  const items = getAll()
+  const items = getAll().slice()
   const idx = items.findIndex(i => i.id === id)
   if (idx === -1) return false
   items.splice(idx, 1)
   items.forEach((item, i) => { item.order = i })
   save(items)
-  invalidateCache()
+  bumpCacheVersion()
   return true
 }
 
 export function reorder(fromIndex: number, toIndex: number): void {
-  const items = getAll()
+  const items = getAll().slice()
   if (fromIndex < 0 || fromIndex >= items.length) return
   if (toIndex < 0 || toIndex >= items.length) return
   const [moved] = items.splice(fromIndex, 1)
   items.splice(toIndex, 0, moved)
   items.forEach((item, i) => { item.order = i })
   save(items)
-  invalidateCache()
+  bumpCacheVersion()
 }
 
-export function reorderById(fromId: string, toId: string, insertBefore: boolean = true): void {
-  const items = getAll()
-  const fromIdx = items.findIndex(i => i.id === fromId)
-  const toIdx = items.findIndex(i => i.id === toId)
-  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return
-  
-  const [moved] = items.splice(fromIdx, 1)
-  const newToIdx = fromIdx < toIdx ? toIdx - 1 : toIdx
-  const insertIdx = insertBefore ? newToIdx : newToIdx + 1
-  items.splice(insertIdx, 0, moved)
-  
-  items.forEach((item, i) => { item.order = i })
-  save(items)
-  invalidateCache()
+interface FilterOptions {
+  tag?: string
+  sortField?: SortField
+  sortOrder?: SortOrder
 }
+
+const filterCache = new Map<string, { version: number; result: Inspiration[] }>()
 
 export function filterAndSort(
   items: Inspiration[],
-  options: { tag?: string; sortField?: SortField; sortOrder?: SortOrder }
+  options: FilterOptions
 ): Inspiration[] {
-  const cacheKey = `${options.tag || 'all'}-${options.sortField || 'createdAt'}-${options.sortOrder || 'desc'}`
-  
-  const itemsKey = items.map(i => i.id + i.order + i.createdAt + i.title).join('|')
-  const fullKey = `${itemsKey}-${cacheKey}`
-  
-  const cached = cache.sortedResults.get(fullKey)
-  if (cached) {
-    return cached
+  const tag = options.tag || '__all__'
+  const sortField = options.sortField || 'createdAt'
+  const sortOrder = options.sortOrder || 'desc'
+  const cacheKey = `${tag}|${sortField}|${sortOrder}`
+  const itemsSignature = items.map(i => `${i.id}:${i.order}:${i.createdAt}:${i.title}:${i.colorTag}`).join(',')
+
+  const fullKey = `${cacheKey}|${itemsSignature}`
+  const cached = filterCache.get(fullKey)
+  if (cached && cached.version === cacheVersion) {
+    return cached.result
   }
-  
-  let result = [...items]
+
+  let result = items.slice()
   if (options.tag) {
     result = result.filter(item => item.colorTag === options.tag)
   }
-  const field = options.sortField || 'createdAt'
-  const order = options.sortOrder || 'desc'
+  const field = sortField
+  const order = sortOrder
   result.sort((a, b) => {
     let cmp = 0
     if (field === 'createdAt') {
@@ -158,8 +151,12 @@ export function filterAndSort(
     }
     return order === 'asc' ? cmp : -cmp
   })
-  
-  cache.sortedResults.set(fullKey, result)
+
+  if (filterCache.size > 50) {
+    filterCache.clear()
+  }
+  filterCache.set(fullKey, { version: cacheVersion, result })
+
   return result
 }
 
