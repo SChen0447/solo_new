@@ -1,24 +1,9 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import type { Question, AnswerRecord } from '../types';
 
 const app = express();
 app.use(express.json());
-
-interface Question {
-  id: string;
-  type: 'single' | 'multiple' | 'boolean';
-  title: string;
-  options: string[];
-  correctAnswer: number | number[];
-  explanation: string;
-}
-
-interface AnswerRecord {
-  questionId: string;
-  selectedOptions: number[];
-  isCorrect: boolean;
-  timestamp: number;
-}
 
 const initialQuestions: Question[] = [
   {
@@ -66,6 +51,12 @@ const initialQuestions: Question[] = [
 let questions: Question[] = [...initialQuestions];
 let currentQuestionIndex = 0;
 let answers: AnswerRecord[] = [];
+let questionEnded = false;
+let stateVersion = 0;
+
+function incrementState() {
+  stateVersion++;
+}
 
 function checkAnswer(question: Question, selected: number[]): boolean {
   if (question.type === 'multiple') {
@@ -76,16 +67,35 @@ function checkAnswer(question: Question, selected: number[]): boolean {
   return selected.length === 1 && selected[0] === question.correctAnswer;
 }
 
+app.get('/api/state', (_req, res) => {
+  res.json({
+    stateVersion,
+    currentIndex: currentQuestionIndex,
+    questionEnded,
+    totalQuestions: questions.length,
+  });
+});
+
 app.get('/api/questions', (_req, res) => {
-  res.json({ questions, currentIndex: currentQuestionIndex });
+  res.json({
+    questions,
+    currentIndex: currentQuestionIndex,
+    questionEnded,
+    stateVersion,
+  });
 });
 
 app.get('/api/questions/current', (_req, res) => {
   if (questions.length === 0) {
-    res.json({ question: null, index: -1 });
+    res.json({ question: null, index: -1, questionEnded, stateVersion });
     return;
   }
-  res.json({ question: questions[currentQuestionIndex], index: currentQuestionIndex });
+  res.json({
+    question: questions[currentQuestionIndex],
+    index: currentQuestionIndex,
+    questionEnded,
+    stateVersion,
+  });
 });
 
 app.post('/api/questions', (req, res) => {
@@ -103,24 +113,51 @@ app.post('/api/questions', (req, res) => {
     explanation: explanation || '',
   };
   questions.push(newQuestion);
-  res.json({ question: newQuestion });
+  incrementState();
+  res.json({ question: newQuestion, stateVersion });
 });
 
 app.post('/api/questions/next', (_req, res) => {
   if (currentQuestionIndex < questions.length - 1) {
     currentQuestionIndex++;
-    res.json({ currentIndex: currentQuestionIndex, question: questions[currentQuestionIndex] });
+    questionEnded = false;
+    incrementState();
+    res.json({
+      currentIndex: currentQuestionIndex,
+      question: questions[currentQuestionIndex],
+      questionEnded,
+      stateVersion,
+    });
   } else {
-    res.json({ currentIndex: currentQuestionIndex, question: questions[currentQuestionIndex], message: '已经是最后一题' });
+    res.json({
+      currentIndex: currentQuestionIndex,
+      question: questions[currentQuestionIndex],
+      questionEnded,
+      stateVersion,
+      message: '已经是最后一题',
+    });
   }
 });
 
 app.post('/api/questions/prev', (_req, res) => {
   if (currentQuestionIndex > 0) {
     currentQuestionIndex--;
-    res.json({ currentIndex: currentQuestionIndex, question: questions[currentQuestionIndex] });
+    questionEnded = false;
+    incrementState();
+    res.json({
+      currentIndex: currentQuestionIndex,
+      question: questions[currentQuestionIndex],
+      questionEnded,
+      stateVersion,
+    });
   } else {
-    res.json({ currentIndex: currentQuestionIndex, question: questions[currentQuestionIndex], message: '已经是第一题' });
+    res.json({
+      currentIndex: currentQuestionIndex,
+      question: questions[currentQuestionIndex],
+      questionEnded,
+      stateVersion,
+      message: '已经是第一题',
+    });
   }
 });
 
@@ -128,9 +165,50 @@ app.post('/api/questions/goto', (req, res) => {
   const { index } = req.body;
   if (typeof index === 'number' && index >= 0 && index < questions.length) {
     currentQuestionIndex = index;
-    res.json({ currentIndex: currentQuestionIndex, question: questions[currentQuestionIndex] });
+    questionEnded = false;
+    incrementState();
+    res.json({
+      currentIndex: currentQuestionIndex,
+      question: questions[currentQuestionIndex],
+      questionEnded,
+      stateVersion,
+    });
   } else {
     res.status(400).json({ error: '无效的题目索引' });
+  }
+});
+
+app.post('/api/questions/end', (_req, res) => {
+  questionEnded = true;
+  incrementState();
+  res.json({
+    message: '题目已结束',
+    questionEnded: true,
+    currentIndex: currentQuestionIndex,
+    stateVersion,
+  });
+});
+
+app.post('/api/questions/new', (_req, res) => {
+  if (currentQuestionIndex < questions.length - 1) {
+    currentQuestionIndex++;
+    questionEnded = false;
+    incrementState();
+    res.json({
+      currentIndex: currentQuestionIndex,
+      question: questions[currentQuestionIndex],
+      questionEnded: false,
+      stateVersion,
+      message: '已开启新题',
+    });
+  } else {
+    res.json({
+      currentIndex: currentQuestionIndex,
+      question: questions[currentQuestionIndex],
+      questionEnded,
+      stateVersion,
+      message: '已经是最后一题，请先创建新题目',
+    });
   }
 });
 
@@ -182,16 +260,15 @@ app.get('/api/stats', (_req, res) => {
   const totalCorrect = answers.filter((a) => a.isCorrect).length;
   const overallRate = totalAnswers > 0 ? Math.round((totalCorrect / totalAnswers) * 100) : 0;
 
-  const correctRateTrend = questions
-    .map((q, index) => {
-      const qAnswers = answers.filter((a) => a.questionId === q.id);
-      const correctCount = qAnswers.filter((a) => a.isCorrect).length;
-      return {
-        questionIndex: index + 1,
-        questionTitle: `第${index + 1}题`,
-        correctRate: qAnswers.length > 0 ? Math.round((correctCount / qAnswers.length) * 100) : 0,
-      };
-    });
+  const correctRateTrend = questions.map((q, index) => {
+    const qAnswers = answers.filter((a) => a.questionId === q.id);
+    const correctCount = qAnswers.filter((a) => a.isCorrect).length;
+    return {
+      questionIndex: index + 1,
+      questionTitle: `第${index + 1}题`,
+      correctRate: qAnswers.length > 0 ? Math.round((correctCount / qAnswers.length) * 100) : 0,
+    };
+  });
 
   res.json({
     questionStats,
@@ -205,7 +282,9 @@ app.get('/api/stats', (_req, res) => {
 app.delete('/api/reset', (_req, res) => {
   answers = [];
   currentQuestionIndex = 0;
-  res.json({ message: '数据已重置' });
+  questionEnded = false;
+  incrementState();
+  res.json({ message: '数据已重置', stateVersion });
 });
 
 const PORT = 3001;

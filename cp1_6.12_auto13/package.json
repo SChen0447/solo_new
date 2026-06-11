@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n server,client -c blue,green \"tsx watch server.ts\" \"vite\"",
+    "dev": "concurrently -n server,client -c blue,green \"tsx watch src/server/server.ts\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview"
   },

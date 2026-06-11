@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Question, StatsData, AnswerFeedback } from './types';
 import QuestionPanel from './components/QuestionPanel';
 import StatsDashboard from './components/StatsDashboard';
@@ -32,6 +32,9 @@ function App() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState<CreateQuestionForm>({ ...emptyForm });
   const [activeTab, setActiveTab] = useState<'question' | 'stats'>('question');
+  const [questionEnded, setQuestionEnded] = useState(false);
+  const [stateVersion, setStateVersion] = useState(0);
+  const lastKnownIndex = useRef(0);
 
   const fetchQuestions = useCallback(async () => {
     try {
@@ -39,6 +42,8 @@ function App() {
       const data = await res.json();
       setQuestions(data.questions);
       setCurrentIndex(data.currentIndex);
+      setQuestionEnded(data.questionEnded);
+      setStateVersion(data.stateVersion);
     } catch {
       // ignore
     }
@@ -54,20 +59,25 @@ function App() {
     }
   }, []);
 
-  const fetchCurrentIndex = useCallback(async () => {
+  const fetchState = useCallback(async () => {
     try {
-      const res = await fetch('/api/questions/current');
+      const res = await fetch('/api/state');
       const data = await res.json();
-      if (data.index !== currentIndex) {
-        setCurrentIndex(data.index);
-        setFeedback(null);
-        setSelectedOptions([]);
-        setSubmitted(false);
+      if (data.stateVersion !== stateVersion) {
+        setStateVersion(data.stateVersion);
+        setQuestionEnded(data.questionEnded);
+        if (data.currentIndex !== lastKnownIndex.current) {
+          lastKnownIndex.current = data.currentIndex;
+          setCurrentIndex(data.currentIndex);
+          setSelectedOptions([]);
+          setSubmitted(false);
+          setFeedback(null);
+        }
       }
     } catch {
       // ignore
     }
-  }, [currentIndex]);
+  }, [stateVersion]);
 
   useEffect(() => {
     fetchQuestions();
@@ -76,14 +86,14 @@ function App() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchCurrentIndex();
+      fetchState();
       fetchStats();
-    }, 2000);
+    }, 1500);
     return () => clearInterval(interval);
-  }, [fetchCurrentIndex, fetchStats]);
+  }, [fetchState, fetchStats]);
 
   const handleSubmitAnswer = async () => {
-    if (selectedOptions.length === 0 || !currentQuestion) return;
+    if (selectedOptions.length === 0 || !currentQuestion || questionEnded) return;
     try {
       const res = await fetch('/api/answers', {
         method: 'POST',
@@ -104,18 +114,18 @@ function App() {
 
   const handleNextQuestion = async () => {
     await fetch('/api/questions/next', { method: 'POST' });
-    setFeedback(null);
+    await fetchQuestions();
     setSelectedOptions([]);
     setSubmitted(false);
-    fetchQuestions();
+    setFeedback(null);
   };
 
   const handlePrevQuestion = async () => {
     await fetch('/api/questions/prev', { method: 'POST' });
-    setFeedback(null);
+    await fetchQuestions();
     setSelectedOptions([]);
     setSubmitted(false);
-    fetchQuestions();
+    setFeedback(null);
   };
 
   const handleGotoQuestion = async (index: number) => {
@@ -124,10 +134,24 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ index }),
     });
-    setFeedback(null);
+    await fetchQuestions();
     setSelectedOptions([]);
     setSubmitted(false);
-    fetchQuestions();
+    setFeedback(null);
+  };
+
+  const handleEndQuestion = async () => {
+    await fetch('/api/questions/end', { method: 'POST' });
+    await fetchQuestions();
+    setSubmitted(true);
+  };
+
+  const handleNewQuestion = async () => {
+    await fetch('/api/questions/new', { method: 'POST' });
+    await fetchQuestions();
+    setSelectedOptions([]);
+    setSubmitted(false);
+    setFeedback(null);
   };
 
   const handleCreateQuestion = async () => {
@@ -144,7 +168,7 @@ function App() {
       });
       setCreateForm({ ...emptyForm });
       setShowCreateForm(false);
-      fetchQuestions();
+      await fetchQuestions();
     } catch {
       // ignore
     }
@@ -152,17 +176,17 @@ function App() {
 
   const handleReset = async () => {
     await fetch('/api/reset', { method: 'DELETE' });
-    setFeedback(null);
     setSelectedOptions([]);
     setSubmitted(false);
-    fetchQuestions();
-    fetchStats();
+    setFeedback(null);
+    await fetchQuestions();
+    await fetchStats();
   };
 
   const currentQuestion = questions[currentIndex] || null;
 
   const toggleOption = (optionIndex: number) => {
-    if (submitted) return;
+    if (submitted || questionEnded) return;
     if (currentQuestion?.type === 'multiple') {
       setSelectedOptions((prev) =>
         prev.includes(optionIndex) ? prev.filter((i) => i !== optionIndex) : [...prev, optionIndex]
@@ -202,8 +226,26 @@ function App() {
               <span className="question-indicator">
                 {currentIndex + 1} / {questions.length}
               </span>
-              <button className="ctrl-btn" onClick={handleNextQuestion} disabled={currentIndex >= questions.length - 1}>
+              <button
+                className="ctrl-btn"
+                onClick={handleNextQuestion}
+                disabled={currentIndex >= questions.length - 1}
+              >
                 下一题 →
+              </button>
+              <button
+                className={`ctrl-btn ${questionEnded ? 'accent' : 'warning'}`}
+                onClick={handleEndQuestion}
+                disabled={questionEnded}
+              >
+                {questionEnded ? '✓ 已结束' : '⏹ 结束本题'}
+              </button>
+              <button
+                className="ctrl-btn accent"
+                onClick={handleNewQuestion}
+                disabled={currentIndex >= questions.length - 1}
+              >
+                ▶ 开启新题
               </button>
               <button className="ctrl-btn accent" onClick={() => setShowCreateForm(!showCreateForm)}>
                 {showCreateForm ? '收起' : '+ 新建题目'}
@@ -239,7 +281,7 @@ function App() {
                         ...createForm,
                         type: t,
                         options: t === 'boolean' ? ['正确', '错误'] : ['', '', '', ''],
-                        correctAnswer: t === 'boolean' ? -1 : (t === 'multiple' ? [] : -1),
+                        correctAnswer: t === 'boolean' ? -1 : t === 'multiple' ? [] : -1,
                       });
                     }}
                   >
@@ -284,10 +326,17 @@ function App() {
                         {createForm.type === 'multiple' && (
                           <input
                             type="checkbox"
-                            checked={Array.isArray(createForm.correctAnswer) && createForm.correctAnswer.includes(i)}
+                            checked={
+                              Array.isArray(createForm.correctAnswer) &&
+                              createForm.correctAnswer.includes(i)
+                            }
                             onChange={() => {
-                              const current = Array.isArray(createForm.correctAnswer) ? createForm.correctAnswer : [];
-                              const next = current.includes(i) ? current.filter((x) => x !== i) : [...current, i];
+                              const current = Array.isArray(createForm.correctAnswer)
+                                ? createForm.correctAnswer
+                                : [];
+                              const next = current.includes(i)
+                                ? current.filter((x) => x !== i)
+                                : [...current, i];
                               setCreateForm({ ...createForm, correctAnswer: next });
                             }}
                           />
@@ -354,7 +403,7 @@ function App() {
         )}
 
         <div className="content-area">
-          {mode === 'student' || activeTab === 'question' ? (
+          {(mode === 'student' || activeTab === 'question') && (
             <QuestionPanel
               question={currentQuestion}
               questionIndex={currentIndex}
@@ -362,14 +411,13 @@ function App() {
               selectedOptions={selectedOptions}
               submitted={submitted}
               feedback={feedback}
+              questionEnded={questionEnded}
               onToggleOption={toggleOption}
               onSubmit={handleSubmitAnswer}
             />
-          ) : null}
-
-          {(mode === 'lecturer' && activeTab === 'stats') && (
-            <StatsDashboard stats={stats} />
           )}
+
+          {mode === 'lecturer' && activeTab === 'stats' && <StatsDashboard stats={stats} />}
         </div>
 
         {mode === 'student' && stats && stats.totalAnswers > 0 && (

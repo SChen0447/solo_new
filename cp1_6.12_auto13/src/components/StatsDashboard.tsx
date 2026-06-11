@@ -12,6 +12,7 @@ import {
   LineChart,
   Line,
   ResponsiveContainer,
+  ReferenceLine,
 } from 'recharts';
 import type { StatsData } from '../types';
 
@@ -19,8 +20,29 @@ interface StatsDashboardProps {
   stats: StatsData | null;
 }
 
-const BAR_COLORS = ['#FF6B35', '#F7931E', '#FF4444', '#CC3333'];
 const PIE_COLORS = ['#4A90D9', '#50C878', '#F5C542', '#9B59B6', '#E67E22'];
+
+function BarGradient({ id, index }: { id: string; index: number }) {
+  const hueStart = 30;
+  const hueEnd = 0;
+  const satStart = 100;
+  const satEnd = 86;
+  const lightStart = 60;
+  const lightEnd = 52;
+  const offset = (index * 10) % 30;
+
+  const color1 = `hsl(${hueStart - offset}, ${satStart}%, ${lightStart}%)`;
+  const color2 = `hsl(${hueEnd - offset}, ${satEnd}%, ${lightEnd}%)`;
+
+  return (
+    <defs>
+      <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={color1} />
+        <stop offset="100%" stopColor={color2} />
+      </linearGradient>
+    </defs>
+  );
+}
 
 function StatsDashboard({ stats }: StatsDashboardProps) {
   if (!stats || stats.totalAnswers === 0) {
@@ -54,18 +76,25 @@ function StatsDashboard({ stats }: StatsDashboardProps) {
         <h3>各题正确率走势</h3>
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={stats.correctRateTrend}>
+            <defs>
+              <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#0ea5e9" />
+                <stop offset="100%" stopColor="#10b981" />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
             <XAxis dataKey="questionTitle" tick={{ fontSize: 13 }} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 13 }} unit="%" />
             <Tooltip formatter={(value: number) => [`${value}%`, '正确率']} />
             <Legend />
+            <ReferenceLine y={60} stroke="#f59e0b" strokeDasharray="5 5" label={{ value: '及格线', position: 'insideTopRight', fontSize: 12, fill: '#f59e0b' }} />
             <Line
               type="monotone"
               dataKey="correctRate"
-              stroke="#4A90D9"
+              stroke="url(#lineGradient)"
               strokeWidth={3}
-              dot={{ fill: '#4A90D9', r: 5 }}
-              activeDot={{ r: 7 }}
+              dot={{ fill: '#0ea5e9', r: 5, strokeWidth: 2, stroke: '#fff' }}
+              activeDot={{ r: 7, fill: '#10b981' }}
               name="正确率"
             />
           </LineChart>
@@ -74,16 +103,19 @@ function StatsDashboard({ stats }: StatsDashboardProps) {
 
       {stats.questionStats.map((qs) => {
         const barData = qs.options.map((opt, i) => ({
-          name: `${String.fromCharCode(65 + i)}. ${opt.length > 8 ? opt.slice(0, 8) + '…' : opt}`,
+          name: `${String.fromCharCode(65 + i)}. ${opt.length > 10 ? opt.slice(0, 10) + '…' : opt}`,
           fullName: opt,
           count: qs.optionDistribution[i] || 0,
         }));
 
         const totalForPie = Object.values(qs.optionDistribution).reduce((a, b) => a + b, 0);
-        const pieData = qs.options.map((opt, i) => ({
-          name: `${String.fromCharCode(65 + i)}`,
-          value: qs.optionDistribution[i] || 0,
-        })).filter((d) => d.value > 0);
+        const pieData = qs.options
+          .map((opt, i) => ({
+            name: `${String.fromCharCode(65 + i)}`,
+            value: qs.optionDistribution[i] || 0,
+            label: opt,
+          }))
+          .filter((d) => d.value > 0);
 
         return (
           <div key={qs.questionId} className="stats-chart card">
@@ -95,14 +127,20 @@ function StatsDashboard({ stats }: StatsDashboardProps) {
                 作答人数：<strong>{qs.totalAnswers}</strong>
               </span>
               <span className="chart-stat">
-                正确率：<strong className={qs.correctRate >= 60 ? 'text-green' : 'text-red'}>{qs.correctRate}%</strong>
+                正确率：
+                <strong className={qs.correctRate >= 60 ? 'text-green' : 'text-red'}>
+                  {qs.correctRate}%
+                </strong>
               </span>
             </div>
             <div className="charts-row">
               <div className="chart-half">
                 <h4>选项分布（柱状图）</h4>
                 <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={barData}>
+                  <BarChart data={barData} barCategoryGap="30%">
+                    {barData.map((_, i) => (
+                      <BarGradient key={i} id={`barGrad-${qs.questionId}-${i}`} index={i} />
+                    ))}
                     <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
@@ -112,9 +150,12 @@ function StatsDashboard({ stats }: StatsDashboardProps) {
                         props.payload.fullName,
                       ]}
                     />
-                    <Bar dataKey="count" name="选择人数" radius={[4, 4, 0, 0]}>
-                      {barData.map((_, index) => (
-                        <Cell key={index} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                    <Bar dataKey="count" name="选择人数" radius={[6, 6, 0, 0]}>
+                      {barData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`url(#barGrad-${qs.questionId}-${index})`}
+                        />
                       ))}
                     </Bar>
                   </BarChart>
@@ -129,16 +170,33 @@ function StatsDashboard({ stats }: StatsDashboardProps) {
                         data={pieData}
                         cx="50%"
                         cy="50%"
-                        outerRadius={80}
+                        outerRadius={78}
+                        innerRadius={36}
                         dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={{ strokeWidth: 1 }}
+                        label={({ name, value, percent }) =>
+                          `${name} ${value}人 (${(percent * 100).toFixed(0)}%)`
+                        }
+                        labelLine={{ strokeWidth: 1, stroke: '#94a3b8' }}
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                        paddingAngle={2}
                       >
                         {pieData.map((_, index) => (
-                          <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          <Cell key={`pie-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        formatter={(value: number, _name: string, props: { payload: { label: string } }) => [
+                          `${value}人`,
+                          props.payload.label,
+                        ]}
+                      />
+                      <Legend
+                        formatter={(value, entry: { payload?: { label?: string } }) => {
+                          const label = entry?.payload?.label || value;
+                          return `${value}: ${label.length > 6 ? label.slice(0, 6) + '…' : label}`;
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
