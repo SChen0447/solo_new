@@ -1,0 +1,26 @@
+{
+  "name": "schedule-vote-server",
+  "version": "1.0.0",
+  "description": "Team schedule voting system backend",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "ts-node index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.17.0",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/ws": "^8.5.10",
+    "@types/cors": "^2.8.17",
+    "@types/uuid": "^9.0.8",
+    "@types/node": "^20.12.7",
+    "typescript": "^5.4.5",
+    "ts-node": "^10.9.2"
+  }
+}
