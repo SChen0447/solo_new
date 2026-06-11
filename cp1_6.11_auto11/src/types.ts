@@ -156,6 +156,8 @@ export type DrawCommand =
 export interface ConnectionStatus {
   connected: boolean;
   reconnecting: boolean;
+  reconnectAttempts?: number;
+  maxReconnectAttempts?: number;
   lastError?: string;
 }
 

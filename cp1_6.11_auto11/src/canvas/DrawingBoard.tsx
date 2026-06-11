@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Point,
@@ -14,7 +14,6 @@ import {
   StickyAddCommand,
   StickyMoveCommand,
   ObjectDeleteCommand,
-  CanvasClearCommand,
   CursorMoveCommand,
   ToolType,
   PenSettings,
@@ -30,6 +29,11 @@ import {
   hexToRgba,
   throttle
 } from '../utils';
+
+export interface DrawingBoardHandle {
+  getCanvas: () => HTMLCanvasElement | null;
+  clearCanvas: () => void;
+}
 
 interface DrawingBoardProps {
   userId: string;
@@ -63,7 +67,7 @@ const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
 const WHEEL_ZOOM_SPEED = 0.001;
 
-export const DrawingBoard: React.FC<DrawingBoardProps> = ({
+export const DrawingBoard = forwardRef<DrawingBoardHandle, DrawingBoardProps>(({
   userId,
   userColor,
   activeTool,
@@ -73,8 +77,9 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
   onViewportChange,
   onObjectsChange,
   onUsersChange
-}) => {
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -82,10 +87,11 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 });
 
   const objectsRef = useRef<DrawObject[]>([]);
-  const [objects, setObjects] = useState<DrawObject[]>([]);
+  const objectsMapRef = useRef<Map<string, DrawObject>>(new Map());
 
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
   const remoteCursorsRef = useRef<Map<string, { point: Point; lastSeen: number }>>(new Map());
+  const [, forceUpdate] = useState({});
 
   const pendingStrokeRef = useRef<PendingStroke | null>(null);
   const isDrawingRef = useRef(false);
@@ -100,7 +106,15 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const needsRenderRef = useRef(true);
 
-  const objectsMapRef = useRef<Map<string, DrawObject>>(new Map());
+  useImperativeHandle(ref, () => ({
+    getCanvas: () => canvasRef.current,
+    clearCanvas: () => {
+      objectsRef.current = [];
+      objectsMapRef.current.clear();
+      needsRenderRef.current = true;
+      onObjectsChange?.([]);
+    }
+  }));
 
   const updateViewport = useCallback((newViewport: Partial<Viewport>) => {
     viewportRef.current = { ...viewportRef.current, ...newViewport };
@@ -112,7 +126,6 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const updateObjects = useCallback((newObjects: DrawObject[]) => {
     objectsRef.current = newObjects;
     objectsMapRef.current = new Map(newObjects.map(obj => [obj.id, obj]));
-    setObjects([...newObjects]);
     needsRenderRef.current = true;
     onObjectsChange?.(newObjects);
   }, [onObjectsChange]);
@@ -198,7 +211,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
             point: command.point,
             lastSeen: Date.now()
           });
-          needsRenderRef.current = true;
+          forceUpdate({});
         }
         break;
       }
@@ -210,144 +223,6 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     processCommand(command);
   }, [socketManager, processCommand]);
 
-  const render = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const vp = viewportRef.current;
-    const dpr = window.devicePixelRatio || 1;
-
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const gridSize = 50 * vp.scale;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.03)';
-    ctx.lineWidth = 1;
-
-    const offsetX = (vp.x % gridSize);
-    const offsetY = (vp.y % gridSize);
-
-    for (let x = offsetX; x < canvas.width / dpr; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height / dpr);
-      ctx.stroke();
-    }
-    for (let y = offsetY; y < canvas.height / dpr; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width / dpr, y);
-      ctx.stroke();
-    }
-
-    ctx.translate(vp.x, vp.y);
-    ctx.scale(vp.scale, vp.scale);
-
-    const objects = objectsRef.current;
-    for (const obj of objects) {
-      if ('points' in obj) {
-        const stroke = obj as Stroke;
-        if (stroke.points.length < 2) continue;
-
-        ctx.beginPath();
-        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = hexToRgba(stroke.color, stroke.opacity);
-        ctx.lineWidth = stroke.lineWidth;
-
-        for (let i = 1; i < stroke.points.length; i++) {
-          ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-        }
-        ctx.stroke();
-      } else if ('textAlign' in obj) {
-        const text = obj as TextLabel;
-        ctx.font = `${text.fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
-        ctx.fillStyle = text.color;
-        ctx.textAlign = text.textAlign;
-        ctx.textBaseline = 'top';
-        ctx.fillText(text.text, text.x, text.y);
-      } else {
-        const sticky = obj as StickyNote;
-        const cornerSize = 12;
-
-        ctx.fillStyle = sticky.color;
-        ctx.beginPath();
-        ctx.moveTo(sticky.x, sticky.y);
-        ctx.lineTo(sticky.x + sticky.width, sticky.y);
-        ctx.lineTo(sticky.x + sticky.width, sticky.y + sticky.height - cornerSize);
-        ctx.lineTo(sticky.x + sticky.width - cornerSize, sticky.y + sticky.height);
-        ctx.lineTo(sticky.x, sticky.y + sticky.height);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.beginPath();
-        ctx.moveTo(sticky.x + sticky.width - cornerSize, sticky.y + sticky.height - cornerSize);
-        ctx.lineTo(sticky.x + sticky.width, sticky.y + sticky.height - cornerSize);
-        ctx.lineTo(sticky.x + sticky.width - cornerSize, sticky.y + sticky.height);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = '#333';
-        ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-
-        const padding = 10;
-        const maxWidth = sticky.width - padding * 2;
-        const lineHeight = 18;
-        const maxLines = Math.floor((sticky.height - padding * 2) / lineHeight;
-        const words = sticky.text.split('');
-        let line = '';
-        let lines: string[] = [];
-        let y = sticky.y + padding;
-
-        for (let i = 0; i < words.length; i++) {
-          const testLine = line + words[i];
-          const metrics = ctx.measureText(testLine);
-          if (metrics.width > maxWidth && line !== '') {
-            lines.push(line);
-            line = words[i];
-          } else {
-            line = testLine;
-          }
-        }
-        if (line) lines.push(line);
-
-        lines = lines.slice(0, maxLines);
-        for (let i = 0; i < lines.length; i++) {
-          ctx.fillText(lines[i], sticky.x + padding, y + i * lineHeight);
-        }
-      }
-    }
-
-    const pending = pendingStrokeRef.current;
-    if (pending && pending.points.length > 1) {
-      ctx.beginPath();
-      ctx.moveTo(pending.points[0].x, pending.points[0].y);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = hexToRgba(pending.color, pending.opacity);
-      ctx.lineWidth = pending.lineWidth;
-
-      for (let i = 1; i < pending.points.length; i++) {
-        ctx.lineTo(pending.points[i].x, pending.points[i].y);
-      }
-      ctx.stroke();
-    }
-
-    ctx.restore();
-
-    renderMinimap();
-  }, []);
-
   const renderMinimap = useCallback(() => {
     const minimap = minimapCanvasRef.current;
     if (!minimap) return;
@@ -358,26 +233,58 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     const vp = viewportRef.current;
     const objects = objectsRef.current;
 
-    const bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+    const bounds = { minX: 0, maxX: 1, minY: 0, maxY: 1 };
+    let hasObjects = false;
     for (const obj of objects) {
       if ('points' in obj) {
         for (const p of (obj as Stroke).points) {
-          bounds.minX = Math.min(bounds.minX, p.x);
-          bounds.maxX = Math.max(bounds.maxX, p.x);
-          bounds.minY = Math.min(bounds.minY, p.y);
-          bounds.maxY = Math.max(bounds.maxY, p.y);
+          if (!hasObjects) {
+            bounds.minX = bounds.maxX = p.x;
+            bounds.minY = bounds.maxY = p.y;
+            hasObjects = true;
+          } else {
+            bounds.minX = Math.min(bounds.minX, p.x);
+            bounds.maxX = Math.max(bounds.maxX, p.x);
+            bounds.minY = Math.min(bounds.minY, p.y);
+            bounds.maxY = Math.max(bounds.maxY, p.y);
+          }
         }
       } else if ('textAlign' in obj) {
-        bounds.minX = Math.min(bounds.minX, (obj as TextLabel).x);
-        bounds.maxX = Math.max(bounds.maxX, (obj as TextLabel).x + 200);
-        bounds.minY = Math.min(bounds.minY, (obj as TextLabel).y);
-        bounds.maxY = Math.max(bounds.maxY, (obj as TextLabel).y + 50);
+        const t = obj as TextLabel;
+        if (!hasObjects) {
+          bounds.minX = t.x;
+          bounds.maxX = t.x + 200;
+          bounds.minY = t.y;
+          bounds.maxY = t.y + 50;
+          hasObjects = true;
+        } else {
+          bounds.minX = Math.min(bounds.minX, t.x);
+          bounds.maxX = Math.max(bounds.maxX, t.x + 200);
+          bounds.minY = Math.min(bounds.minY, t.y);
+          bounds.maxY = Math.max(bounds.maxY, t.y + 50);
+        }
       } else {
-        bounds.minX = Math.min(bounds.minX, (obj as StickyNote).x);
-        bounds.maxX = Math.max(bounds.maxX, (obj as StickyNote).x + (obj as StickyNote).width);
-        bounds.minY = Math.min(bounds.minY, (obj as StickyNote).y);
-        bounds.maxY = Math.max(bounds.maxY, (obj as StickyNote).y + (obj as StickyNote).height);
+        const s = obj as StickyNote;
+        if (!hasObjects) {
+          bounds.minX = s.x;
+          bounds.maxX = s.x + s.width;
+          bounds.minY = s.y;
+          bounds.maxY = s.y + s.height;
+          hasObjects = true;
+        } else {
+          bounds.minX = Math.min(bounds.minX, s.x);
+          bounds.maxX = Math.max(bounds.maxX, s.x + s.width);
+          bounds.minY = Math.min(bounds.minY, s.y);
+          bounds.maxY = Math.max(bounds.maxY, s.y + s.height);
+        }
       }
+    }
+
+    if (!hasObjects) {
+      bounds.minX = -500;
+      bounds.maxX = 500;
+      bounds.minY = -500;
+      bounds.maxY = 500;
     }
 
     const padding = 100;
@@ -412,7 +319,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
       } else if ('textAlign' in obj) {
         const text = obj as TextLabel;
         ctx.fillStyle = text.color;
-        ctx.fillRect(text.x, text.y, 5, 5);
+        ctx.fillRect(text.x, text.y, 8 / scale, 8 / scale);
       } else {
         const sticky = obj as StickyNote;
         ctx.fillStyle = sticky.color;
@@ -424,17 +331,173 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
 
     const canvas = canvasRef.current;
     if (canvas) {
+      const dpr = window.devicePixelRatio || 1;
+      const cssWidth = canvas.width / dpr;
+      const cssHeight = canvas.height / dpr;
       const viewportRect = {
         x: (vp.x - bounds.minX) * scale,
         y: (vp.y - bounds.minY) * scale,
-        width: (canvas.width / (window.devicePixelRatio || 1) / vp.scale) * scale,
-        height: (canvas.height / (window.devicePixelRatio || 1) / vp.scale) * scale
+        width: (cssWidth / vp.scale) * scale,
+        height: (cssHeight / vp.scale) * scale
       };
       ctx.strokeStyle = '#4a90d9';
       ctx.lineWidth = 2;
       ctx.strokeRect(viewportRect.x, viewportRect.y, viewportRect.width, viewportRect.height);
     }
   }, []);
+
+  const render = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const vp = viewportRef.current;
+    const dpr = window.devicePixelRatio || 1;
+    const cssWidth = canvas.width / dpr;
+    const cssHeight = canvas.height / dpr;
+
+    let offscreen = offscreenCanvasRef.current;
+    if (!offscreen || offscreen.width !== canvas.width || offscreen.height !== canvas.height) {
+      offscreen = document.createElement('canvas');
+      offscreen.width = canvas.width;
+      offscreen.height = canvas.height;
+      offscreenCanvasRef.current = offscreen;
+    }
+    const offCtx = offscreen.getContext('2d');
+    if (!offCtx) return;
+
+    offCtx.save();
+    offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
+    offCtx.scale(dpr, dpr);
+
+    offCtx.fillStyle = '#f5f5f5';
+    offCtx.fillRect(0, 0, cssWidth, cssHeight);
+
+    const gridSize = 50 * vp.scale;
+    offCtx.strokeStyle = 'rgba(0, 0, 0, 0.03)';
+    offCtx.lineWidth = 1;
+
+    const offsetX = (vp.x % gridSize + gridSize) % gridSize;
+    const offsetY = (vp.y % gridSize + gridSize) % gridSize;
+
+    offCtx.beginPath();
+    for (let x = offsetX; x < cssWidth; x += gridSize) {
+      offCtx.moveTo(x, 0);
+      offCtx.lineTo(x, cssHeight);
+    }
+    for (let y = offsetY; y < cssHeight; y += gridSize) {
+      offCtx.moveTo(0, y);
+      offCtx.lineTo(cssWidth, y);
+    }
+    offCtx.stroke();
+
+    offCtx.translate(vp.x, vp.y);
+    offCtx.scale(vp.scale, vp.scale);
+
+    const objects = objectsRef.current;
+    for (let i = 0; i < objects.length; i++) {
+      const obj = objects[i];
+      if ('points' in obj) {
+        const stroke = obj as Stroke;
+        if (stroke.points.length < 2) continue;
+
+        offCtx.beginPath();
+        offCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        offCtx.lineCap = 'round';
+        offCtx.lineJoin = 'round';
+        offCtx.strokeStyle = hexToRgba(stroke.color, stroke.opacity);
+        offCtx.lineWidth = stroke.lineWidth;
+
+        const pts = stroke.points;
+        for (let j = 1; j < pts.length; j++) {
+          offCtx.lineTo(pts[j].x, pts[j].y);
+        }
+        offCtx.stroke();
+      } else if ('textAlign' in obj) {
+        const text = obj as TextLabel;
+        offCtx.font = `${text.fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+        offCtx.fillStyle = text.color;
+        offCtx.textAlign = text.textAlign;
+        offCtx.textBaseline = 'top';
+        offCtx.fillText(text.text, text.x, text.y);
+      } else {
+        const sticky = obj as StickyNote;
+        const cornerSize = 12;
+
+        offCtx.fillStyle = sticky.color;
+        offCtx.beginPath();
+        offCtx.moveTo(sticky.x, sticky.y);
+        offCtx.lineTo(sticky.x + sticky.width, sticky.y);
+        offCtx.lineTo(sticky.x + sticky.width, sticky.y + sticky.height - cornerSize);
+        offCtx.lineTo(sticky.x + sticky.width - cornerSize, sticky.y + sticky.height);
+        offCtx.lineTo(sticky.x, sticky.y + sticky.height);
+        offCtx.closePath();
+        offCtx.fill();
+
+        offCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        offCtx.beginPath();
+        offCtx.moveTo(sticky.x + sticky.width - cornerSize, sticky.y + sticky.height - cornerSize);
+        offCtx.lineTo(sticky.x + sticky.width, sticky.y + sticky.height - cornerSize);
+        offCtx.lineTo(sticky.x + sticky.width - cornerSize, sticky.y + sticky.height);
+        offCtx.closePath();
+        offCtx.fill();
+
+        offCtx.fillStyle = '#333';
+        offCtx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+        offCtx.textAlign = 'left';
+        offCtx.textBaseline = 'top';
+
+        const padding = 10;
+        const maxWidth = sticky.width - padding * 2;
+        const lineHeight = 18;
+        const maxLines = Math.floor((sticky.height - padding * 2) / lineHeight);
+        const chars = sticky.text.split('');
+        let line = '';
+        const lines: string[] = [];
+        const y = sticky.y + padding;
+
+        for (let ci = 0; ci < chars.length; ci++) {
+          const testLine = line + chars[ci];
+          const metrics = offCtx.measureText(testLine);
+          if (metrics.width > maxWidth && line !== '') {
+            lines.push(line);
+            line = chars[ci];
+          } else {
+            line = testLine;
+          }
+        }
+        if (line) lines.push(line);
+
+        const displayLines = lines.slice(0, maxLines);
+        for (let li = 0; li < displayLines.length; li++) {
+          offCtx.fillText(displayLines[li], sticky.x + padding, y + li * lineHeight);
+        }
+      }
+    }
+
+    const pending = pendingStrokeRef.current;
+    if (pending && pending.points.length > 1) {
+      offCtx.beginPath();
+      offCtx.moveTo(pending.points[0].x, pending.points[0].y);
+      offCtx.lineCap = 'round';
+      offCtx.lineJoin = 'round';
+      offCtx.strokeStyle = hexToRgba(pending.color, pending.opacity);
+      offCtx.lineWidth = pending.lineWidth;
+
+      for (let pi = 1; pi < pending.points.length; pi++) {
+        offCtx.lineTo(pending.points[pi].x, pending.points[pi].y);
+      }
+      offCtx.stroke();
+    }
+
+    offCtx.restore();
+
+    ctx.drawImage(offscreen, 0, 0);
+
+    renderMinimap();
+  }, [renderMinimap]);
 
   useEffect(() => {
     const animate = () => {
@@ -462,8 +525,6 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
       canvas.height = rect.height * dpr;
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
-      const ctx = canvas.getContext('2d');
-      if (ctx) ctx.scale(dpr, dpr);
       needsRenderRef.current = true;
     };
     handleResize();
@@ -473,22 +534,21 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
 
   useEffect(() => {
     if (!socketManager) return;
-      const unsubCommand = socketManager.onCommand(processCommand);
-      const unsubUsers = socketManager.onUsersUpdate((users) => {
-        setOnlineUsers(users);
-        onUsersChange?.(users);
-      });
-      socketManager.connect();
-      socketManager.requestHistory();
-      return () => {
-        unsubCommand();
-        unsubUsers();
-      };
+    const unsubCommand = socketManager.onCommand(processCommand);
+    const unsubUsers = socketManager.onUsersUpdate((users) => {
+      setOnlineUsers(users);
+      onUsersChange?.(users);
+    });
+    socketManager.connect();
+    socketManager.requestHistory();
+    return () => {
+      unsubCommand();
+      unsubUsers();
+    };
   }, [socketManager, processCommand, onUsersChange]);
 
   const getWorldPoint = useCallback((e: React.MouseEvent | MouseEvent): Point => {
-    const canvas = canvasRef.current;
-    if (!canvas || !wrapperRef.current) return { x: 0, y: 0 };
+    if (!wrapperRef.current) return { x: 0, y: 0 };
     const rect = wrapperRef.current.getBoundingClientRect();
     return screenToWorld(e.clientX, e.clientY, viewportRef.current, rect);
   }, []);
@@ -496,7 +556,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const findStickyAt = useCallback((point: Point): StickyNote | null => {
     for (let i = objectsRef.current.length - 1; i >= 0; i--) {
       const obj = objectsRef.current[i];
-      if ('width' in obj && 'height' in obj && !('textAlign' in obj) {
+      if ('width' in obj && 'height' in obj && !('textAlign' in obj)) {
         const sticky = obj as StickyNote;
         if (
           point.x >= sticky.x &&
@@ -512,8 +572,8 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.preventDefault();
-    const worldPoint = getWorldPoint(e);
+    e.preventDefault();
+    const currentPoint = getWorldPoint(e);
 
     if (activeTool === 'pan' || e.button === 1 || e.buttons === 4) {
       isPanningRef.current = true;
@@ -522,12 +582,12 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     }
 
     if (activeTool === 'sticky') {
-      const sticky = findStickyAt(worldPoint);
+      const sticky = findStickyAt(currentPoint);
       if (sticky && sticky.userId === userId) {
         draggingStickyRef.current = {
           id: sticky.id,
-          offsetX: worldPoint.x - sticky.x,
-          offsetY: worldPoint.y - sticky.y
+          offsetX: currentPoint.x - sticky.x,
+          offsetY: currentPoint.y - sticky.y
         };
         return;
       }
@@ -538,7 +598,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
       const strokeId = uuidv4();
       pendingStrokeRef.current = {
         id: strokeId,
-        points: [worldPoint],
+        points: [currentPoint],
         color: activeTool === 'eraser' ? '#f5f5f5' : penSettings.color,
         lineWidth: activeTool === 'eraser' ? penSettings.lineWidth * 3 : penSettings.lineWidth,
         opacity: activeTool === 'eraser' ? 1 : penSettings.opacity
@@ -549,7 +609,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
         userId,
         timestamp: Date.now(),
         strokeId,
-        point: worldPoint,
+        point: currentPoint,
         color: pendingStrokeRef.current.color,
         lineWidth: pendingStrokeRef.current.lineWidth,
         opacity: pendingStrokeRef.current.opacity
@@ -567,9 +627,9 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
         strokeId,
         point
       };
-      sendCommand(command);
+      socketManager?.sendCommand(command);
     }, 16),
-    [userId, sendCommand]
+    [userId, socketManager]
   );
 
   const throttledSendCursor = useMemo(
@@ -586,8 +646,8 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
   );
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const worldPoint = getWorldPoint(e);
-    throttledSendCursor(worldPoint);
+    const currentPoint = getWorldPoint(e);
+    throttledSendCursor(currentPoint);
 
     if (isPanningRef.current && lastMousePosRef.current) {
       const dx = e.clientX - lastMousePosRef.current.x;
@@ -601,8 +661,8 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     }
 
     if (draggingStickyRef.current) {
-      const newX = worldPoint.x - draggingStickyRef.current.offsetX;
-      const newY = worldPoint.y - draggingStickyRef.current.offsetY;
+      const newX = currentPoint.x - draggingStickyRef.current.offsetX;
+      const newY = currentPoint.y - draggingStickyRef.current.offsetY;
       updateObject(draggingStickyRef.current.id, { x: newX, y: newY } as Partial<StickyNote>);
       const command: StickyMoveCommand = {
         type: 'sticky:move',
@@ -617,13 +677,13 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     }
 
     if (isDrawingRef.current && pendingStrokeRef.current) {
-      pendingStrokeRef.current.points.push(worldPoint);
-      throttledSendPoint(pendingStrokeRef.current.id, worldPoint);
+      pendingStrokeRef.current.points.push(currentPoint);
+      throttledSendPoint(pendingStrokeRef.current.id, currentPoint);
       needsRenderRef.current = true;
     }
   }, [getWorldPoint, updateViewport, updateObject, userId, socketManager, throttledSendPoint, throttledSendCursor]);
 
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handleMouseUp = useCallback(() => {
     if (isPanningRef.current) {
       isPanningRef.current = false;
       lastMousePosRef.current = null;
@@ -653,18 +713,20 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     const canvas = canvasRef.current;
     if (!canvas || !wrapperRef.current) return;
 
+    const dpr = window.devicePixelRatio || 1;
     const rect = wrapperRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
 
-    const worldX = (mouseX - viewportRef.current.x) / viewportRef.current.scale;
-    const worldY = (mouseY - viewportRef.current.y) / viewportRef.current.scale;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
 
-    const zoomFactor = Math.exp(-e.deltaY * WHEEL_ZOOM_SPEED);
-    const newScale = clamp(viewportRef.current.scale * zoomFactor, MIN_SCALE, MAX_SCALE);
+    const worldX = (centerX - viewportRef.current.x) / viewportRef.current.scale;
+    const worldY = (centerY - viewportRef.current.y) / viewportRef.current.scale;
 
-    const newX = mouseX - worldX * newScale;
-    const newY = mouseY - worldY * newScale;
+    const scaleFactor = Math.exp(-e.deltaY * WHEEL_ZOOM_SPEED);
+    const newScale = clamp(viewportRef.current.scale * scaleFactor, MIN_SCALE, MAX_SCALE);
+
+    const newX = centerX - worldX * newScale;
+    const newY = centerY - worldY * newScale;
 
     updateViewport({
       x: newX,
@@ -789,14 +851,21 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     const y = e.clientY - rect.top;
 
     const objects = objectsRef.current;
-    const bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+    const bounds = { minX: -500, maxX: 500, minY: -500, maxY: 500 };
+    let hasObjects = false;
     for (const obj of objects) {
       if ('points' in obj) {
         for (const p of (obj as Stroke).points) {
-          bounds.minX = Math.min(bounds.minX, p.x);
-          bounds.maxX = Math.max(bounds.maxX, p.x);
-          bounds.minY = Math.min(bounds.minY, p.y);
-          bounds.maxY = Math.max(bounds.maxY, p.y);
+          if (!hasObjects) {
+            bounds.minX = bounds.maxX = p.x;
+            bounds.minY = bounds.maxY = p.y;
+            hasObjects = true;
+          } else {
+            bounds.minX = Math.min(bounds.minX, p.x);
+            bounds.maxX = Math.max(bounds.maxX, p.x);
+            bounds.minY = Math.min(bounds.minY, p.y);
+            bounds.maxY = Math.max(bounds.maxY, p.y);
+          }
         }
       }
     }
@@ -816,11 +885,45 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     const canvas = canvasRef.current;
     if (canvas) {
       const dpr = window.devicePixelRatio || 1;
+      const cssWidth = canvas.width / dpr;
+      const cssHeight = canvas.height / dpr;
       updateViewport({
-        x: -(worldX * viewportRef.current.scale) + (canvas.width / dpr) / 2,
-        y: -(worldY * viewportRef.current.scale) + (canvas.height / dpr) / 2
+        x: -(worldX * viewportRef.current.scale) + cssWidth / 2,
+        y: -(worldY * viewportRef.current.scale) + cssHeight / 2
       });
     }
+  }, [updateViewport]);
+
+  const handleZoomIn = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const worldX = (centerX - viewportRef.current.x) / viewportRef.current.scale;
+    const worldY = (centerY - viewportRef.current.y) / viewportRef.current.scale;
+    const newScale = clamp(viewportRef.current.scale * 1.2, MIN_SCALE, MAX_SCALE);
+    updateViewport({
+      x: centerX - worldX * newScale,
+      y: centerY - worldY * newScale,
+      scale: newScale
+    });
+  }, [updateViewport]);
+
+  const handleZoomOut = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const worldX = (centerX - viewportRef.current.x) / viewportRef.current.scale;
+    const worldY = (centerY - viewportRef.current.y) / viewportRef.current.scale;
+    const newScale = clamp(viewportRef.current.scale / 1.2, MIN_SCALE, MAX_SCALE);
+    updateViewport({
+      x: centerX - worldX * newScale,
+      y: centerY - worldY * newScale,
+      scale: newScale
+    });
   }, [updateViewport]);
 
   const getTextInputScreenPosition = () => {
@@ -841,7 +944,8 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
     return '';
   };
 
-  const remoteCursors = Array.from(remoteCursorsRef.current.entries())
+  const cursorEntries = Array.from(remoteCursorsRef.current.entries());
+  const remoteCursors = cursorEntries
     .filter(([id]) => id !== userId)
     .map(([id, data]) => {
       const user = onlineUsers.find(u => u.id === id);
@@ -855,7 +959,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
         y: screenPos.y
       };
     })
-    .filter(Boolean);
+    .filter((c): c is NonNullable<typeof c> => c !== null);
 
   return (
     <div
@@ -912,7 +1016,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
         </div>
       )}
 
-      {remoteCursors.map((cursor) => cursor && (
+      {remoteCursors.map((cursor) => (
         <div
           key={cursor.id}
           className="cursor-indicator"
@@ -926,7 +1030,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
       <div className="zoom-controls">
         <button
           className="zoom-btn"
-          onClick={() => updateViewport({ scale: clamp(viewportRef.current.scale * 1.2, MIN_SCALE, MAX_SCALE) }
+          onClick={handleZoomIn}
           title="放大"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -939,7 +1043,7 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
         <div className="zoom-level">{Math.round(viewport.scale * 100)}%</div>
         <button
           className="zoom-btn"
-          onClick={() => updateViewport({ scale: clamp(viewportRef.current.scale / 1.2, MIN_SCALE, MAX_SCALE) }
+          onClick={handleZoomOut}
           title="缩小"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -967,4 +1071,6 @@ export const DrawingBoard: React.FC<DrawingBoardProps> = ({
       </div>
     </div>
   );
-};
+});
+
+DrawingBoard.displayName = 'DrawingBoard';

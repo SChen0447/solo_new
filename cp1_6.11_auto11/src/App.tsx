@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { DrawingBoard } from './canvas/DrawingBoard';
+import { DrawingBoard, DrawingBoardHandle } from './canvas/DrawingBoard';
 import { Toolbar } from './canvas/Toolbar';
 import { initSocketManager, SocketManager } from './connection/SocketManager';
 import {
@@ -55,10 +55,9 @@ const App: React.FC = () => {
   });
 
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
-  const [objects, setObjects] = useState<DrawObject[]>([]);
 
   const socketManagerRef = useRef<SocketManager | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingBoardRef = useRef<DrawingBoardHandle>(null);
 
   useEffect(() => {
     socketManagerRef.current = initSocketManager(userId, userName);
@@ -89,7 +88,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleObjectsChange = useCallback((newObjects: DrawObject[]) => {
-    setObjects(newObjects);
   }, []);
 
   const handleUsersChange = useCallback((users: User[]) => {
@@ -104,11 +102,12 @@ const App: React.FC = () => {
         timestamp: Date.now()
       };
       socketManagerRef.current?.sendCommand(command);
+      drawingBoardRef.current?.clearCanvas();
     }
   }, [userId]);
 
   const handleExport = useCallback(() => {
-    const canvas = canvasRef.current;
+    const canvas = drawingBoardRef.current?.getCanvas();
     if (!canvas) return;
 
     const link = document.createElement('a');
@@ -118,12 +117,16 @@ const App: React.FC = () => {
   }, []);
 
   const handleReconnect = useCallback(() => {
-    socketManagerRef.current?.connect();
+    socketManagerRef.current?.reconnect();
   }, []);
 
   const getStatusText = () => {
     if (connectionStatus.connected) return '已连接';
-    if (connectionStatus.reconnecting) return '正在重连...';
+    if (connectionStatus.reconnecting) {
+      const attempts = connectionStatus.reconnectAttempts ?? 0;
+      const max = connectionStatus.maxReconnectAttempts ?? 10;
+      return `重连中 (${attempts}/${max})...`;
+    }
     return '已断开';
   };
 
@@ -133,14 +136,18 @@ const App: React.FC = () => {
     return 'disconnected';
   };
 
+  const showReconnectButton = !connectionStatus.connected &&
+    !connectionStatus.reconnecting &&
+    (connectionStatus.reconnectAttempts ?? 0) >= (connectionStatus.maxReconnectAttempts ?? 10);
+
   return (
     <div className="app-container">
       <div className="connection-status">
         <span className={`status-dot ${getStatusClass()}`} />
         <span className="status-text">{getStatusText()}</span>
-        {!connectionStatus.connected && (
+        {showReconnectButton && (
           <button className="reconnect-btn" onClick={handleReconnect}>
-            重连
+            手动重连
           </button>
         )}
       </div>
@@ -159,25 +166,32 @@ const App: React.FC = () => {
       <div className="user-panel">
         <h3>在线用户 ({onlineUsers.length})</h3>
         <div className="user-list">
-          {onlineUsers.map((user) => (
-            <div
-              key={user.id}
-              className={`user-item ${user.id === userId ? 'self' : ''}`}
-            >
-              <span
-                className="user-color-dot"
-                style={{ backgroundColor: user.color }}
-              />
-              <span className="user-name">
-                {user.name}
-                {user.id === userId && ' (我)'}
-              </span>
+          {onlineUsers.length === 0 ? (
+            <div style={{ fontSize: '12px', color: '#999', padding: '8px' }}>
+              暂无其他用户
             </div>
-          ))}
+          ) : (
+            onlineUsers.map((user) => (
+              <div
+                key={user.id}
+                className={`user-item ${user.id === userId ? 'self' : ''}`}
+              >
+                <span
+                  className="user-color-dot"
+                  style={{ backgroundColor: user.color }}
+                />
+                <span className="user-name">
+                  {user.name}
+                  {user.id === userId && ' (我)'}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
       <DrawingBoard
+        ref={drawingBoardRef}
         userId={userId}
         userName={userName}
         userColor={userColor}
