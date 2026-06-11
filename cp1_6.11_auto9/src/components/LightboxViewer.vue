@@ -1,3 +1,25 @@
+<!--
+  LightboxViewer.vue - 全屏灯箱查看器组件
+
+  调用关系：
+    - 被 App.vue 引用：App.template → <LightboxViewer :images :currentIndex @close @index-change />
+    - 接收 App.vue 传入的 images 数组和 currentIndex
+
+  数据流向：
+    App.vue (images ref, currentIndex ref) → props → 渲染灯箱
+    用户交互（键盘/鼠标/触摸） → emit('index-change', newIndex) → App.vue (handleIndexChange) → 更新 currentIndex
+    用户关闭灯箱 → emit('close') → App.vue (handleClose) → 关闭灯箱
+    App.vue watch(currentIndex) → imageService.preloadNeighbors() → 预加载相邻图片
+
+  功能：
+    - 全屏灯箱预览，图片居中显示
+    - 鼠标滚轮缩放（以光标位置为中心），平移拖拽
+    - 双指缩放手势（移动端），单指拖拽平移
+    - 键盘导航：左右方向键切换，ESC关闭，自动聚焦+阻止冒泡
+    - 底部圆点指示器，点击跳转，区分激活/可点击样式
+    - requestAnimationFrame FPS 帧率统计，控制台输出性能数据
+    - GPU 硬件加速（will-change, transform: translateZ(0)）
+-->
 <script setup lang="ts">
 import {
   ref,
@@ -21,6 +43,7 @@ const emit = defineEmits<{
   (e: 'index-change', index: number): void
 }>()
 
+const overlayRef = ref<HTMLElement | null>(null)
 const imageContainerRef = ref<HTMLElement | null>(null)
 const imageRef = ref<HTMLImageElement | null>(null)
 
@@ -33,12 +56,21 @@ const dragStartY = ref(0)
 const startTranslateX = ref(0)
 const startTranslateY = ref(0)
 const isImageLoaded = ref(false)
-const imageNaturalWidth = ref(0)
-const imageNaturalHeight = ref(0)
+const hasImageError = ref(false)
 
 const MIN_SCALE = 1
-const MAX_SCALE = 4
-const SCALE_STEP = 0.25
+const MAX_SCALE = 5
+const SCALE_STEP = 0.15
+
+let lastPinchDistance = 0
+let lastTouchTime = 0
+const TOUCH_THROTTLE_MS = 16
+
+let fpsFrameCount = 0
+let fpsLastTime = 0
+let fpsAnimId = 0
+let fpsCurrent = 0
+let switchStartTime = 0
 
 const currentImage = computed(() => props.images[props.currentIndex])
 
@@ -47,7 +79,7 @@ const counterText = computed(() => {
 })
 
 const imageTransform = computed(() => {
-  return `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`
+  return `translate3d(${translateX.value}px, ${translateY.value}px, 0) scale3d(${scale.value}, ${scale.value}, 1)`
 })
 
 const resetTransform = () => {
@@ -57,40 +89,50 @@ const resetTransform = () => {
 }
 
 const goToPrev = () => {
+  switchStartTime = performance.now()
   const newIndex =
     (props.currentIndex - 1 + props.images.length) % props.images.length
   emit('index-change', newIndex)
 }
 
 const goToNext = () => {
+  switchStartTime = performance.now()
   const newIndex = (props.currentIndex + 1) % props.images.length
   emit('index-change', newIndex)
 }
 
 const goToIndex = (index: number) => {
   if (index !== props.currentIndex) {
+    switchStartTime = performance.now()
     emit('index-change', index)
   }
 }
 
 const handleImageLoad = () => {
   isImageLoaded.value = true
-  if (imageRef.value) {
-    imageNaturalWidth.value = imageRef.value.naturalWidth
-    imageNaturalHeight.value = imageRef.value.naturalHeight
+  hasImageError.value = false
+  if (switchStartTime > 0) {
+    const elapsed = performance.now() - switchStartTime
+    console.log(`[Lightbox Performance] 图片切换响应时间: ${elapsed.toFixed(1)}ms${elapsed < 100 ? ' ✅' : ' ⚠️ 超过100ms'}`)
+    switchStartTime = 0
   }
 }
 
+const handleImageError = () => {
+  hasImageError.value = true
+  isImageLoaded.value = false
+}
+
+const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s))
+
 const handleWheel = (e: WheelEvent) => {
   e.preventDefault()
+  e.stopPropagation()
 
   const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP
-  const newScale = Math.min(
-    MAX_SCALE,
-    Math.max(MIN_SCALE, scale.value + delta)
-  )
+  const newScale = clampScale(scale.value + delta)
 
-  if (imageContainerRef.value && imageRef.value) {
+  if (imageContainerRef.value) {
     const rect = imageContainerRef.value.getBoundingClientRect()
     const mouseX = e.clientX - rect.left - rect.width / 2
     const mouseY = e.clientY - rect.top - rect.height / 2
@@ -102,7 +144,8 @@ const handleWheel = (e: WheelEvent) => {
 
   scale.value = newScale
 
-  if (scale.value === MIN_SCALE) {
+  if (scale.value <= MIN_SCALE) {
+    scale.value = MIN_SCALE
     translateX.value = 0
     translateY.value = 0
   }
@@ -110,6 +153,7 @@ const handleWheel = (e: WheelEvent) => {
 
 const handleMouseDown = (e: MouseEvent) => {
   if (e.button !== 0) return
+  e.preventDefault()
   isDragging.value = true
   dragStartX.value = e.clientX
   dragStartY.value = e.clientY
@@ -120,6 +164,7 @@ const handleMouseDown = (e: MouseEvent) => {
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value) return
   e.preventDefault()
+  e.stopPropagation()
   translateX.value = startTranslateX.value + (e.clientX - dragStartX.value)
   translateY.value = startTranslateY.value + (e.clientY - dragStartY.value)
 }
@@ -128,7 +173,92 @@ const handleMouseUp = () => {
   isDragging.value = false
 }
 
+const getPinchDistance = (touches: TouchList): number => {
+  const dx = touches[0].clientX - touches[1].clientX
+  const dy = touches[0].clientY - touches[1].clientY
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+const handleTouchStart = (e: TouchEvent) => {
+  e.stopPropagation()
+  if (e.touches.length === 2) {
+    isDragging.value = false
+    lastPinchDistance = getPinchDistance(e.touches)
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2
+    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2
+    dragStartX.value = cx
+    dragStartY.value = cy
+    startTranslateX.value = translateX.value
+    startTranslateY.value = translateY.value
+  } else if (e.touches.length === 1) {
+    const now = performance.now()
+    if (now - lastTouchTime < TOUCH_THROTTLE_MS) return
+    lastTouchTime = now
+    isDragging.value = true
+    dragStartX.value = e.touches[0].clientX
+    dragStartY.value = e.touches[0].clientY
+    startTranslateX.value = translateX.value
+    startTranslateY.value = translateY.value
+  }
+}
+
+const handleTouchMove = (e: TouchEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  if (e.touches.length === 2) {
+    isDragging.value = false
+    const newDist = getPinchDistance(e.touches)
+    if (lastPinchDistance > 0) {
+      const pinchScale = newDist / lastPinchDistance
+      const newScale = clampScale(scale.value * pinchScale)
+
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2
+
+      if (imageContainerRef.value) {
+        const rect = imageContainerRef.value.getBoundingClientRect()
+        const pivotX = cx - rect.left - rect.width / 2
+        const pivotY = cy - rect.top - rect.height / 2
+
+        const scaleRatio = newScale / scale.value
+        translateX.value = pivotX - (pivotX - translateX.value) * scaleRatio
+        translateY.value = pivotY - (pivotY - translateY.value) * scaleRatio
+      }
+
+      scale.value = newScale
+    }
+    lastPinchDistance = newDist
+
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2
+    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2
+    startTranslateX.value = translateX.value
+    startTranslateY.value = translateY.value
+    dragStartX.value = cx
+    dragStartY.value = cy
+  } else if (e.touches.length === 1 && isDragging.value) {
+    const now = performance.now()
+    if (now - lastTouchTime < TOUCH_THROTTLE_MS) return
+    lastTouchTime = now
+    translateX.value = startTranslateX.value + (e.touches[0].clientX - dragStartX.value)
+    translateY.value = startTranslateY.value + (e.touches[0].clientY - dragStartY.value)
+  }
+}
+
+const handleTouchEnd = (e: TouchEvent) => {
+  e.stopPropagation()
+  if (e.touches.length < 2) {
+    lastPinchDistance = 0
+  }
+  if (e.touches.length === 0) {
+    isDragging.value = false
+  }
+  if (scale.value <= MIN_SCALE) {
+    resetTransform()
+  }
+}
+
 const handleKeydown = (e: KeyboardEvent) => {
+  e.stopPropagation()
   switch (e.key) {
     case 'ArrowLeft':
       e.preventDefault()
@@ -151,31 +281,41 @@ const handleBgClick = (e: MouseEvent) => {
   }
 }
 
-const handleTouchStart = (e: TouchEvent) => {
-  if (e.touches.length === 1) {
-    isDragging.value = true
-    dragStartX.value = e.touches[0].clientX
-    dragStartY.value = e.touches[0].clientY
-    startTranslateX.value = translateX.value
-    startTranslateY.value = translateY.value
+const fpsLoop = (timestamp: number) => {
+  fpsFrameCount++
+  if (fpsLastTime === 0) {
+    fpsLastTime = timestamp
   }
+  const elapsed = timestamp - fpsLastTime
+  if (elapsed >= 1000) {
+    fpsCurrent = Math.round((fpsFrameCount * 1000) / elapsed)
+    console.log(`[Lightbox FPS] 当前帧率: ${fpsCurrent}fps${fpsCurrent >= 55 ? ' ✅' : ' ⚠️ 低于55fps'}`)
+    fpsFrameCount = 0
+    fpsLastTime = timestamp
+  }
+  fpsAnimId = requestAnimationFrame(fpsLoop)
 }
 
-const handleTouchMove = (e: TouchEvent) => {
-  if (!isDragging.value || e.touches.length !== 1) return
-  e.preventDefault()
-  translateX.value = startTranslateX.value + (e.touches[0].clientX - dragStartX.value)
-  translateY.value = startTranslateY.value + (e.touches[0].clientY - dragStartY.value)
+const startFpsMonitor = () => {
+  fpsLastTime = 0
+  fpsFrameCount = 0
+  fpsAnimId = requestAnimationFrame(fpsLoop)
+  console.log('[Lightbox FPS] 性能监控已启动')
 }
 
-const handleTouchEnd = () => {
-  isDragging.value = false
+const stopFpsMonitor = () => {
+  if (fpsAnimId) {
+    cancelAnimationFrame(fpsAnimId)
+    fpsAnimId = 0
+  }
+  console.log('[Lightbox FPS] 性能监控已停止')
 }
 
 watch(
   () => props.currentIndex,
   () => {
     isImageLoaded.value = false
+    hasImageError.value = false
     resetTransform()
     nextTick(() => {
       if (imageRef.value && imageRef.value.complete) {
@@ -186,30 +326,33 @@ watch(
 )
 
 onMounted(() => {
-  window.addEventListener('keydown', handleKeydown)
-  document.addEventListener('mouseup', handleMouseUp)
-  document.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('touchend', handleTouchEnd)
-  document.addEventListener('touchmove', handleTouchMove, { passive: false })
+  if (overlayRef.value) {
+    overlayRef.value.focus()
+  }
+
+  switchStartTime = performance.now()
+  startFpsMonitor()
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleKeydown)
-  document.removeEventListener('mouseup', handleMouseUp)
-  document.removeEventListener('mousemove', handleMouseMove)
-  document.removeEventListener('touchend', handleTouchEnd)
-  document.removeEventListener('touchmove', handleTouchMove)
+  stopFpsMonitor()
 })
 </script>
 
 <template>
-  <div class="lightbox-overlay" @click="handleBgClick">
+  <div
+    ref="overlayRef"
+    class="lightbox-overlay"
+    tabindex="-1"
+    @click="handleBgClick"
+    @keydown="handleKeydown"
+  >
     <div class="lightbox-header">
       <div class="header-content">
         <span class="counter">{{ counterText }}</span>
         <span class="title">{{ currentImage?.title }}</span>
       </div>
-      <button class="close-btn" @click="emit('close')" aria-label="关闭">
+      <button class="close-btn" @click.stop="emit('close')" aria-label="关闭">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
@@ -220,9 +363,11 @@ onBeforeUnmount(() => {
     <div
       ref="imageContainerRef"
       class="lightbox-image-container"
-      @wheel.prevent.passive="handleWheel"
+      @wheel="handleWheel"
       @mousedown="handleMouseDown"
       @touchstart="handleTouchStart"
+      @touchmove="handleTouchMove"
+      @touchend="handleTouchEnd"
       :class="{ dragging: isDragging }"
     >
       <button
@@ -236,8 +381,16 @@ onBeforeUnmount(() => {
       </button>
 
       <div class="image-wrapper">
-        <div v-if="!isImageLoaded" class="image-loader">
+        <div v-if="!isImageLoaded && !hasImageError" class="image-loader">
           <div class="loader-spinner"></div>
+        </div>
+        <div v-if="hasImageError" class="image-error">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          <span>图片加载失败</span>
         </div>
         <img
           ref="imageRef"
@@ -249,6 +402,7 @@ onBeforeUnmount(() => {
           }"
           class="lightbox-image"
           @load="handleImageLoad"
+          @error="handleImageError"
           draggable="false"
         />
       </div>
@@ -270,8 +424,11 @@ onBeforeUnmount(() => {
           v-for="(_, index) in images"
           :key="index"
           class="indicator-dot"
-          :class="{ active: index === currentIndex }"
-          @click="goToIndex(index)"
+          :class="{
+            active: index === currentIndex,
+            clickable: index !== currentIndex
+          }"
+          @click.stop="goToIndex(index)"
           :aria-label="`跳转到第 ${index + 1} 张`"
         />
       </div>
@@ -288,6 +445,11 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(4px);
+  outline: none;
+}
+
+.lightbox-overlay:focus-visible {
+  outline: none;
 }
 
 .lightbox-header {
@@ -330,10 +492,6 @@ onBeforeUnmount(() => {
   transition: color var(--duration) var(--ease);
 }
 
-.title:hover {
-  color: var(--text-primary);
-}
-
 .close-btn {
   width: 40px;
   height: 40px;
@@ -363,6 +521,9 @@ onBeforeUnmount(() => {
   overflow: hidden;
   padding: 24px;
   user-select: none;
+  touch-action: none;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .lightbox-image-container.dragging {
@@ -376,6 +537,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .lightbox-image {
@@ -388,6 +551,7 @@ onBeforeUnmount(() => {
   will-change: transform;
   -webkit-user-drag: none;
   pointer-events: none;
+  backface-visibility: hidden;
 }
 
 .dragging .lightbox-image {
@@ -401,6 +565,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  z-index: 2;
 }
 
 .loader-spinner {
@@ -418,6 +583,19 @@ onBeforeUnmount(() => {
   }
 }
 
+.image-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  z-index: 2;
+}
+
 .nav-btn {
   position: absolute;
   top: 50%;
@@ -432,7 +610,9 @@ onBeforeUnmount(() => {
   background: var(--surface);
   border: 1px solid var(--border);
   backdrop-filter: blur(8px);
-  transition: all var(--duration) var(--ease);
+  transition: transform var(--duration) var(--ease),
+    background var(--duration) var(--ease),
+    color var(--duration) var(--ease);
   z-index: 5;
   padding: 12px;
 }
@@ -481,15 +661,32 @@ onBeforeUnmount(() => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-  transition: all var(--duration) var(--ease);
+  border: none;
   padding: 0;
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: default;
+  transition: width var(--duration) var(--ease),
+    height var(--duration) var(--ease),
+    border-radius var(--duration) var(--ease),
+    background var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease),
+    transform var(--duration) var(--ease);
 }
 
-.indicator-dot:hover {
-  background: rgba(255, 255, 255, 0.5);
-  transform: scale(1.3);
+.indicator-dot.clickable {
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+}
+
+.indicator-dot.clickable:hover {
+  background: rgba(255, 255, 255, 0.55);
+  transform: scale(1.4);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+.indicator-dot.clickable:active {
+  transform: scale(0.9);
 }
 
 .indicator-dot.active {
@@ -498,6 +695,7 @@ onBeforeUnmount(() => {
   border-radius: 5px;
   background: linear-gradient(90deg, var(--accent) 0%, #ce93d8 100%);
   box-shadow: 0 0 16px rgba(100, 181, 246, 0.5);
+  cursor: default;
 }
 
 @media (max-width: 600px) {

@@ -1,3 +1,26 @@
+<!--
+  App.vue - 根组件
+
+  调用关系：
+    - 调用 imageService.getImages()：onMounted 时加载图片列表
+    - 调用 imageService.preloadNeighbors()：watch(currentIndex) 时预加载相邻图片
+    - 引用 ThumbnailGrid：传递 images 数组，接收 thumbnail-click 事件
+    - 引用 LightboxViewer：传递 images 数组和 currentIndex，接收 close 和 index-change 事件
+
+  数据流向：
+    imageService.getImages() → images ref
+    images ref → ThumbnailGrid (props.images) → 渲染缩略图网格
+    images ref + currentIndex ref → LightboxViewer (props) → 渲染灯箱
+
+    用户点击缩略图 → ThumbnailGrid emit('thumbnail-click', index)
+      → App.handleThumbnailClick → 更新 currentIndex + isLightboxOpen → 打开灯箱
+
+    灯箱内用户切换图片 → LightboxViewer emit('index-change', newIndex)
+      → App.handleIndexChange → 更新 currentIndex → watch 触发 preloadNeighbors
+
+    灯箱关闭 → LightboxViewer emit('close')
+      → App.handleClose → 重置 isLightboxOpen 和 currentIndex
+-->
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import type { ImageItem } from '@/services/imageService'
