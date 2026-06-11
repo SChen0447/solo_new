@@ -18,7 +18,6 @@ export interface Recipe {
   difficulty: 'easy' | 'medium' | 'hard';
   coverImage: string;
   favorites: number;
-  isFavorite: boolean;
   userId: string;
   createdAt: string;
 }
@@ -28,9 +27,17 @@ export interface User {
   username: string;
   password: string;
   email: string;
+  favoriteIds: string[];
 }
 
 export interface Database {
   recipes: Recipe[];
   users: User[];
+}
+
+export interface SearchResult {
+  recipe: Recipe;
+  matchCount: number;
+  matchText: string;
+  matchedIngredients: string[];
 }
