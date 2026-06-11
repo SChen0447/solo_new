@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-card p-6 transition-all duration-200 ease-out;
+  }
+  
+  .card:hover {
+    @apply shadow-card-hover -translate-y-0.5;
+  }
+  
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 ease-out
+           hover:-translate-y-0.5 hover:shadow-md active:translate-y-0;
+  }
+  
+  .btn-primary {
+    @apply btn bg-ocean-blue text-white hover:bg-ocean-light;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-white text-ocean-blue border-2 border-ocean-blue hover:bg-ocean-blue hover:text-white;
+  }
+  
+  .btn-success {
+    @apply btn bg-green-600 text-white hover:bg-green-700;
+  }
+  
+  .btn-danger {
+    @apply btn bg-red-500 text-white hover:bg-red-600;
+  }
+  
+  .option-btn {
+    @apply w-full p-4 text-left rounded-lg border-2 border-gray-200 bg-white
+           transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md
+           hover:border-ocean-blue cursor-pointer;
+  }
+  
+  .option-btn.selected {
+    @apply border-ocean-blue bg-ocean-blue/10;
+  }
+  
+  .option-btn.correct {
+    @apply border-green-500 bg-green-50
