@@ -1,1 +1,0 @@
-export { DeviceControl } from './DeviceControl';
