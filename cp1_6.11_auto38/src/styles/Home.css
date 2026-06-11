@@ -1,0 +1,196 @@
+.home {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 20px;
+}
+
+.home-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(233, 69, 96, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(100, 69, 233, 0.12) 0%, transparent 45%),
+    #1a1a2e;
+  z-index: 0;
+}
+
+.home-content {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+}
+
+.brand { margin-bottom: 36px; }
+.brand-logo {
+  font-size: 64px;
+  line-height: 1;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 4px 20px rgba(233, 69, 96, 0.4));
+  animation: floaty 3s ease-in-out infinite;
+}
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.brand h1 {
+  font-size: 34px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 0%, #e94560 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 1px;
+}
+.slogan {
+  color: #8a8ab0;
+  margin-top: 8px;
+  font-size: 15px;
+  letter-spacing: 2px;
+}
+
+.action-card {
+  background: #16213e;
+  border: 1px solid rgba(233, 69, 96, 0.2);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.action-section { text-align: left; }
+
+.primary-btn {
+  width: 100%;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+  color: #fff;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 15px rgba(233, 69, 96, 0.35);
+}
+.primary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(233, 69, 96, 0.5);
+}
+
+.tip {
+  color: #6a6a90;
+  font-size: 13px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.divider {
+  margin: 24px 0;
+  position: relative;
+  text-align: center;
+}
+.divider::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #3a3a5e, transparent);
+}
+.divider span {
+  display: inline-block;
+  background: #16213e;
+  padding: 0 16px;
+  color: #6a6a90;
+  font-size: 13px;
+  position: relative;
+  z-index: 1;
+}
+
+.join-row {
+  display: flex;
+  gap: 10px;
+}
+
+.code-input {
+  flex: 1;
+  padding: 14px 16px;
+  background: #0f1626;
+  border: 2px solid #2a2a4e;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  text-align: center;
+  text-transform: uppercase;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.code-input:focus {
+  border-color: #e94560;
+  box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.15);
+}
+
+.secondary-btn {
+  padding: 14px 20px;
+  background: transparent;
+  border: 2px solid #e94560 !important;
+  color: #e94560;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.secondary-btn:hover:not(:disabled) {
+  background: rgba(233, 69, 96, 0.12);
+  transform: translateY(-1px);
+}
+
+.err {
+  color: #ff6b6b;
+  font-size: 13px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.user-preview {
+  margin-top: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: rgba(22, 33, 62, 0.6);
+  border-radius: 30px;
+  border: 1px solid rgba(233, 69, 96, 0.15);
+}
+.up-avatar { font-size: 28px; }
+.up-label { font-size: 11px; color: #6a6a90; text-align: left; }
+.up-name { font-size: 14px; color: #e8e8f0; font-weight: 600; }
+
+.home-footer {
+  margin-top: 36px;
+}
+.feature-list {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  font-size: 13px;
+  color: #6a6a90;
+}
+.feature-list span {
+  padding: 6px 12px;
+  background: rgba(22, 33, 62, 0.5);
+  border-radius: 20px;
+}
+
+@media (max-width: 480px) {
+  .brand h1 { font-size: 26px; }
+  .action-card { padding: 24px 18px; }
+  .join-row { flex-direction: column; }
+  .code-input { font-size: 16px; }
+  .feature-list { gap: 10px; }
+}
