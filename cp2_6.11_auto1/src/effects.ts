@@ -73,6 +73,8 @@ export class ParticleSystem {
   }
 
   createThrust(x: number, y: number, angle: number): void {
+    if (this.particles.length >= this.maxParticles - 1) return;
+
     const speed = 80 + Math.random() * 60;
     const spread = 0.3;
     const a = angle + Math.PI + (Math.random() - 0.5) * spread;
@@ -91,8 +93,12 @@ export class ParticleSystem {
   }
 
   createExplosion(x: number, y: number, count: number = 20): void {
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const remaining = this.maxParticles - this.particles.length;
+    if (remaining <= 0) return;
+
+    const actualCount = Math.min(count, remaining - 1);
+    for (let i = 0; i < actualCount; i++) {
+      const angle = (Math.PI * 2 * i) / actualCount + Math.random() * 0.5;
       const speed = 100 + Math.random() * 150;
 
       this.addParticle({
@@ -108,22 +114,28 @@ export class ParticleSystem {
       });
     }
 
-    this.addParticle({
-      x,
-      y,
-      vx: 0,
-      vy: 0,
-      life: 0.4,
-      maxLife: 0.4,
-      size: 10,
-      color: '#ffffff',
-      type: 'glow'
-    });
+    if (this.particles.length < this.maxParticles) {
+      this.addParticle({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        life: 0.4,
+        maxLife: 0.4,
+        size: 10,
+        color: '#ffffff',
+        type: 'glow'
+      });
+    }
   }
 
   createPickup(x: number, y: number): void {
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI * 2 * i) / 8;
+    const remaining = this.maxParticles - this.particles.length;
+    if (remaining <= 0) return;
+
+    const actualCount = Math.min(8, remaining);
+    for (let i = 0; i < actualCount; i++) {
+      const angle = (Math.PI * 2 * i) / actualCount;
       const speed = 60;
 
       this.addParticle({
@@ -141,7 +153,11 @@ export class ParticleSystem {
   }
 
   createDebris(x: number, y: number, count: number = 8): void {
-    for (let i = 0; i < count; i++) {
+    const remaining = this.maxParticles - this.particles.length;
+    if (remaining <= 0) return;
+
+    const actualCount = Math.min(count, remaining);
+    for (let i = 0; i < actualCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 50 + Math.random() * 100;
 
