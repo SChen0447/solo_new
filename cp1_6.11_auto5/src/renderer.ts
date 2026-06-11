@@ -250,14 +250,21 @@ export class Renderer {
 
   private renderPlayer(player: PlayerState): void {
     const ctx = this.ctx;
-    const { x, y, radius, glowIntensity, trail } = player;
+    const { x, y, radius, glowIntensity, trail, isShieldActive } = player;
+
+    const isFlashing = isShieldActive;
+    const flashIntensity = isFlashing ? 0.5 + Math.sin(Date.now() * 0.02) * 0.5 : 0;
 
     for (let i = trail.length - 1; i >= 0; i--) {
       const t = trail[i];
       const trailRadius = radius * (1 - i / trail.length) * 0.7;
       ctx.save();
       ctx.globalAlpha = t.alpha * 0.3;
-      ctx.fillStyle = '#7cffcb';
+      if (isFlashing) {
+        ctx.fillStyle = flashIntensity > 0.5 ? '#4fc3f7' : '#7cffcb';
+      } else {
+        ctx.fillStyle = '#7cffcb';
+      }
       ctx.beginPath();
       ctx.arc(t.x, t.y, trailRadius, 0, Math.PI * 2);
       ctx.fill();
@@ -268,8 +275,12 @@ export class Renderer {
       const glowRadius = radius + i * 12 * glowIntensity;
       const glowAlpha = (0.15 - i * 0.03) * glowIntensity;
       ctx.save();
-      ctx.globalAlpha = glowAlpha;
-      ctx.fillStyle = '#7cffcb';
+      ctx.globalAlpha = glowAlpha * (1 + flashIntensity * 0.5);
+      if (isFlashing) {
+        ctx.fillStyle = '#4fc3f7';
+      } else {
+        ctx.fillStyle = '#7cffcb';
+      }
       ctx.beginPath();
       ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
       ctx.fill();
@@ -280,30 +291,49 @@ export class Renderer {
       x - radius * 0.3, y - radius * 0.3, 0,
       x, y, radius
     );
-    bodyGradient.addColorStop(0, '#ffffff');
-    bodyGradient.addColorStop(0.3, '#aaffee');
-    bodyGradient.addColorStop(0.7, '#7cffcb');
-    bodyGradient.addColorStop(1, '#4de0b8');
+    if (isFlashing) {
+      bodyGradient.addColorStop(0, '#ffffff');
+      bodyGradient.addColorStop(0.3, '#b3e5fc');
+      bodyGradient.addColorStop(0.7, '#4fc3f7');
+      bodyGradient.addColorStop(1, '#0288d1');
+    } else {
+      bodyGradient.addColorStop(0, '#ffffff');
+      bodyGradient.addColorStop(0.3, '#aaffee');
+      bodyGradient.addColorStop(0.7, '#7cffcb');
+      bodyGradient.addColorStop(1, '#4de0b8');
+    }
 
     ctx.fillStyle = bodyGradient;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
 
-    if (player.isShieldActive) {
-      const flashAlpha = 0.5 + Math.sin(Date.now() * 0.03) * 0.3;
+    if (isFlashing) {
+      const pulseRadius = radius + 5 + flashIntensity * 8;
       ctx.save();
-      ctx.globalAlpha = flashAlpha;
+      ctx.globalAlpha = 0.6 * flashIntensity;
+      ctx.strokeStyle = '#81d4fa';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (isShieldActive) {
+      const shieldAlpha = 0.4 + Math.sin(Date.now() * 0.025) * 0.3;
+      ctx.save();
+      ctx.globalAlpha = shieldAlpha;
       ctx.strokeStyle = '#4fc3f7';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(x, y, radius + 10, 0, Math.PI * 2);
+      ctx.arc(x, y, radius + 12, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.globalAlpha = flashAlpha * 0.3;
-      ctx.fillStyle = '#4fc3f7';
+      ctx.globalAlpha = shieldAlpha * 0.25;
+      ctx.fillStyle = '#b3e5fc';
       ctx.beginPath();
-      ctx.arc(x, y, radius + 10, 0, Math.PI * 2);
+      ctx.arc(x, y, radius + 12, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }

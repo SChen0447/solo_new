@@ -134,9 +134,9 @@ export class CollectibleManager {
     this.comboState.count++;
     this.comboState.timer = this.comboState.comboTimeout;
     this.comboState.maxCombo = Math.max(this.comboState.maxCombo, this.comboState.count);
-    this.comboState.multiplier = 1 + Math.floor(this.comboState.count / 5) * 0.5;
-    if (this.comboState.multiplier > 3) {
-      this.comboState.multiplier = 3;
+    this.comboState.multiplier = 1 + Math.floor(this.comboState.count / 3) * 0.5;
+    if (this.comboState.multiplier > 5) {
+      this.comboState.multiplier = 5;
     }
   }
 
