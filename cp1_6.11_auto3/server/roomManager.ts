@@ -7,6 +7,7 @@ export interface User {
   name: string
   color: string
   socketId: string
+  canEdit: boolean
 }
 
 export interface Invitation {
@@ -20,7 +21,30 @@ export interface VersionSnapshot {
   id: string
   timestamp: number
   content: string
+  delta?: any
   label?: string
+}
+
+export interface Reply {
+  id: string
+  author: string
+  authorId: string
+  content: string
+  timestamp: number
+}
+
+export interface Comment {
+  id: string
+  author: string
+  authorId: string
+  authorColor: string
+  content: string
+  selectedText: string
+  timestamp: number
+  replies: Reply[]
+  resolved: boolean
+  resolvedAt?: number
+  resolvedBy?: string
 }
 
 export interface Room {
@@ -31,6 +55,7 @@ export interface Room {
   users: Map<string, User>
   invitations: Map<string, Invitation>
   versions: VersionSnapshot[]
+  comments: Comment[]
   createdAt: number
 }
 
@@ -55,6 +80,7 @@ class RoomManager {
       users: new Map(),
       invitations: new Map(),
       versions: [],
+      comments: [],
       createdAt: Date.now(),
     }
     this.rooms.set(roomId, room)
@@ -69,13 +95,24 @@ class RoomManager {
     return this.rooms.has(roomId)
   }
 
-  addUser(roomId: string, user: User): boolean {
+  addUser(roomId: string, user: Omit<User, 'color' | 'canEdit'>, canEdit: boolean = true): boolean {
     const room = this.rooms.get(roomId)
     if (!room) return false
 
+    const existingUser = room.users.get(user.id)
+    if (existingUser) {
+      existingUser.socketId = user.socketId
+      existingUser.name = user.name
+      return true
+    }
+
     const colorIndex = room.users.size % USER_COLORS.length
-    user.color = USER_COLORS[colorIndex]
-    room.users.set(user.id, user)
+    const fullUser: User = {
+      ...user,
+      color: USER_COLORS[colorIndex],
+      canEdit,
+    }
+    room.users.set(user.id, fullUser)
     return true
   }
 
@@ -91,21 +128,47 @@ class RoomManager {
     return Array.from(room.users.values())
   }
 
-  canJoin(roomId: string, userId: string, invitationId?: string): boolean {
+  getUser(roomId: string, userId: string): User | undefined {
     const room = this.rooms.get(roomId)
-    if (!room) return false
+    if (!room) return undefined
+    return room.users.get(userId)
+  }
 
-    if (room.permissionMode === 'public') return true
-    if (room.ownerId === userId) return true
+  canJoin(roomId: string, userId: string, invitationId?: string): { canJoin: boolean; canEdit: boolean } {
+    const room = this.rooms.get(roomId)
+    if (!room) return { canJoin: false, canEdit: false }
+
+    if (room.ownerId === userId) return { canJoin: true, canEdit: true }
+
+    if (room.permissionMode === 'public') {
+      return { canJoin: true, canEdit: true }
+    }
 
     if (invitationId && room.invitations.has(invitationId)) {
       const invite = room.invitations.get(invitationId)!
       if (invite.expiresAt > Date.now()) {
-        return true
+        return { canJoin: true, canEdit: invite.canEdit }
       }
     }
 
+    return { canJoin: false, canEdit: false }
+  }
+
+  canEdit(roomId: string, userId: string): boolean {
+    const room = this.rooms.get(roomId)
+    if (!room) return false
+    if (room.ownerId === userId) return true
+
+    const user = room.users.get(userId)
+    if (user && user.canEdit) return true
+
     return false
+  }
+
+  isOwner(roomId: string, userId: string): boolean {
+    const room = this.rooms.get(roomId)
+    if (!room) return false
+    return room.ownerId === userId
   }
 
   createInvitation(roomId: string, email?: string, expiresInMs: number = 86400000, canEdit: boolean = true): Invitation | null {
@@ -122,14 +185,20 @@ class RoomManager {
     return invitation
   }
 
-  saveVersion(roomId: string, content: string, label?: string): VersionSnapshot | null {
+  saveVersion(roomId: string, content: string, delta?: any, label?: string): VersionSnapshot | null {
     const room = this.rooms.get(roomId)
     if (!room) return null
+
+    const lastVersion = room.versions[room.versions.length - 1]
+    if (lastVersion && lastVersion.content === content && !label?.includes('手动')) {
+      return null
+    }
 
     const snapshot: VersionSnapshot = {
       id: uuidv4(),
       timestamp: Date.now(),
       content,
+      delta,
       label,
     }
     room.versions.push(snapshot)
@@ -147,11 +216,57 @@ class RoomManager {
     return [...room.versions].reverse()
   }
 
-  setPermissionMode(roomId: string, mode: PermissionMode): boolean {
+  getVersion(roomId: string, versionId: string): VersionSnapshot | undefined {
+    const room = this.rooms.get(roomId)
+    if (!room) return undefined
+    return room.versions.find(v => v.id === versionId)
+  }
+
+  setPermissionMode(roomId: string, userId: string, mode: PermissionMode): boolean {
     const room = this.rooms.get(roomId)
     if (!room) return false
+    if (room.ownerId !== userId) return false
     room.permissionMode = mode
     return true
+  }
+
+  addComment(roomId: string, comment: Comment): Comment | null {
+    const room = this.rooms.get(roomId)
+    if (!room) return null
+    room.comments.push(comment)
+    return comment
+  }
+
+  getComments(roomId: string): Comment[] {
+    const room = this.rooms.get(roomId)
+    if (!room) return []
+    return room.comments
+  }
+
+  resolveComment(roomId: string, commentId: string, userId: string, resolved: boolean): Comment | null {
+    const room = this.rooms.get(roomId)
+    if (!room) return null
+    const comment = room.comments.find(c => c.id === commentId)
+    if (!comment) return null
+
+    comment.resolved = resolved
+    if (resolved) {
+      comment.resolvedAt = Date.now()
+      comment.resolvedBy = userId
+    } else {
+      comment.resolvedAt = undefined
+      comment.resolvedBy = undefined
+    }
+    return comment
+  }
+
+  addReply(roomId: string, commentId: string, reply: Reply): Comment | null {
+    const room = this.rooms.get(roomId)
+    if (!room) return null
+    const comment = room.comments.find(c => c.id === commentId)
+    if (!comment) return null
+    comment.replies.push(reply)
+    return comment
   }
 }
 
