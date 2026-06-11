@@ -23,37 +23,61 @@ function getGlowColor(threshold: number): string {
 interface SensorCardProps {
   sensor: SensorData;
   index: number;
-  onDragStart: (index: number) => void;
-  onDragOver: (index: number) => void;
+  isDragging: boolean;
+  isDragOver: boolean;
+  onDragStart: (e: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragOver: (e: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragLeave: (index: number) => void;
+  onDrop: (e: React.DragEvent<HTMLDivElement>, index: number) => void;
   onDragEnd: () => void;
 }
 
-function SensorCard({ sensor, index, onDragStart, onDragOver, onDragEnd }: SensorCardProps) {
+function SensorCard({
+  sensor,
+  index,
+  isDragging,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}: SensorCardProps) {
   const [displayValue, setDisplayValue] = useState(sensor.value);
+  const [isTicking, setIsTicking] = useState(false);
   const prevValueRef = useRef(sensor.value);
   const animFrameRef = useRef<number>(0);
+  const tickTimeoutRef = useRef<number>(0);
 
   useEffect(() => {
     const startVal = prevValueRef.current;
     const endVal = sensor.value;
-    const duration = 600;
+    const duration = 700;
     const startTime = performance.now();
+
+    cancelAnimationFrame(animFrameRef.current);
+    window.clearTimeout(tickTimeoutRef.current);
+    setIsTicking(true);
 
     function animate(currentTime: number) {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
+      const eased = 1 - Math.pow(1 - progress, 4);
       const current = startVal + (endVal - startVal) * eased;
       setDisplayValue(Math.round(current * 100) / 100);
       if (progress < 1) {
         animFrameRef.current = requestAnimationFrame(animate);
       } else {
         prevValueRef.current = endVal;
+        tickTimeoutRef.current = window.setTimeout(() => setIsTicking(false), 150);
       }
     }
 
     animFrameRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animFrameRef.current);
+    return () => {
+      cancelAnimationFrame(animFrameRef.current);
+      window.clearTimeout(tickTimeoutRef.current);
+    };
   }, [sensor.value]);
 
   const statusColor = getStatusColor(sensor.threshold);
@@ -61,13 +85,14 @@ function SensorCard({ sensor, index, onDragStart, onDragOver, onDragEnd }: Senso
 
   return (
     <div
-      className="sensor-card"
+      className={`sensor-card ${isDragging ? 'sensor-card--dragging' : ''} ${
+        isDragOver ? 'sensor-card--drag-over' : ''
+      }`}
       draggable
-      onDragStart={() => onDragStart(index)}
-      onDragOver={(e) => {
-        e.preventDefault();
-        onDragOver(index);
-      }}
+      onDragStart={(e) => onDragStart(e, index)}
+      onDragOver={(e) => onDragOver(e, index)}
+      onDragLeave={() => onDragLeave(index)}
+      onDrop={(e) => onDrop(e, index)}
       onDragEnd={onDragEnd}
       style={{
         '--card-glow': glowColor,
@@ -84,7 +109,11 @@ function SensorCard({ sensor, index, onDragStart, onDragOver, onDragEnd }: Senso
           />
         </div>
         <div className="sensor-card__value">
-          <span className="sensor-card__number">{displayValue.toFixed(1)}</span>
+          <span
+            className={`sensor-card__number ${isTicking ? 'sensor-card__number--ticking' : ''}`}
+          >
+            {displayValue.toFixed(1)}
+          </span>
           <span className="sensor-card__unit">{sensor.unit}</span>
         </div>
         <div className="sensor-card__footer">
@@ -109,9 +138,9 @@ function SensorCard({ sensor, index, onDragStart, onDragOver, onDragEnd }: Senso
 export function DashboardPanel() {
   const [sensors, setSensors] = useState<SensorData[]>([]);
   const [order, setOrder] = useState<string[]>([]);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const simulatorRef = useRef<SensorSimulator | null>(null);
-  const dragIndexRef = useRef<number | null>(null);
-  const dragOverIndexRef = useRef<number | null>(null);
 
   const handleUpdate = useCallback((data: SensorData[]) => {
     setSensors(data);
@@ -132,27 +161,42 @@ export function DashboardPanel() {
     .map((id) => sensors.find((s) => s.id === id))
     .filter((s): s is SensorData => s !== undefined);
 
-  const handleDragStart = useCallback((index: number) => {
-    dragIndexRef.current = index;
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+    (e.currentTarget as HTMLDivElement).style.opacity = '0.4';
   }, []);
 
-  const handleDragOver = useCallback((index: number) => {
-    dragOverIndexRef.current = index;
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex((prev) => (prev === index ? prev : index));
   }, []);
 
-  const handleDragEnd = useCallback(() => {
-    const from = dragIndexRef.current;
-    const to = dragOverIndexRef.current;
-    if (from !== null && to !== null && from !== to) {
+  const handleDragLeave = useCallback((index: number) => {
+    setDragOverIndex((prev) => (prev === index ? null : prev));
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
+    e.preventDefault();
+    const dragFrom = dragIndex;
+    if (dragFrom !== null && dragFrom !== dropIndex) {
       setOrder((prev) => {
         const next = [...prev];
-        const [moved] = next.splice(from, 1);
-        next.splice(to, 0, moved);
+        const [moved] = next.splice(dragFrom, 1);
+        next.splice(dropIndex, 0, moved);
         return next;
       });
     }
-    dragIndexRef.current = null;
-    dragOverIndexRef.current = null;
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }, [dragIndex]);
+
+  const handleDragEnd = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    (e.currentTarget as HTMLDivElement).style.opacity = '1';
+    setDragIndex(null);
+    setDragOverIndex(null);
   }, []);
 
   return (
@@ -164,8 +208,12 @@ export function DashboardPanel() {
             key={sensor.id}
             sensor={sensor}
             index={i}
+            isDragging={dragIndex === i}
+            isDragOver={dragOverIndex === i && dragIndex !== i}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             onDragEnd={handleDragEnd}
           />
         ))}

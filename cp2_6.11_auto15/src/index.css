@@ -156,6 +156,24 @@ body {
   transform: scale(0.97);
 }
 
+.sensor-card--dragging {
+  opacity: 0.4;
+  transform: scale(0.95) rotate(-1deg);
+  transition: transform 0.1s ease, opacity 0.1s ease;
+  cursor: grabbing;
+}
+
+.sensor-card--drag-over {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3), 0 8px 24px rgba(0, 0, 0, 0.3);
+  transform: scale(1.03);
+}
+
+.sensor-card--drag-over .sensor-card__glow {
+  background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.25) 0%, transparent 70%);
+  opacity: 1;
+}
+
 .sensor-card__glow {
   position: absolute;
   inset: 0;
@@ -217,6 +235,34 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1;
+  display: inline-block;
+  transition: color 0.2s ease;
+}
+
+.sensor-card__number--ticking {
+  animation: numberTicking 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-shadow: 0 0 12px currentColor;
+}
+
+@keyframes numberTicking {
+  0% {
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  25% {
+    transform: translateY(-2px) scale(1.08);
+    filter: blur(0.5px);
+  }
+  50% {
+    transform: translateY(1px) scale(0.98);
+  }
+  75% {
+    transform: translateY(0) scale(1.02);
+    filter: blur(0);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 
 .sensor-card__unit {
@@ -294,7 +340,34 @@ body {
 }
 
 .device-button--bouncing {
-  will-change: transform;
+  animation: springBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, box-shadow;
+}
+
+@keyframes springBounce {
+  0% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(0.75);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  35% {
+    transform: scale(1.2);
+    box-shadow: 0 0 24px var(--accent-blue-glow), 0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+  55% {
+    transform: scale(0.92);
+  }
+  70% {
+    transform: scale(1.06);
+  }
+  85% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .device-button__icon {
@@ -363,17 +436,48 @@ body {
 }
 
 .event-log__entry--new {
-  animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: slideInDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@keyframes slideIn {
+@keyframes slideInDown {
   0% {
     opacity: 0;
-    transform: translateY(-12px);
+    transform: translateY(-20px) scale(0.95);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  30% {
+    opacity: 0.8;
+    max-height: 60px;
+  }
+  60% {
+    transform: translateY(4px) scale(1.02);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    max-height: 60px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}
+
+.event-log__entry--new .event-log__timeline-dot {
+  animation: dotPulse 0.8s ease-out;
+  background: var(--accent-blue) !important;
+  box-shadow: 0 0 12px var(--accent-blue-glow);
+}
+
+@keyframes dotPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 

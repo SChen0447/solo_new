@@ -15,29 +15,14 @@ interface DeviceButtonProps {
 }
 
 function DeviceButton({ device, onToggle }: DeviceButtonProps) {
-  const [bouncing, setBouncing] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [animationKey, setAnimationKey] = useState(0);
+  const timeoutRef = useRef<number>(0);
 
   const handleClick = useCallback(() => {
-    setBouncing(true);
-    if (buttonRef.current) {
-      buttonRef.current.animate(
-        [
-          { transform: 'scale(1)' },
-          { transform: 'scale(0.85)' },
-          { transform: 'scale(1.1)' },
-          { transform: 'scale(0.95)' },
-          { transform: 'scale(1.02)' },
-          { transform: 'scale(1)' },
-        ],
-        {
-          duration: 400,
-          easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-        }
-      );
-    }
+    window.clearTimeout(timeoutRef.current);
+    setAnimationKey((k) => k + 1);
+    timeoutRef.current = window.setTimeout(() => setAnimationKey(0), 500);
     onToggle(device.id);
-    setTimeout(() => setBouncing(false), 400);
   }, [device.id, onToggle]);
 
   const iconMap: Record<string, string> = {
@@ -50,9 +35,9 @@ function DeviceButton({ device, onToggle }: DeviceButtonProps) {
   return (
     <div className="device-button-wrapper">
       <button
-        ref={buttonRef}
+        key={animationKey}
         className={`device-button ${device.status ? 'device-button--on' : ''} ${
-          bouncing ? 'device-button--bouncing' : ''
+          animationKey > 0 ? 'device-button--bouncing' : ''
         }`}
         onClick={handleClick}
         title={`${device.name} - ${device.status ? '开启' : '关闭'}`}

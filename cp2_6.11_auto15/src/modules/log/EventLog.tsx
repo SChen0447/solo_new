@@ -1,6 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import type { LogEntry, DeviceToggleEvent } from '../../types';
 import { eventBus } from '../../utils/EventBus';
+
+interface LogEntryWithId extends LogEntry {
+  _id: string;
+}
 
 function formatTime(date: Date): string {
   const h = date.getHours().toString().padStart(2, '0');
@@ -10,11 +15,15 @@ function formatTime(date: Date): string {
 }
 
 export function EventLog() {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [logs, setLogs] = useState<LogEntryWithId[]>([]);
+  const newIdRef = useRef<string | null>(null);
 
   const handleToggle = useCallback((data: unknown) => {
     const event = data as DeviceToggleEvent;
-    const entry: LogEntry = {
+    const id = uuidv4();
+    newIdRef.current = id;
+    const entry: LogEntryWithId = {
+      _id: id,
       time: formatTime(new Date()),
       deviceName: event.deviceName,
       action: event.action,
@@ -39,7 +48,7 @@ export function EventLog() {
         )}
         {logs.map((log, i) => (
           <div
-            key={`${log.time}-${log.deviceName}-${i}`}
+            key={log._id}
             className={`event-log__entry ${i === 0 ? 'event-log__entry--new' : ''}`}
           >
             <div className="event-log__timeline-dot" />
