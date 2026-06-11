@@ -163,7 +163,37 @@ export const returnItem = (
   };
 };
 
-export const getStats = () => {
+export interface OverdueItem {
+  record: BorrowRecord;
+  item: OfficeItem;
+}
+
+export interface Stats {
+  totalItems: number;
+  totalBorrowCount: number;
+  currentlyBorrowed: number;
+  overdueCount: number;
+}
+
+export const getOverdueItems = (): OverdueItem[] => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const result: OverdueItem[] = [];
+  for (const record of borrowRecords) {
+    if (record.actualReturnDate) continue;
+    const expected = new Date(record.expectedReturnDate);
+    expected.setHours(0, 0, 0, 0);
+    if (expected < today) {
+      const item = items.find((i) => i.id === record.itemId);
+      if (item) {
+        result.push({ record: { ...record, isOverdue: true }, item: JSON.parse(JSON.stringify(item)) });
+      }
+    }
+  }
+  return result;
+};
+
+export const getStats = (): Stats => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -191,5 +221,3 @@ export const getStats = () => {
     overdueCount,
   };
 };
-
-export type { Stats } from 'src/backend/server';

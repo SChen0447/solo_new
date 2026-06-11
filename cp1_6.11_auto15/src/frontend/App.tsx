@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useItems, OfficeItem, BorrowRecord } from './api/useItems';
+import { useState, useMemo } from 'react';
+import { useItems, OfficeItem, BorrowRecord, OverdueItem } from './api/useItems';
 
 type ToastType = 'success' | 'error' | 'info';
 interface Toast {
@@ -566,8 +566,9 @@ body {
 .empty-state-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
 
 @media (max-width: 768px) {
-  .navbar { padding: 14px 16px; }
-  .nav-brand { font-size: 18px; }
+  .navbar { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+  .nav-brand { font-size: 18px; gap: 8px; }
+  .nav-brand-icon { width: 30px; height: 30px; font-size: 16px; }
   .stats-bar { grid-template-columns: repeat(2, 1fr); padding: 16px; gap: 10px; }
   .stat-card { padding: 14px; }
   .stat-value { font-size: 22px; }
@@ -578,14 +579,18 @@ body {
   .items-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .item-card { padding: 14px; }
   .item-name { font-size: 15px; }
+  .item-actions { opacity: 1; }
   .panel { position: static; }
   .toast-container { left: 16px; right: 16px; top: auto; bottom: 24px; }
   .toast { min-width: auto; width: 100%; max-width: none; }
+  .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
 
 @media (max-width: 480px) {
   .items-grid { grid-template-columns: 1fr; }
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .nav-brand span:last-child { display: none; }
+  .item-card .item-actions { opacity: 1; }
 }
 `;
 
@@ -609,8 +614,10 @@ function App() {
   const {
     items,
     borrowRecords,
+    overdueItems,
     stats,
     loading,
+    error: apiError,
     addItem,
     updateItem,
     deleteItem,
@@ -770,17 +777,17 @@ function App() {
 
   const availableItems = useMemo(() => items.filter((i) => i.status === 'available'), [items]);
   const activeRecords = useMemo(() => {
-    const recs = borrowRecords.filter((r) => !r.actualReturnDate);
-    return recs;
+    return borrowRecords.filter((r) => !r.actualReturnDate);
   }, [borrowRecords]);
-  const overdueActiveRecords = useMemo(
-    () => activeRecords.filter((r) => r.isOverdue),
-    [activeRecords]
-  );
   const overdueItemIds = useMemo(
-    () => new Set(overdueActiveRecords.map((r) => r.itemId)),
-    [overdueActiveRecords]
+    () => new Set(overdueItems.map((o) => o.item.id)),
+    [overdueItems]
   );
+  const overdueRecordMap = useMemo(() => {
+    const m = new Map<string, OverdueItem>();
+    for (const o of overdueItems) m.set(o.item.id, o);
+    return m;
+  }, [overdueItems]);
 
   const filteredRecordsForReturn = useMemo(() => {
     if (!returnSearch.trim()) return activeRecords.slice(0, 5);
@@ -802,12 +809,6 @@ function App() {
     for (const r of activeRecords) m.set(r.itemId, r);
     return m;
   }, [activeRecords]);
-
-  const tomorrow = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    return d.toISOString().split('T')[0];
-  }, []);
 
   return (
     <>
@@ -881,6 +882,7 @@ function App() {
               <div className="items-grid">
                 {items.map((item) => {
                   const isOverdue = overdueItemIds.has(item.id);
+                  const overdueInfo = overdueRecordMap.get(item.id);
                   const record = recordToItemMap.get(item.id);
                   return (
                     <div key={item.id} className={`item-card ${isOverdue ? 'overdue-card' : ''}`}>
@@ -908,10 +910,10 @@ function App() {
                         </div>
                       </div>
                       <div className="item-dept">{item.department}</div>
-                      {record && (
+                      {(overdueInfo || record) && (
                         <div style={{ fontSize: 12, color: '#475569', margin: '4px 0' }}>
-                          <div>借用人：{record.employeeName}（{record.employeeId}）</div>
-                          <div>应归还：{record.expectedReturnDate}</div>
+                          <div>借用人：{(overdueInfo?.record || record)?.employeeName}（{(overdueInfo?.record || record)?.employeeId}）</div>
+                          <div>应归还：{(overdueInfo?.record || record)?.expectedReturnDate}</div>
                         </div>
                       )}
                       {isOverdue && (

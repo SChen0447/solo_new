@@ -1,8 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import type { OfficeItem, BorrowRecord, Stats } from './database';
 import {
-  OfficeItem,
-  BorrowRecord,
   getAllItems,
   addItem,
   updateItem,
@@ -12,14 +11,8 @@ import {
   getAllBorrowRecords,
   getStats,
   getActiveBorrowRecordByItem,
+  getOverdueItems,
 } from './database';
-
-export interface Stats {
-  totalItems: number;
-  totalBorrowCount: number;
-  currentlyBorrowed: number;
-  overdueCount: number;
-}
 
 const app = express();
 const PORT = 3001;
@@ -95,10 +88,31 @@ app.post('/api/items/borrow/:itemId', (req: Request, res: Response) => {
   try {
     const { itemId } = req.params;
     const { employeeId, employeeName, expectedReturnDate } = req.body;
-    if (!employeeId || !employeeName || !expectedReturnDate) {
-      return res.status(400).json({ success: false, error: '请填写完整的借出信息' });
+    if (!employeeId || typeof employeeId !== 'string' || !employeeId.trim()) {
+      return res.status(400).json({ success: false, error: '请输入有效的工号' });
     }
-    const result = borrowItem({ itemId, employeeId, employeeName, expectedReturnDate });
+    if (!employeeName || typeof employeeName !== 'string' || !employeeName.trim()) {
+      return res.status(400).json({ success: false, error: '请输入有效的姓名' });
+    }
+    if (!expectedReturnDate || typeof expectedReturnDate !== 'string') {
+      return res.status(400).json({ success: false, error: '请选择预计归还日期' });
+    }
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(expectedReturnDate)) {
+      return res.status(400).json({ success: false, error: '归还日期格式不正确，应为 YYYY-MM-DD' });
+    }
+    const expected = new Date(expectedReturnDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isNaN(expected.getTime()) || expected < today) {
+      return res.status(400).json({ success: false, error: '归还日期不能早于今天' });
+    }
+    const result = borrowItem({
+      itemId,
+      employeeId: employeeId.trim(),
+      employeeName: employeeName.trim(),
+      expectedReturnDate,
+    });
     if ('error' in result) {
       return res.status(400).json({ success: false, error: result.error });
     }
@@ -112,10 +126,13 @@ app.post('/api/items/return/:recordId', (req: Request, res: Response) => {
   try {
     const { recordId } = req.params;
     const { employeeId } = req.body;
-    if (!employeeId) {
-      return res.status(400).json({ success: false, error: '请填写工号' });
+    if (!employeeId || typeof employeeId !== 'string' || !employeeId.trim()) {
+      return res.status(400).json({ success: false, error: '请输入有效的工号' });
     }
-    const result = returnItem(recordId, employeeId);
+    if (!recordId || typeof recordId !== 'string' || !recordId.trim()) {
+      return res.status(400).json({ success: false, error: '借出记录编号无效' });
+    }
+    const result = returnItem(recordId.trim(), employeeId.trim());
     if ('error' in result) {
       return res.status(400).json({ success: false, error: result.error });
     }
@@ -134,6 +151,15 @@ app.get('/api/borrow-records', (_req: Request, res: Response) => {
   }
 });
 
+app.get('/api/items/overdue', (_req: Request, res: Response) => {
+  try {
+    const overdueItems = getOverdueItems();
+    res.json({ success: true, data: overdueItems });
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取逾期物品失败' });
+  }
+});
+
 app.get('/api/stats', (_req: Request, res: Response) => {
   try {
     const stats = getStats();
@@ -146,5 +172,3 @@ app.get('/api/stats', (_req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`🚀 OfficeLend 后端服务器已启动: http://localhost:${PORT}`);
 });
-
-export { BorrowRecord };
