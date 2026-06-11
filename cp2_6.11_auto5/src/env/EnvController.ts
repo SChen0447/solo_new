@@ -3,7 +3,6 @@ import { GUI } from 'dat.gui';
 import {
   SunBeamSystem,
   WaterDropSystem,
-  easeInOutQuad,
   lerp,
   clamp,
 } from '../utils/effects';
@@ -49,7 +48,6 @@ export class EnvController {
     };
 
     this.gui = new GUI({ width: 300 });
-    (this.gui as any).title('🌿 环境控制面板');
 
     this.directionalLight = new THREE.DirectionalLight(0xfff5e1, 1.2);
     this.directionalLight.castShadow = true;
@@ -372,7 +370,6 @@ export class EnvController {
   }
 
   update(delta: number, time: number): void {
-    easeInOutQuad(clamp(time, 0, 1));
     this._sunDirection.lerp(this.targetSunDirection, delta * 2);
     this._sunDirection.normalize();
 

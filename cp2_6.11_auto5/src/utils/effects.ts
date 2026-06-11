@@ -123,15 +123,13 @@ export class WaterDropSystem {
 
 export class SunBeamSystem {
   private beams: THREE.Mesh[] = [];
-  private scene: THREE.Scene;
   private sunDirection: THREE.Vector3 = new THREE.Vector3(1, 1, 0.5);
 
   constructor(scene: THREE.Scene) {
-    this.scene = scene;
-    this.createBeams();
+    this.createBeams(scene);
   }
 
-  private createBeams(): void {
+  private createBeams(scene: THREE.Scene): void {
     for (let i = 0; i < 5; i++) {
       const geometry = new THREE.ConeGeometry(
         0.8 + Math.random() * 0.6,
@@ -155,7 +153,7 @@ export class SunBeamSystem {
         (Math.random() - 0.5) * 10
       );
       this.beams.push(beam);
-      this.scene.add(beam);
+      scene.add(beam);
     }
   }
 

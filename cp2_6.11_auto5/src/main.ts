@@ -24,17 +24,23 @@ class GreenhouseApp {
   private targetCameraPos: THREE.Vector3;
   private targetLookAt: THREE.Vector3;
   private isCameraTransitioning = false;
-  private lastDoubleClickTime = 0;
+  private camVelX = { value: 0 };
+  private camVelY = { value: 0 };
+  private camVelZ = { value: 0 };
+  private lookAtVelX = { value: 0 };
+  private lookAtVelY = { value: 0 };
+  private lookAtVelZ = { value: 0 };
   private isPlaying = false;
   private playbackTime = 0;
   private playbackSpeed = 3;
   private originalEnv: EnvParams | null = null;
-  private playbackTimeline = document.getElementById('timeline-container');
-  private playbackBtn = document.getElementById('playback-btn');
-  private playIcon = document.getElementById('play-icon');
-  private timelineProgress = document.getElementById('timeline-progress');
-  private timelineTime = document.getElementById('timeline-time');
-  private timelineMarkers = document.getElementById('timeline-markers');
+  private savedPlantState: Map<string, { growthIndex: number; heightFactor: number; leafFactor: number; fruitFactor: number }> | null = null;
+  private playbackTimeline: HTMLElement | null;
+  private playbackBtn: HTMLElement | null;
+  private playIcon: HTMLElement | null;
+  private timelineProgress: HTMLElement | null;
+  private timelineTime: HTMLElement | null;
+  private timelineMarkers: HTMLElement | null;
 
   constructor() {
     this.container = document.getElementById('scene-container')!;
@@ -81,6 +87,13 @@ class GreenhouseApp {
     this.controls.panSpeed = 0.7;
     this.controls.rotateSpeed = 0.65;
     this.controls.zoomSpeed = 0.85;
+
+    this.playbackTimeline = document.getElementById('timeline-container');
+    this.playbackBtn = document.getElementById('playback-btn');
+    this.playIcon = document.getElementById('play-icon');
+    this.timelineProgress = document.getElementById('timeline-progress');
+    this.timelineTime = document.getElementById('timeline-time');
+    this.timelineMarkers = document.getElementById('timeline-markers');
 
     this.createGreenhouseStructure();
     this.createGround();
@@ -352,9 +365,11 @@ class GreenhouseApp {
   }
 
   private setupPlaybackControls(): void {
-    this.playbackBtn?.addEventListener('click', () => {
-      this.togglePlayback();
-    });
+    if (this.playbackBtn) {
+      this.playbackBtn.addEventListener('click', () => {
+        this.togglePlayback();
+      });
+    }
   }
 
   private togglePlayback(): void {
@@ -370,9 +385,13 @@ class GreenhouseApp {
     if (envHistory.length < 2) return;
 
     this.isPlaying = true;
-    this.playbackStartIdx = 0;
     this.playbackTime = 0;
     this.originalEnv = { ...this.envController.getParams() };
+
+    const plantHistory = this.plantManager.getHistory();
+    if (plantHistory.length > 0) {
+      this.savedPlantState = plantHistory[plantHistory.length - 1].plantStates;
+    }
 
     if (this.playIcon) this.playIcon.textContent = '⏸';
 
@@ -382,10 +401,17 @@ class GreenhouseApp {
 
   private stopPlayback(): void {
     this.isPlaying = false;
+
     if (this.originalEnv) {
       this.envController.setParamsFromHistory(this.originalEnv);
       this.originalEnv = null;
     }
+
+    if (this.savedPlantState) {
+      this.plantManager.applyHistoryState(this.savedPlantState);
+      this.savedPlantState = null;
+    }
+
     if (this.playIcon) this.playIcon.textContent = '▶';
   }
 
@@ -471,7 +497,7 @@ class GreenhouseApp {
     const pt = clamp((currentTime - pCurr.time) / Math.max(pNext.time - pCurr.time, 1), 0, 1);
     const peasedT = easeInOutCubic(pt);
 
-    const interpolatedState = new Map();
+    const interpolatedState = new Map<string, { growthIndex: number; heightFactor: number; leafFactor: number; fruitFactor: number }>();
     pCurr.plantStates.forEach((state, id) => {
       const nextState = pNext.plantStates.get(id);
       if (nextState) {
@@ -481,6 +507,8 @@ class GreenhouseApp {
           leafFactor: lerp(state.leafFactor, nextState.leafFactor, peasedT),
           fruitFactor: lerp(state.fruitFactor, nextState.fruitFactor, peasedT),
         });
+      } else {
+        interpolatedState.set(id, { ...state });
       }
     });
     this.plantManager.applyHistoryState(interpolatedState);
@@ -525,10 +553,6 @@ class GreenhouseApp {
   }
 
   private onDoubleClick(e: MouseEvent): void {
-    const now = performance.now();
-    if (now - this.lastDoubleClickTime < 300) return;
-    this.lastDoubleClickTime = now;
-
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -540,41 +564,31 @@ class GreenhouseApp {
       return;
     }
 
-    const plantPositions = this.plantManager.getAllPlantPositions();
-    let nearestDist = Infinity;
-    let nearestId: string | null = null;
-
-    for (const { id, position } of plantPositions) {
-      const screenPos = position.clone().project(this.camera);
-      const dx = screenPos.x - this.mouse.x;
-      const dy = screenPos.y - this.mouse.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 0.25 && dist < nearestDist) {
-        nearestDist = dist;
-        nearestId = id;
-      }
-    }
-
-    if (nearestId) {
-      const info = this.plantManager['plantInfos'].get(nearestId);
-      if (info) {
-        this.plantManager['focusPlant'](nearestId);
-      }
-    } else {
-      this.resetCameraFocus();
-    }
+    this.resetCameraFocus();
   }
 
   private focusCameraOn(position: THREE.Vector3, target: THREE.Vector3): void {
     this.targetCameraPos.copy(position);
     this.targetLookAt.copy(target);
     this.isCameraTransitioning = true;
+    this.camVelX = { value: 0 };
+    this.camVelY = { value: 0 };
+    this.camVelZ = { value: 0 };
+    this.lookAtVelX = { value: 0 };
+    this.lookAtVelY = { value: 0 };
+    this.lookAtVelZ = { value: 0 };
   }
 
   private resetCameraFocus(): void {
     this.targetCameraPos.set(6, 7, 10);
     this.targetLookAt.set(0, 1, 0);
     this.isCameraTransitioning = true;
+    this.camVelX = { value: 0 };
+    this.camVelY = { value: 0 };
+    this.camVelZ = { value: 0 };
+    this.lookAtVelX = { value: 0 };
+    this.lookAtVelY = { value: 0 };
+    this.lookAtVelZ = { value: 0 };
   }
 
   private onResize(): void {
@@ -594,7 +608,7 @@ class GreenhouseApp {
       const newX = smoothDamp(
         this.camera.position.x,
         this.targetCameraPos.x,
-        { value: 0 },
+        this.camVelX,
         smoothTime,
         maxSpeed,
         delta
@@ -602,7 +616,7 @@ class GreenhouseApp {
       const newY = smoothDamp(
         this.camera.position.y,
         this.targetCameraPos.y,
-        { value: 0 },
+        this.camVelY,
         smoothTime,
         maxSpeed,
         delta
@@ -610,7 +624,7 @@ class GreenhouseApp {
       const newZ = smoothDamp(
         this.camera.position.z,
         this.targetCameraPos.z,
-        { value: 0 },
+        this.camVelZ,
         smoothTime,
         maxSpeed,
         delta
@@ -620,7 +634,7 @@ class GreenhouseApp {
       const tX = smoothDamp(
         this.controls.target.x,
         this.targetLookAt.x,
-        { value: 0 },
+        this.lookAtVelX,
         smoothTime,
         maxSpeed,
         delta
@@ -628,7 +642,7 @@ class GreenhouseApp {
       const tY = smoothDamp(
         this.controls.target.y,
         this.targetLookAt.y,
-        { value: 0 },
+        this.lookAtVelY,
         smoothTime,
         maxSpeed,
         delta
@@ -636,7 +650,7 @@ class GreenhouseApp {
       const tZ = smoothDamp(
         this.controls.target.z,
         this.targetLookAt.z,
-        { value: 0 },
+        this.lookAtVelZ,
         smoothTime,
         maxSpeed,
         delta
@@ -659,13 +673,12 @@ class GreenhouseApp {
     const delta = Math.min(this.clock.getDelta(), 0.1);
     const elapsed = this.clock.getElapsedTime();
 
-    this.envController.update(delta, elapsed);
-
-    if (!this.isPlaying) {
-      this.plantManager.update(delta);
+    if (this.isPlaying) {
+      this.updatePlayback(delta);
     }
 
-    this.updatePlayback(delta);
+    this.envController.update(delta, elapsed);
+    this.plantManager.update(delta);
     this.updateCamera(delta);
     this.renderer.render(this.scene, this.camera);
   };
