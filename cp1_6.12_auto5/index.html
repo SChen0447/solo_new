@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D 粒子音乐可视化</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 100%);
+      color: #ffffff;
+      transition: background 0.5s ease;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .control-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      min-width: 280px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      z-index: 100;
+      user-select: none;
+      transition: all 0.3s ease;
+    }
+
+    .control-panel.collapsed {
+      min-width: 50px;
+      padding: 10px;
+    }
+
+    .control-panel.collapsed .panel-content {
+      display: none;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      cursor: move;
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .collapse-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s ease-out, background 0.15s ease;
+    }
+
+    .collapse-btn:hover {
+      transform: scale(1.1);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .control-panel.collapsed .collapse-btn {
+      transform: rotate(180deg);
+    }
+
+    .panel-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 500;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.15s ease-out, background 0.15s ease;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn:hover {
+      transform: scale(1.1);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn.active {
+      background: rgba(100, 200, 255, 0.3);
+      border-color: rgba(100, 200, 255, 0.5);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .file-upload {
+      display: none;
+    }
+
+    .file-upload-label {
+      display: inline-block;
+      padding: 10px 16px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.15s ease-out, background 0.15s ease;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .file-upload-label:hover {
+      transform: scale(1.1);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .select {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      outline: none;
+      transition: transform 0.15s ease-out, background 0.15s ease;
+    }
+
+    .select:hover {
+      transform: scale(1.1);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .select option {
+      background: #1a1a3a;
+      color: #ffffff;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .slider-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.2);
+      outline: none;
+      cursor: pointer;
+      transition: transform 0.15s ease-out;
+    }
+
+    .slider:hover {
+      transform: scale(1.05);
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #64c8ff;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(100, 200, 255, 0.5);
+      transition: transform 0.15s ease;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #64c8ff;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 10px rgba(100, 200, 255, 0.5);
+    }
+
+    .slider-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #64c8ff;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    .slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 0 5px;
+    }
+
+    .fps-display {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .fps-value {
+      color: #64c8ff;
+      font-weight: 600;
+    }
+
+    .toast-container {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 12px 24px;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      animation: slideInUp 0.3s ease-out, fadeOut 0.3s ease-in 1.7s forwards;
+    }
+
+    .toast.success {
+      border-left: 4px solid #4ade80;
+    }
+
+    .toast.error {
+      border-left: 4px solid #f87171;
+    }
+
+    .toast.info {
+      border-left: 4px solid #60a5fa;
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+      }
+    }
+
+    .fullscreen-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 100;
+      transition: transform 0.15s ease-out, background 0.15s ease;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .fullscreen-btn:hover {
+      transform: scale(1.1);
+      background: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container"></div>
+
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全屏">⛶</button>
+
+    <div class="control-panel" id="controlPanel">
+      <div class="panel-header" id="panelHeader">
+        <span class="panel-title">🎵 音乐可视化</span>
+        <button class="collapse-btn" id="collapseBtn">−</button>
+      </div>
+      <div class="panel-content">
+        <div class="control-group">
+          <label class="control-label">音频输入</label>
+          <label class="file-upload-label">
+            📁 上传音频
+            <input type="file" class="file-upload" id="fileInput" accept="audio/*">
+          </label>
+          <button class="btn" id="micBtn">🎤 开启麦克风</button>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">视觉主题</label>
+          <select class="select" id="themeSelect">
+            <option value="aurora">极光</option>
+            <option value="lava">熔岩</option>
+            <option value="deepSea">深海</option>
+            <option value="neon">霓虹</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">粒子数量</label>
+          <div class="slider-container">
+            <div class="slider-wrapper">
+              <input type="range" class="slider" id="particleSlider" min="20000" max="40000" step="1000" value="30000">
+              <span class="slider-value" id="sliderValue">30000</span>
+            </div>
+            <div class="slider-ticks">
+              <span>2万</span>
+              <span>3万</span>
+              <span>4万</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fps-display">
+          FPS: <span class="fps-value" id="fpsDisplay">60</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
