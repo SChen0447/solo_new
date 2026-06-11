@@ -212,7 +212,9 @@ export class AudioEngine {
 
   getFrequencyData(): Uint8Array {
     if (this.analyser) {
-      (this.analyser as AnalyserNode).getByteFrequencyData(this.frequencyData as unknown as Uint8Array<ArrayBuffer>);
+      const analyser = this.analyser as AnalyserNode;
+      const target = this.frequencyData as unknown as Uint8Array<ArrayBuffer>;
+      analyser.getByteFrequencyData(target);
     }
     return this.frequencyData;
   }

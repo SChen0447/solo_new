@@ -36,10 +36,18 @@ export const Controls: React.FC<ControlsProps> = ({
   const prevMutedRef = useRef(muted);
 
   useEffect(() => {
-    const check = () => setIsNarrow(window.innerWidth < 560);
+    const check = () => {
+      const narrow = window.innerWidth < 560;
+      setIsNarrow(narrow);
+      if (!narrow) {
+        setMobileMenuOpen(false);
+      }
+    };
     check();
     window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    return () => {
+      window.removeEventListener('resize', check);
+    };
   }, []);
 
   useEffect(() => {

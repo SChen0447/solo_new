@@ -47,12 +47,19 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileLoaded, onProgress
     const reader = new FileReader();
 
     reader.onprogress = (e: ProgressEvent<FileReader>) => {
-      if (e.lengthComputable) {
-        const percent = Math.round((e.loaded / e.total) * 100);
+      if (e.lengthComputable && typeof e.total === 'number' && e.total > 0) {
+        const ratio = e.loaded / e.total;
+        const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
         handleProgress({
           loaded: e.loaded,
           total: e.total,
           percent
+        });
+      } else if (e.lengthComputable && e.total === 0) {
+        handleProgress({
+          loaded: e.loaded,
+          total: e.total,
+          percent: e.loaded > 0 ? 100 : 0
         });
       }
     };

@@ -80,7 +80,7 @@ export const Visualizer: React.FC<VisualizerProps> = ({ getFrequencyData, isPlay
     isRunningRef.current = true;
     prevTimeRef.current = performance.now();
     rafRef.current = requestAnimationFrame(renderFrame);
-  }, []);
+  }, [renderFrame]);
 
   const stopLoop = useCallback(() => {
     isRunningRef.current = false;
@@ -92,10 +92,14 @@ export const Visualizer: React.FC<VisualizerProps> = ({ getFrequencyData, isPlay
 
   useEffect(() => {
     const handleVisibility = () => {
-      isVisibleRef.current = document.visibilityState === 'visible';
-      if (isVisibleRef.current && isLoaded) {
-        startLoop();
-      } else if (!isVisibleRef.current) {
+      const visible = document.visibilityState === 'visible';
+      isVisibleRef.current = visible;
+      if (visible) {
+        if (isLoaded) {
+          prevTimeRef.current = performance.now();
+          startLoop();
+        }
+      } else {
         stopLoop();
       }
     };
@@ -145,6 +149,12 @@ export const Visualizer: React.FC<VisualizerProps> = ({ getFrequencyData, isPlay
   }, [isLoaded, startLoop]);
 
   const renderFrame = useCallback((now: number) => {
+    if (!isVisibleRef.current || !isRunningRef.current) {
+      rafRef.current = null;
+      isRunningRef.current = false;
+      return;
+    }
+
     rafRef.current = requestAnimationFrame(renderFrame);
 
     const canvas = canvasRef.current;
