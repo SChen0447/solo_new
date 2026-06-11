@@ -120,6 +120,7 @@ export class ParticleSystem {
 
   private initPool(): void {
     for (let i = 0; i < this.maxParticles; i++) {
+      this.resetParticle(i);
       this.freeList.push(i);
       this.activeFlags[i] = 0;
     }
@@ -133,9 +134,26 @@ export class ParticleSystem {
     return idx;
   }
 
+  private resetParticle(idx: number): void {
+    const idx3 = idx * 3;
+    this.positions[idx3] = 0;
+    this.positions[idx3 + 1] = 0;
+    this.positions[idx3 + 2] = 0;
+    this.colors[idx3] = 0;
+    this.colors[idx3 + 1] = 0;
+    this.colors[idx3 + 2] = 0;
+    this.sizes[idx] = 0;
+    this.velocities[idx3] = 0;
+    this.velocities[idx3 + 1] = 0;
+    this.velocities[idx3 + 2] = 0;
+    this.baseSizes[idx] = 0;
+    this.phases[idx] = 0;
+    this.bands[idx] = 0;
+  }
+
   private releaseSlot(idx: number): void {
     this.activeFlags[idx] = 0;
-    this.sizes[idx] = 0;
+    this.resetParticle(idx);
     const posIdx = this.activeIndices.indexOf(idx);
     if (posIdx !== -1) {
       this.activeIndices[posIdx] = this.activeIndices[this.activeIndices.length - 1];

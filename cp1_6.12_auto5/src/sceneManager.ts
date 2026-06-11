@@ -40,6 +40,12 @@ export class SceneManager {
   private fpsUpdateTime = 0;
   
   private resizeObserver: ResizeObserver | null = null;
+  private bloomPass: UnrealBloomPass | null = null;
+  
+  private currentBloom: BloomParams = { strength: 0.6, radius: 0.5, threshold: 0.7 };
+  private targetBloom: BloomParams = { strength: 0.6, radius: 0.5, threshold: 0.7 };
+  private bloomTransitionDuration = 0.5;
+  private bloomTransitionProgress = 1;
   
   constructor(container: HTMLElement, maxParticles: number = 40000) {
     this.container = container;
@@ -83,6 +89,7 @@ export class SceneManager {
       0.5,
       0.7
     );
+    this.bloomPass = bloomPass;
     this.composer.addPass(bloomPass);
     
     const fxaaPass = new ShaderPass(FXAAShader);
@@ -164,6 +171,44 @@ export class SceneManager {
     });
     this.resizeObserver.observe(this.container);
   }
+
+  private lerp(a: number, b: number, t: number): number {
+    return a + (b - a) * t;
+  }
+
+  private easeOutCubic(t: number): number {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  private updateBloom(deltaTime: number): void {
+    if (!this.bloomPass) return;
+
+    const targetParams = this.particleSystem.getCurrentBloomParams();
+    this.targetBloom = targetParams;
+
+    const needsTransition =
+      Math.abs(this.currentBloom.strength - this.targetBloom.strength) > 0.001 ||
+      Math.abs(this.currentBloom.radius - this.targetBloom.radius) > 0.001 ||
+      Math.abs(this.currentBloom.threshold - this.targetBloom.threshold) > 0.001;
+
+    if (needsTransition && this.bloomTransitionProgress < 1) {
+      this.bloomTransitionProgress = Math.min(1, this.bloomTransitionProgress + deltaTime / this.bloomTransitionDuration);
+    } else if (!needsTransition) {
+      this.bloomTransitionProgress = 1;
+    }
+
+    if (this.bloomTransitionProgress < 1) {
+      const t = this.easeOutCubic(this.bloomTransitionProgress);
+      this.bloomPass.strength = this.lerp(this.currentBloom.strength, this.targetBloom.strength, t);
+      this.bloomPass.radius = this.lerp(this.currentBloom.radius, this.targetBloom.radius, t);
+      this.bloomPass.threshold = this.lerp(this.currentBloom.threshold, this.targetBloom.threshold, t);
+    } else {
+      this.bloomPass.strength = this.targetBloom.strength;
+      this.bloomPass.radius = this.targetBloom.radius;
+      this.bloomPass.threshold = this.targetBloom.threshold;
+      this.currentBloom = { ...this.targetBloom };
+    }
+  }
   
   private onResize(width: number, height: number): void {
     this.camera.aspect = width / height;
@@ -182,12 +227,8 @@ export class SceneManager {
       fxaaPass.material.uniforms['resolution'].value.y = 1 / (height * pixelRatio);
     }
     
-    const bloomPass = this.composer.passes.find((p: Pass) => 
-      p instanceof UnrealBloomPass
-    ) as UnrealBloomPass;
-    
-    if (bloomPass) {
-      bloomPass.resolution.set(width, height);
+    if (this.bloomPass) {
+      this.bloomPass.resolution.set(width, height);
     }
     
     this.updateParticleDensity();
@@ -262,15 +303,7 @@ export class SceneManager {
     
     this.updateParticleAttributes(particleData);
     
-    const bloomParams: BloomParams = this.particleSystem.getCurrentBloomParams();
-    const bloomPass = this.composer.passes.find((p: Pass) =>
-      p instanceof UnrealBloomPass
-    ) as UnrealBloomPass;
-    if (bloomPass) {
-      bloomPass.strength = bloomParams.strength;
-      bloomPass.radius = bloomParams.radius;
-      bloomPass.threshold = bloomParams.threshold;
-    }
+    this.updateBloom(this.deltaTime);
     
     if (this.autoRotate) {
       this.points.rotation.y += this.deltaTime * 0.05;
@@ -311,6 +344,8 @@ export class SceneManager {
   
   setTheme(theme: ThemeType): void {
     this.particleSystem.setTheme(theme);
+    this.bloomTransitionProgress = 0;
+    this.currentBloom = { ...this.targetBloom };
   }
   
   getTheme(): ThemeType {
