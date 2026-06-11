@@ -1,14 +1,21 @@
 {
-  "name": "postman-lite",
+  "name": "weather-3d-dashboard",
+  "private": true,
   "version": "1.0.0",
-  "description": "A lightweight HTTP API debugging tool for developers",
+  "type": "module",
   "scripts": {
-    "start": "concurrently \"npm run client\" \"npm run server\"",
-    "client": "cd client && npm run dev",
-    "server": "cd server && npm run dev",
-    "install:all": "npm install && cd client && npm install && cd ../server && npm install"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.160.0",
+    "d3": "^7.8.5"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@types/three": "^0.160.0",
+    "@types/d3": "^7.4.3",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
   }
 }

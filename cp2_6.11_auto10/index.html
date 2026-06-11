@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三维气象数据可视化仪表盘</title>
+  <link rel="stylesheet" href="/src/uiModule/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="top-header">
+      <h1 class="app-title">气象数据三维可视化</h1>
+      <div class="mode-switcher">
+        <button class="mode-btn active" data-mode="temperature">温度</button>
+        <button class="mode-btn" data-mode="humidity">湿度</button>
+        <button class="mode-btn" data-mode="precipitation">降水量</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="scene-container">
+        <canvas id="three-canvas"></canvas>
+        <div class="fps-counter" id="fps-counter">FPS: --</div>
+      </div>
+
+      <aside class="side-panel">
+        <div class="city-filter">
+          <label for="city-select">城市筛选</label>
+          <select id="city-select">
+            <option value="all">全部城市</option>
+          </select>
+        </div>
+
+        <div class="detail-panel" id="detail-panel">
+          <h3>数据详情</h3>
+          <p class="detail-hint">点击气泡查看详细数据</p>
+          <div class="detail-content" id="detail-content" style="display: none;">
+            <div class="detail-item">
+              <span class="detail-label">城市</span>
+              <span class="detail-value" id="detail-city">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">月份</span>
+              <span class="detail-value" id="detail-month">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">温度</span>
+              <span class="detail-value" id="detail-temperature">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">湿度</span>
+              <span class="detail-value" id="detail-humidity">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">降水量</span>
+              <span class="detail-value" id="detail-precipitation">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="legend-panel">
+          <h3>图例说明</h3>
+          <div class="legend-item">
+            <span class="legend-icon axis-x"></span>
+            <span>X轴：湿度</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon axis-y"></span>
+            <span>Y轴：温度</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon axis-z"></span>
+            <span>Z轴：时间</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-icon bubble-size"></span>
+            <span>大小：降水量</span>
+          </div>
+          <div class="legend-color-bar">
+            <div class="color-gradient"></div>
+            <div class="color-labels">
+              <span>冷</span>
+              <span>热</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="bottom-controls">
+      <button class="play-btn" id="play-btn" aria-label="播放">
+        <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="8,5 19,12 8,19"/>
+        </svg>
+      </button>
+      <div class="timeline-container">
+        <div class="timeline-track" id="timeline-track">
+          <div class="timeline-progress" id="timeline-progress"></div>
+          <div class="timeline-thumb" id="timeline-thumb"></div>
+        </div>
+        <div class="timeline-labels" id="timeline-labels"></div>
+      </div>
+      <span class="time-display" id="time-display">1月</span>
+    </footer>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
