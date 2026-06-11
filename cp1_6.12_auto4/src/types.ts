@@ -44,6 +44,13 @@ export interface CumulativePoint {
   cumulativeHours: number;
 }
 
+export interface BatchDebounceResponse {
+  entries: TimeEntry[];
+  debounced: boolean;
+  skippedCount: number;
+  message: string;
+}
+
 export type ZoomLevel = 'day' | 'week' | 'month';
 
 export const COLOR_TAGS = [

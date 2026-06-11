@@ -13,16 +13,19 @@ interface AppStore {
   selectedTaskId: string | null;
   selectedDependencyId: string | null;
   loading: boolean;
+  lastDebounceMessage: string | null;
 
   setZoomLevel: (level: ZoomLevel) => void;
   setSelectedTaskId: (id: string | null) => void;
   setSelectedDependencyId: (id: string | null) => void;
+  loadAll: () => Promise<void>;
   loadTasks: () => Promise<void>;
   loadDependencies: () => Promise<void>;
   loadTimeEntries: (params?: { taskId?: string; date?: string }) => Promise<void>;
   loadDistribution: () => Promise<void>;
   loadComparison: () => Promise<void>;
   loadCumulative: () => Promise<void>;
+  loadAllStats: () => Promise<void>;
 
   addTask: (task: Partial<Task>) => Promise<void>;
   editTask: (id: string, task: Partial<Task>) => Promise<void>;
@@ -30,7 +33,7 @@ interface AppStore {
   removeTask: (id: string) => Promise<void>;
   addDependency: (dep: Partial<Dependency>) => Promise<void>;
   removeDependency: (id: string) => Promise<void>;
-  submitTimeEntries: (entries: Partial<TimeEntry>[]) => Promise<void>;
+  submitTimeEntries: (entries: Partial<TimeEntry>[]) => Promise<{ debounced: boolean; skippedCount: number; message: string }>;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -44,10 +47,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
   selectedTaskId: null,
   selectedDependencyId: null,
   loading: false,
+  lastDebounceMessage: null,
 
   setZoomLevel: (level) => set({ zoomLevel: level }),
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setSelectedDependencyId: (id) => set({ selectedDependencyId: id }),
+
+  loadAll: async () => {
+    set({ loading: true });
+    await Promise.all([get().loadTasks(), get().loadDependencies(), get().loadTimeEntries()]);
+    set({ loading: false });
+  },
 
   loadTasks: async () => {
     const tasks = await api.fetchTasks();
@@ -77,6 +87,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   loadCumulative: async () => {
     const cumulative = await api.fetchCumulative();
     set({ cumulative });
+  },
+
+  loadAllStats: async () => {
+    set({ loading: true });
+    await Promise.all([get().loadDistribution(), get().loadComparison(), get().loadCumulative()]);
+    set({ loading: false });
   },
 
   addTask: async (task) => {
@@ -109,16 +125,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
   addDependency: async (dep) => {
     const created = await api.createDependency(dep);
     set((s) => ({ dependencies: [...s.dependencies, created] }));
+    await get().loadTasks();
   },
 
   removeDependency: async (id) => {
     await api.deleteDependency(id);
     set((s) => ({ dependencies: s.dependencies.filter((d) => d.id !== id) }));
+    await get().loadTasks();
   },
 
   submitTimeEntries: async (entries) => {
-    const created = await api.batchCreateTimeEntries(entries);
-    set((s) => ({ timeEntries: [...s.timeEntries, ...created] }));
+    const response = await api.batchCreateTimeEntries(entries);
+    set((s) => ({
+      timeEntries: [...s.timeEntries, ...response.entries],
+      lastDebounceMessage: response.message,
+    }));
     await get().loadTasks();
+    return { debounced: response.debounced, skippedCount: response.skippedCount, message: response.message };
   },
 }));

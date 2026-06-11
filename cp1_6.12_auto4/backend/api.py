@@ -1,6 +1,6 @@
 import asyncio
-import time
 import uuid
+from collections import deque
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
@@ -30,6 +30,19 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
+    name: Optional[str] = None
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+    estimatedHours: Optional[float] = None
+    actualHours: Optional[float] = None
+    assignee: Optional[str] = None
+    colorTag: Optional[str] = None
+    dependencies: Optional[list[str]] = None
+    progress: Optional[float] = None
+
+
+class TaskUpdateBatch(BaseModel):
+    id: str
     name: Optional[str] = None
     startDate: Optional[str] = None
     endDate: Optional[str] = None
@@ -158,97 +171,59 @@ time_entries_db: dict[str, dict] = {
 DEBOUNCE_WINDOW = 0.3
 
 
-class DebouncedBatcher:
+class DedupQueueProcessor:
     def __init__(self):
+        self._queue: deque[tuple[str, TimeEntryIn]] = deque()
+        self._processed_keys: set[str] = set()
         self._lock = asyncio.Lock()
-        self._pending: dict[str, list[TimeEntryIn]] = {}
-        self._timers: dict[str, asyncio.TimerHandle] = {}
+        self._processing = False
+        self._result_map: dict[str, dict] = {}
+        self._skipped_count = 0
 
-    def _get_key(self, entry: TimeEntryIn) -> str:
+    def _make_key(self, entry: TimeEntryIn) -> str:
         return f"{entry.assignee}:{entry.date}:{entry.taskId}"
 
-    async def add_and_process(self, entries: list[TimeEntryIn]) -> tuple[list[dict], int]:
+    async def enqueue_and_process(self, entries: list[TimeEntryIn]) -> tuple[list[dict], int]:
         async with self._lock:
+            self._skipped_count = 0
             created: list[dict] = []
-            skipped_count = 0
-            keys_to_process: set[str] = set()
+            seen_keys_in_this_batch: set[str] = set()
 
             for entry in entries:
-                key = self._get_key(entry)
-                if key not in self._pending:
-                    self._pending[key] = []
-                self._pending[key].append(entry)
-                keys_to_process.add(key)
+                key = self._make_key(entry)
+                if key in seen_keys_in_this_batch:
+                    self._skipped_count += 1
+                    continue
+                seen_keys_in_this_batch.add(key)
 
-                if key in self._timers:
-                    self._timers[key].cancel()
+                if key in self._processed_keys:
+                    existing = self._result_map.get(key)
+                    if existing:
+                        created.append(existing)
+                    self._skipped_count += 1
+                    continue
 
-                loop = asyncio.get_event_loop()
-                self._timers[key] = loop.call_later(
-                    DEBOUNCE_WINDOW,
-                    lambda k=key: asyncio.create_task(self._process_key(k))
-                )
+                if entry.taskId not in tasks_db:
+                    raise HTTPException(status_code=400, detail=f"Task {entry.taskId} not found")
 
-            await asyncio.sleep(DEBOUNCE_WINDOW + 0.01)
-
-            for key in keys_to_process:
-                if key in self._pending:
-                    pending_entries = self._pending[key]
-                    if len(pending_entries) == 0:
-                        continue
-                    latest = pending_entries[-1]
-                    skipped_count += len(pending_entries) - 1
-
-                    if latest.taskId not in tasks_db:
-                        raise HTTPException(status_code=400, detail=f"Task {latest.taskId} not found")
-
-                    te_id = f"te-{uuid.uuid4().hex[:8]}"
-                    te = {
-                        "id": te_id,
-                        "taskId": latest.taskId,
-                        "date": latest.date,
-                        "hours": latest.hours,
-                        "assignee": latest.assignee,
-                    }
-                    time_entries_db[te_id] = te
-                    created.append(te)
-                    _recalc_progress(latest.taskId)
-
-                    del self._pending[key]
-                    if key in self._timers:
-                        self._timers[key].cancel()
-                        del self._timers[key]
-
-            return created, skipped_count
-
-    async def _process_key(self, key: str):
-        async with self._lock:
-            if key not in self._pending:
-                return
-            pending_entries = self._pending[key]
-            if len(pending_entries) == 0:
-                del self._pending[key]
-                return
-            latest = pending_entries[-1]
-
-            if latest.taskId in tasks_db:
                 te_id = f"te-{uuid.uuid4().hex[:8]}"
                 te = {
                     "id": te_id,
-                    "taskId": latest.taskId,
-                    "date": latest.date,
-                    "hours": latest.hours,
-                    "assignee": latest.assignee,
+                    "taskId": entry.taskId,
+                    "date": entry.date,
+                    "hours": entry.hours,
+                    "assignee": entry.assignee,
                 }
                 time_entries_db[te_id] = te
-                _recalc_progress(latest.taskId)
+                created.append(te)
+                self._processed_keys.add(key)
+                self._result_map[key] = te
+                _recalc_progress(entry.taskId)
 
-            del self._pending[key]
-            if key in self._timers:
-                del self._timers[key]
+            return created, self._skipped_count
 
 
-_batcher = DebouncedBatcher()
+_queue_processor = DedupQueueProcessor()
 
 
 def _recalc_progress(task_id: str) -> None:
@@ -292,6 +267,20 @@ def update_task(task_id: str, body: TaskUpdate):
     task.update(update_data)
     _recalc_progress(task_id)
     return task
+
+
+@app.put("/api/tasks/batch", response_model=list[TaskOut])
+def batch_update_tasks(batch: list[TaskUpdateBatch]):
+    updated: list[dict] = []
+    for item in batch:
+        if item.id not in tasks_db:
+            continue
+        task = tasks_db[item.id]
+        update_data = item.model_dump(exclude_unset=True, exclude={"id"})
+        task.update(update_data)
+        _recalc_progress(item.id)
+        updated.append(task)
+    return updated
 
 
 @app.delete("/api/tasks/{task_id}")
@@ -355,12 +344,12 @@ async def batch_create_time_entries(entries: list[TimeEntryIn]):
         if entry.taskId not in tasks_db:
             raise HTTPException(status_code=400, detail=f"Task {entry.taskId} not found")
 
-    created, skipped_count = await _batcher.add_and_process(entries)
+    created, skipped_count = await _queue_processor.enqueue_and_process(entries)
     was_debounced = skipped_count > 0
 
     message = f"Created {len(created)} time entries"
     if was_debounced:
-        message += f", skipped {skipped_count} duplicate(s) via debounce"
+        message += f", deduplicated {skipped_count} request(s)"
 
     return BatchDebounceResponse(
         entries=created,

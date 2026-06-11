@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Task, Dependency, TimeEntry, DailySummary, ComparisonItem, CumulativePoint } from '@/types';
+import type { Task, Dependency, TimeEntry, DailySummary, ComparisonItem, CumulativePoint, BatchDebounceResponse } from '@/types';
 
 const api = axios.create({ baseURL: '/api' });
 
@@ -15,6 +15,11 @@ export async function createTask(task: Partial<Task>): Promise<Task> {
 
 export async function updateTask(id: string, task: Partial<Task>): Promise<Task> {
   const res = await api.put<Task>(`/tasks/${id}`, task);
+  return res.data;
+}
+
+export async function batchUpdateTasks(tasks: Task[]): Promise<Task[]> {
+  const res = await api.put<Task[]>('/tasks/batch', tasks);
   return res.data;
 }
 
@@ -36,8 +41,8 @@ export async function deleteDependency(id: string): Promise<void> {
   await api.delete(`/dependencies/${id}`);
 }
 
-export async function batchCreateTimeEntries(entries: Partial<TimeEntry>[]): Promise<TimeEntry[]> {
-  const res = await api.post<TimeEntry[]>('/time-entries/batch', entries);
+export async function batchCreateTimeEntries(entries: Partial<TimeEntry>[]): Promise<BatchDebounceResponse> {
+  const res = await api.post<BatchDebounceResponse>('/time-entries/batch', entries);
   return res.data;
 }
 
