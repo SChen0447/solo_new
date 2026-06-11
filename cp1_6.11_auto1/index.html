@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K线数据看板</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #1e1e2f;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+    }
+    #app {
+      width: 100vw;
+      height: 100vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      color: #e2e8f0;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header .symbol {
+      font-size: 22px;
+      color: #f8fafc;
+    }
+    .header .price {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .header .price.up {
+      color: #ef4444;
+    }
+    .header .price.down {
+      color: #22c55e;
+    }
+    .header .change {
+      font-size: 14px;
+      padding: 4px 10px;
+      border-radius: 4px;
+    }
+    .header .change.up {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+    .header .change.down {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+    }
+    .chart-container {
+      flex: 1;
+      background: #0f0f1f;
+      border-radius: 8px;
+      padding: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    #chartCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .legend {
+      position: absolute;
+      top: 20px;
+      left: 32px;
+      display: flex;
+      gap: 18px;
+      font-size: 12px;
+      color: #e2e8f0;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 3px;
+      border-radius: 2px;
+    }
+    .legend-dot.sma5 {
+      background: #f97316;
+    }
+    .legend-dot.sma20 {
+      background: #3b82f6;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <span class="symbol">BTC/USDT</span>
+      <span id="currentPrice" class="price up">0.00</span>
+      <span id="priceChange" class="change up">+0.00 (0.00%)</span>
+    </div>
+    <div class="chart-container">
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-dot sma5"></span>
+          <span>MA5</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot sma20"></span>
+          <span>MA20</span>
+        </div>
+      </div>
+      <canvas id="chartCanvas"></canvas>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
