@@ -1,0 +1,14 @@
+{
+  "name": "postman-lite",
+  "version": "1.0.0",
+  "description": "A lightweight HTTP API debugging tool for developers",
+  "scripts": {
+    "start": "concurrently \"npm run client\" \"npm run server\"",
+    "client": "cd client && npm run dev",
+    "server": "cd server && npm run dev",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
