@@ -48,7 +48,7 @@ export const StockCard: React.FC<StockCardProps> = ({ stock }) => {
     <div
       ref={setNodeRef}
       style={style}
-      className="stock-card"
+      className={`stock-card ${isUp ? 'border-up' : 'border-down'}`}
     >
       <div className="stock-card-header">
         <div className="stock-card-left">
@@ -94,7 +94,7 @@ export const StockCard: React.FC<StockCardProps> = ({ stock }) => {
         <div className="stock-change">
           <span className="change-label">涨跌幅</span>
           <span className={`change-value ${isUp ? 'up' : 'down'}`}>
-            {formatChangePercent(stock.changePercent)}
+            {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)} ({formatChangePercent(stock.changePercent)})
           </span>
         </div>
         <div className="stock-volume">
