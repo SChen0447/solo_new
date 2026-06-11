@@ -1,3 +1,37 @@
+/**
+ * physics.ts — 物理引擎模块
+ *
+ * 模块间调用关系与数据流向:
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ editor.ts (主编辑器)                                            │
+ * │   │                                                             │
+ * │   ├── update(dt) 时调用:                                        │
+ * │   │   ├── updateMovingPlatforms(platforms, dt)                  │
+ * │   │   │     接收: platforms数组 + 时间步长dt                     │
+ * │   │   │     返回: 直接修改platforms中moving类型的x/y位置         │
+ * │   │   │     副作用: 计算平台移动速度deltaX/deltaY               │
+ * │   │   │                                                         │
+ * │   │   ├── stepPhysics(player, platforms, input, dt)             │
+ * │   │   │     接收: 玩家状态 + 关卡数据 + 按键输入 + 时间步长      │
+ * │   │   │     返回: CollisionResult (碰撞/着陆/尖刺/终点信息)      │
+ * │   │   │     副作用: 修改player的位置/速度/闪烁状态               │
+ * │   │   │     关键: 移动平台携带逻辑 — 检测角色是否站在移动平台    │
+ * │   │   │           上，将平台的位移量叠加到角色位置上              │
+ * │   │   │                                                         │
+ * │   │   └── respawnPlayer(player)                                 │
+ * │   │         接收: 玩家状态                                      │
+ * │   │         副作用: 将玩家重置到lastCheckpoint位置               │
+ * │   │                                                             │
+ * │   └── 根据CollisionResult触发particles.ts:                      │
+ * │         landed=true → spawnLandingDust()                        │
+ * │         jump触发  → spawnJumpDust()                             │
+ * │         reachedFlag → spawnGoldExplosion()                      │
+ * └─────────────────────────────────────────────────────────────────┘
+ *
+ * 物理模拟帧率: 通过editor.ts的requestAnimationFrame循环保证60fps，
+ * dt = (now - lastTime) / (1000/60) 归一化为帧单位，max dt = 2 防止跳帧
+ */
+
 export interface Vec2 {
   x: number;
   y: number;
@@ -15,6 +49,8 @@ export interface Platform {
   moveSpeed?: number;
   direction?: number;
   horizontalMove?: boolean;
+  prevX?: number;
+  prevY?: number;
 }
 
 export interface Player {
@@ -25,9 +61,11 @@ export interface Player {
   width: number;
   height: number;
   onGround: boolean;
+  onMovingPlatform: Platform | null;
   lastCheckpoint: Vec2;
   blinking: boolean;
   blinkTimer: number;
+  dead: boolean;
 }
 
 export interface CollisionResult {
@@ -55,15 +93,19 @@ export function createPlayer(startX: number, startY: number): Player {
     width: 8,
     height: 8,
     onGround: false,
+    onMovingPlatform: null,
     lastCheckpoint: { x: startX, y: startY },
     blinking: false,
-    blinkTimer: 0
+    blinkTimer: 0,
+    dead: false
   };
 }
 
 export function updateMovingPlatforms(platforms: Platform[], dt: number): void {
   for (const p of platforms) {
     if (p.type !== 'moving' || !p.moveRange || !p.moveSpeed) continue;
+    p.prevX = p.x;
+    p.prevY = p.y;
     const speed = p.moveSpeed * dt;
     const dir = p.direction ?? 1;
     if (p.horizontalMove) {
@@ -110,8 +152,19 @@ export function stepPhysics(
     landed: false
   };
 
+  if (player.dead) return result;
+
   const wasOnGround = player.onGround;
   player.onGround = false;
+  player.onMovingPlatform = null;
+
+  if (player.blinking) {
+    player.blinkTimer -= dt / 60;
+    if (player.blinkTimer <= 0) {
+      player.blinking = false;
+      player.blinkTimer = 0;
+    }
+  }
 
   if (input.left) player.vx = -MOVE_SPEED;
   else if (input.right) player.vx = MOVE_SPEED;
@@ -150,6 +203,13 @@ export function stepPhysics(
           result.landed = true;
         }
         player.onGround = true;
+        if (p.type === 'moving') {
+          player.onMovingPlatform = p;
+          const deltaX = (p.prevX !== undefined) ? p.x - p.prevX : 0;
+          const deltaY = (p.prevY !== undefined) ? p.y - p.prevY : 0;
+          player.x += deltaX;
+          player.y += deltaY;
+        }
       } else if (player.vy < 0) {
         player.y = p.y + p.height;
         result.collidedTop = true;
@@ -188,16 +248,10 @@ export function stepPhysics(
     result.hitSpike = true;
   }
 
-  if (result.hitSpike) {
+  if (result.hitSpike && !player.blinking) {
     player.blinking = true;
     player.blinkTimer = 1.5;
-  }
-
-  if (player.blinking) {
-    player.blinkTimer -= dt / 60;
-    if (player.blinkTimer <= 0) {
-      player.blinking = false;
-    }
+    player.dead = true;
   }
 
   return result;
@@ -208,6 +262,9 @@ export function respawnPlayer(player: Player): void {
   player.y = player.lastCheckpoint.y;
   player.vx = 0;
   player.vy = 0;
-  player.blinking = false;
-  player.blinkTimer = 0;
+  player.blinking = true;
+  player.blinkTimer = 1.5;
+  player.onGround = false;
+  player.onMovingPlatform = null;
+  player.dead = false;
 }

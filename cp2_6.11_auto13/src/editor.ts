@@ -1,3 +1,66 @@
+/**
+ * editor.ts — 主编辑器模块
+ *
+ * 模块间调用关系与数据流向:
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ editor.ts (主编辑器 — Canvas渲染循环 + 输入事件分发)                      │
+ * │                                                                          │
+ * │ 数据流入:                                                                │
+ * │   鼠标事件(mousedown/mousemove/mouseup) → 放置/选择/删除/拖拽关卡元素     │
+ * │   键盘事件(keydown/keyup) → 工具切换(1-7) / 角色控制(A/D/W) /           │
+ * │                              测试模式切换(空格/Esc) / 保存(S) / 加载(L)  │
+ * │   窗口resize → Canvas尺寸自适应 + 网格缩放比例重算(最小1024x600)          │
+ * │                                                                          │
+ * │ 数据流出 (每帧 update → render 循环):                                    │
+ * │                                                                          │
+ * │   ┌─ update(dt) ─────────────────────────────────────────────────────┐   │
+ * │   │  1. particles.update(dt)                                         │   │
+ * │   │     → 粒子位置/透明度更新, life<=0的粒子移除                      │   │
+ * │   │                                                                  │   │
+ * │   │  2. [测试模式] updateMovingPlatforms(platforms, dt)  ← physics.ts│   │
+ * │   │     → 移动平台位置更新, 记录prevX/prevY供碰撞携带计算            │   │
+ * │   │                                                                  │   │
+ * │   │  3. [测试模式] stepPhysics(player, platforms, input, dt) ← physics│   │
+ * │   │     输入: player状态 + platforms + 按键 + dt                      │   │
+ * │   │     输出: CollisionResult                                        │   │
+ * │   │       ├─ landed=true → particles.spawnLandingDust() ← particles │   │
+ * │   │       ├─ 跳跃输入  → particles.spawnJumpDust()     ← particles │   │
+ * │   │       ├─ hitSpike=true → respawnPlayer()           ← physics    │   │
+ * │   │       ├─ reachedFlag=true → spawnGoldExplosion()   ← particles │   │
+ * │   │       └─ passedCheckpoint=true → showToast()                    │   │
+ * │   └──────────────────────────────────────────────────────────────────┘   │
+ * │                                                                          │
+ * │   ┌─ render() ──────────────────────────────────────────────────────┐   │
+ * │   │  1. 清空Canvas (#2a2a2a背景)                                    │   │
+ * │   │  2. [编辑模式] 绘制网格虚线 (#555)                               │   │
+ * │   │  3. 绘制所有平台/尖刺/旗帜/检查点/移动平台                       │   │
+ * │   │  4. particles.draw(ctx, scale)                        ← particles│   │
+ * │   │  5. 绘制玩家角色 (8x8白色像素块+眼睛)                           │   │
+ * │   │  6. [编辑模式] 绘制幽灵预览/选中边框/移动范围                    │   │
+ * │   │  7. 绘制UI (工具栏/状态栏/操作按钮/绿色闪烁)                    │   │
+ * │   └──────────────────────────────────────────────────────────────────┘   │
+ * │                                                                          │
+ * │ 保存/加载:                                                               │
+ * │   saveLevel() → 序列化platforms+startPos为JSON → Blob下载              │
+ * │   loadLevel() → FileReader读取JSON → 反序列化platforms+startPos        │
+ * │   保存时触发绿色闪烁效果 (saveFlashTimer)                                │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * 验证方法:
+ *   1. 物理模拟帧率: 在浏览器控制台输入以下代码启用FPS监控:
+ *        window.__showFps = true
+ *      然后观察左上角FPS计数器是否稳定在60fps附近
+ *   2. 粒子数量上限: 在浏览器控制台输入:
+ *        editor.particles.particles.length
+ *      测试中该值应始终 ≤ 100
+ *   3. 保存JSON: 点击"保存"按钮或按S键，检查下载的JSON文件是否包含
+ *      platforms数组和startPos对象
+ *   4. 加载JSON: 点击"加载"按钮或按L键，选择之前保存的JSON文件，
+ *      确认场景恢复正确
+ *   5. 测试模式: 按空格进入测试模式，确认网格隐藏、工具禁用、
+ *      角色从起点开始移动，到达终点有金色粒子爆炸
+ */
+
 import { Platform, Player, createPlayer, stepPhysics, updateMovingPlatforms, respawnPlayer } from './physics';
 import { ParticleSystem } from './particles';
 
@@ -45,6 +108,7 @@ class Editor {
   testMode = false;
   input = { left: false, right: false, jump: false };
   prevJumpPressed = false;
+  jumpTriggered = false;
 
   particles = new ParticleSystem();
 
@@ -65,6 +129,12 @@ class Editor {
   rafId = 0;
 
   platformColors: Record<string, string> = {};
+
+  saveFlashTimer = 0;
+
+  fpsFrames = 0;
+  fpsTime = 0;
+  fpsDisplay = 60;
 
   constructor() {
     this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
@@ -134,13 +204,6 @@ class Editor {
     };
   }
 
-  worldToScreen(wx: number, wy: number): { x: number; y: number } {
-    return {
-      x: wx * this.scale + this.offsetX,
-      y: wy * this.scale + this.offsetY
-    };
-  }
-
   snapToGrid(v: number): number {
     return Math.floor(v / GRID_SIZE) * GRID_SIZE;
   }
@@ -152,13 +215,10 @@ class Editor {
     const world = this.screenToWorld(this.mouseX, this.mouseY);
     this.gridX = this.snapToGrid(world.x);
     this.gridY = this.snapToGrid(world.y);
-
     this.hoveredButton = this.hitTestButtons();
-
     if (this.isDragging) {
       this.dragCurrentX = world.x;
       this.dragCurrentY = world.y;
-
       if (this.currentTool === 'select' && this.selectedId && this.resizeHandle) {
         this.resizePlatform(this.selectedId, this.resizeHandle, world.x, world.y);
       } else if (this.currentTool === 'select' && this.selectedId) {
@@ -172,22 +232,18 @@ class Editor {
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const world = this.screenToWorld(sx, sy);
-
     const btn = this.hitTestButtonsAt(sx, sy);
     if (btn) {
       this.handleButtonClick(btn);
       return;
     }
-
     if (this.testMode) return;
-
     if (e.button === 0) {
       this.isDragging = true;
       this.dragStartX = world.x;
       this.dragStartY = world.y;
       this.dragCurrentX = world.x;
       this.dragCurrentY = world.y;
-
       if (this.currentTool === 'select') {
         const hit = this.getPlatformAt(world.x, world.y);
         if (hit) {
@@ -224,9 +280,7 @@ class Editor {
       const gsy = this.snapToGrid(this.dragStartY);
       const gex = this.snapToGrid(this.dragCurrentX + (this.dragCurrentX >= gsx ? GRID_SIZE : 0));
       const gey = this.snapToGrid(this.dragCurrentY + (this.dragCurrentY >= gsy ? GRID_SIZE : 0));
-
       const createdSomething = this.handlePlacementOnRelease(gsx, gsy, gex, gey);
-
       if (!createdSomething && this.currentTool === 'select' && this.selectedId && this.resizeHandle) {
         this.snapPlatformToGrid(this.selectedId);
       }
@@ -249,10 +303,7 @@ class Editor {
       const id = Math.random().toString(36).slice(2, 10);
       const color = '#8b4513';
       this.platformColors[id] = color;
-      this.platforms.push({
-        id, x, y, width: w, height: h,
-        color, type: 'platform'
-      });
+      this.platforms.push({ id, x, y, width: w, height: h, color, type: 'platform' });
       this.selectedId = id;
       return true;
     } else if (this.currentTool === 'spike') {
@@ -262,13 +313,8 @@ class Editor {
         for (let c = 0; c < cols; c++) {
           const id = Math.random().toString(36).slice(2, 10);
           this.platforms.push({
-            id,
-            x: x + c * GRID_SIZE,
-            y: y + r * GRID_SIZE,
-            width: GRID_SIZE,
-            height: GRID_SIZE,
-            color: SPIKE_COLOR,
-            type: 'spike'
+            id, x: x + c * GRID_SIZE, y: y + r * GRID_SIZE,
+            width: GRID_SIZE, height: GRID_SIZE, color: SPIKE_COLOR, type: 'spike'
           });
         }
       }
@@ -300,6 +346,7 @@ class Editor {
     } else if (this.currentTool === 'start') {
       this.startPos = { x, y };
       this.player.lastCheckpoint = { x, y };
+      this.showToast(`起点设为 (${x}, ${y})`, 'info');
       return true;
     }
     return false;
@@ -340,13 +387,11 @@ class Editor {
     p.x = nx; p.y = ny; p.width = nw; p.height = nh;
     if (p.type === 'moving' && p.moveRange) {
       if (p.horizontalMove) {
-        const midY = ny + nh / 2;
-        p.moveRange.startY = midY - nh / 2;
-        p.moveRange.endY = midY - nh / 2;
+        p.moveRange.startY = ny;
+        p.moveRange.endY = ny;
       } else {
-        const midX = nx + nw / 2;
-        p.moveRange.startX = midX - nw / 2;
-        p.moveRange.endX = midX - nw / 2;
+        p.moveRange.startX = nx;
+        p.moveRange.endX = nx;
       }
     }
   }
@@ -395,13 +440,13 @@ class Editor {
         return `tool:${TOOL_LABELS[i].key}`;
       }
     }
-    const rightBtns = [
-      { id: 'save', label: '保存 (S)', y: 12 },
-      { id: 'load', label: '加载 (L)', y: 56 },
-      { id: 'test', label: this.testMode ? '编辑 (Esc)' : '测试 (空格)', y: 100 }
-    ];
     const bw = 140, bh = 38;
     const bx = this.width - bw - 16;
+    const rightBtns = [
+      { id: 'save', y: 12 },
+      { id: 'load', y: 56 },
+      { id: 'test', y: 100 }
+    ];
     for (const b of rightBtns) {
       if (sx >= bx && sx <= bx + bw && sy >= b.y && sy <= b.y + bh) {
         return `btn:${b.id}`;
@@ -430,7 +475,10 @@ class Editor {
       if (k === 'a' || k === 'arrowleft') this.input.left = true;
       if (k === 'd' || k === 'arrowright') this.input.right = true;
       if (k === 'w' || k === 'arrowup' || k === ' ') {
-        if (!this.prevJumpPressed) this.input.jump = true;
+        if (!this.prevJumpPressed) {
+          this.input.jump = true;
+          this.jumpTriggered = true;
+        }
         this.prevJumpPressed = true;
       }
       if (k === 'escape') this.toggleTestMode();
@@ -442,7 +490,7 @@ class Editor {
       if (k === '5') this.currentTool = 'checkpoint';
       if (k === '6') this.currentTool = 'flag';
       if (k === '7') this.currentTool = 'delete';
-      if (k === 's') this.saveLevel();
+      if (k === 's' && !e.ctrlKey) this.saveLevel();
       if (k === 'l') this.loadLevel();
       if (k === ' ') { e.preventDefault(); this.toggleTestMode(); }
       if (k === 'delete' && this.selectedId) {
@@ -471,8 +519,9 @@ class Editor {
       this.player = createPlayer(this.startPos.x, this.startPos.y);
       this.input = { left: false, right: false, jump: false };
       this.prevJumpPressed = false;
+      this.jumpTriggered = false;
       this.selectedId = null;
-      this.showToast('进入测试模式，Esc返回', 'info');
+      this.showToast('进入测试模式 — A/D移动 W跳跃 Esc返回', 'info');
     } else {
       this.showToast('返回编辑模式', 'info');
     }
@@ -480,7 +529,12 @@ class Editor {
 
   saveLevel(): void {
     const data: LevelData = {
-      platforms: this.platforms.map(p => ({ ...p })),
+      platforms: this.platforms.map(p => {
+        const copy = { ...p };
+        delete copy.prevX;
+        delete copy.prevY;
+        return copy;
+      }),
       startPos: { ...this.startPos }
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -490,15 +544,16 @@ class Editor {
     a.download = `level_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    this.saveFlashTimer = 30;
     this.showToast('关卡保存成功！', 'success');
   }
 
   loadLevel(): void {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = () => {
-      const file = input.files?.[0];
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.onchange = () => {
+      const file = fileInput.files?.[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
@@ -520,7 +575,7 @@ class Editor {
       };
       reader.readAsText(file);
     };
-    input.click();
+    fileInput.click();
   }
 
   showToast(text: string, type: 'success' | 'error' | 'info' = 'info'): void {
@@ -540,6 +595,13 @@ class Editor {
   loop(now: number): void {
     const dt = Math.min(2, (now - this.lastTime) / (1000 / 60));
     this.lastTime = now;
+    this.fpsFrames++;
+    this.fpsTime += now - (this.lastTime - dt * (1000 / 60));
+    if (this.fpsFrames >= 30) {
+      this.fpsDisplay = Math.round(1000 / ((now - this.fpsTime + this.fpsFrames * 16.67) / this.fpsFrames));
+      this.fpsTime = now;
+      this.fpsFrames = 0;
+    }
     this.update(dt);
     this.render();
     this.rafId = requestAnimationFrame((t) => this.loop(t));
@@ -547,19 +609,21 @@ class Editor {
 
   update(dt: number): void {
     this.particles.update(dt);
+    if (this.saveFlashTimer > 0) {
+      this.saveFlashTimer -= dt;
+    }
 
     if (this.testMode) {
       updateMovingPlatforms(this.platforms, dt);
-      const prevY = this.player.y;
-      const prevX = this.player.x;
-      const prevOnGround = this.player.onGround;
+
+      const wasOnGround = this.player.onGround;
       const res = stepPhysics(this.player, this.platforms, this.input, dt);
 
-      if (!prevOnGround && this.player.onGround === false) {
-      }
-      if (this.input.jump && this.player.onGround && prevOnGround) {
+      if (this.jumpTriggered && wasOnGround) {
         this.particles.spawnJumpDust(this.player.x, this.player.y + this.player.height);
       }
+      this.jumpTriggered = false;
+
       if (res.landed) {
         this.particles.spawnLandingDust(this.player.x, this.player.y + this.player.height, this.player.width);
       }
@@ -577,7 +641,6 @@ class Editor {
         this.showToast('关卡完成！', 'success');
         setTimeout(() => { if (this.testMode) this.toggleTestMode(); }, 1500);
       }
-      void prevX; void prevY;
     }
   }
 
@@ -585,6 +648,12 @@ class Editor {
     const ctx = this.ctx;
     ctx.fillStyle = BG_COLOR;
     ctx.fillRect(0, 0, this.width, this.height);
+
+    if (this.saveFlashTimer > 0) {
+      const flashAlpha = Math.min(0.3, this.saveFlashTimer / 30 * 0.3);
+      ctx.fillStyle = `rgba(40, 167, 69, ${flashAlpha})`;
+      ctx.fillRect(0, 0, this.width, this.height);
+    }
 
     ctx.save();
     ctx.translate(this.offsetX, this.offsetY);
@@ -596,9 +665,12 @@ class Editor {
 
     this.drawPlatforms();
     this.particles.draw(ctx, 1);
-    this.drawPlayer();
+    if (this.testMode) {
+      this.drawPlayer();
+    }
 
     if (!this.testMode) {
+      this.drawPlayer();
       this.drawGhostPreview();
       this.drawSelectionOutline();
       this.drawMovingPlatformRanges();
@@ -624,7 +696,6 @@ class Editor {
     }
     ctx.stroke();
     ctx.setLineDash([]);
-
     ctx.strokeStyle = '#3a3a3a';
     ctx.lineWidth = 2 / this.scale;
     ctx.strokeRect(0, 0, worldW, worldH);
@@ -654,7 +725,6 @@ class Editor {
         ctx.fillRect(p.x, p.y, p.width, p.height);
         ctx.fillStyle = 'rgba(255,255,255,0.15)';
         ctx.fillRect(p.x, p.y, p.width, 3);
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
         for (let by = 0; by < p.height; by += 16) {
           const offset = (by / 16) % 2 === 0 ? 0 : 16;
           for (let bx = offset; bx < p.width; bx += 32) {
@@ -782,7 +852,7 @@ class Editor {
     ctx.fillStyle = '#333';
     ctx.fillRect(p.x + 2, p.y + 2, 2, 2);
     ctx.fillRect(p.x + 4, p.y + 2, 2, 2);
-    ctx.fillStyle = '#ccc';
+    ctx.fillStyle = '#aaa';
     ctx.fillRect(p.x, p.y + p.height - 2, p.width, 2);
   }
 
@@ -873,13 +943,21 @@ class Editor {
     this.drawStatusBar(ctx);
     this.drawActionButtons(ctx);
     if (this.testMode) {
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(this.width / 2 - 140, 10, 280, 30);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      this.roundRect(ctx, this.width / 2 - 160, 8, 320, 32, 8);
+      ctx.fill();
       ctx.fillStyle = '#ffd700';
       ctx.font = 'bold 14px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('测试模式  Esc 返回编辑', this.width / 2, 30);
+      ctx.fillText('测试模式  A/D移动  W跳跃  Esc返回编辑', this.width / 2, 30);
       ctx.textAlign = 'left';
+    }
+    if ((window as any).__showFps) {
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(4, 4, 80, 22);
+      ctx.fillStyle = this.fpsDisplay >= 55 ? '#0f0' : this.fpsDisplay >= 30 ? '#ff0' : '#f00';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillText(`FPS: ${this.fpsDisplay}`, 10, 20);
     }
   }
 
@@ -950,7 +1028,7 @@ class Editor {
   }
 
   drawStatusBar(ctx: CanvasRenderingContext2D): void {
-    const barW = 420, barH = 38;
+    const barW = 440, barH = 38;
     const bx = 16, by = this.height - barH - 14;
     this.roundRect(ctx, bx, by, barW, barH, 8);
     ctx.fillStyle = 'rgba(45,45,45,0.95)';
@@ -964,9 +1042,6 @@ class Editor {
     const wx = Math.floor(this.gridX), wy = Math.floor(this.gridY);
     ctx.fillText(`网格: (${wx}, ${wy})`, bx + 14, by + 16);
     ctx.fillText(`物体: ${this.platforms.length}`, bx + 14, by + 32);
-    ctx.fillStyle = '#888';
-    ctx.fillText(`|`, bx + 160, by + 16);
-    ctx.fillText(`|`, bx + 160, by + 32);
     ctx.fillStyle = '#87ceeb';
     ctx.fillText(`起点: (${this.startPos.x}, ${this.startPos.y})`, bx + 175, by + 16);
     ctx.fillText(`工具: ${TOOL_LABELS.find(t => t.key === this.currentTool)?.label}`, bx + 175, by + 32);
@@ -1014,4 +1089,5 @@ class Editor {
   }
 }
 
-new Editor();
+const editor = new Editor();
+(window as any).editor = editor;
