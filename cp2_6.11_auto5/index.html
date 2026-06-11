@@ -2,12 +2,38 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>纸牌幻境</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="description" content="智慧农业可视化 - 3D温室植物生长模拟系统" />
+    <meta name="theme-color" content="#1a3a2a" />
+    <title>智慧农业 · 3D温室植物生长模拟器</title>
+    <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div id="app">
+      <div id="scene-container"></div>
+      <div id="ui-overlay">
+        <header class="app-header">
+          <h1 class="app-title">
+            <span class="title-icon">🌱</span>
+            智慧农业可视化系统
+          </h1>
+          <p class="app-subtitle">温室植物生长模拟平台</p>
+        </header>
+        <div id="timeline-container" class="timeline-hidden">
+          <div class="timeline-controls">
+            <button id="playback-btn" class="timeline-btn" aria-label="播放/暂停">
+              <span id="play-icon">▶</span>
+            </button>
+            <span class="timeline-label">生长历史回放 (3x速)</span>
+          </div>
+          <div class="timeline-bar">
+            <div id="timeline-progress" class="timeline-progress"></div>
+            <div id="timeline-markers" class="timeline-markers"></div>
+          </div>
+          <span id="timeline-time" class="timeline-time">00:00 / 01:00</span>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
