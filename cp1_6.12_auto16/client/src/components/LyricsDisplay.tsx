@@ -13,7 +13,15 @@ export default function LyricsDisplay({ lines, currentTime, onSeek, onLineTimeCh
   const [draggingLineId, setDraggingLineId] = useState<string | null>(null);
   const [dragStartY, setDragStartY] = useState(0);
   const [dragStartTime, setDragStartTime] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const activeIndexRef = useRef(-1);
+  const currentTimeRef = useRef(currentTime);
+  const rafRef = useRef<number | null>(null);
+  const pendingTimeChangeRef = useRef<{ id: string; time: number } | null>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
+
+  currentTimeRef.current = currentTime;
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -22,24 +30,42 @@ export default function LyricsDisplay({ lines, currentTime, onSeek, onLineTimeCh
     return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
+  const updateActiveIndex = useCallback(() => {
     if (lines.length === 0) {
+      activeIndexRef.current = -1;
       setActiveIndex(-1);
       return;
     }
 
-    const index = lines.findIndex((line, i) => {
-      const nextLine = lines[i + 1];
-      return currentTime >= line.time && (!nextLine || currentTime < nextLine.time);
-    });
-
-    if (index !== activeIndex) {
-      setActiveIndex(index >= 0 ? index : lines.length - 1);
+    const ct = currentTimeRef.current;
+    let newIndex = -1;
+    
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (ct >= lines[i].time) {
+        newIndex = i;
+        break;
+      }
     }
-  }, [currentTime, lines, activeIndex]);
+
+    if (newIndex !== activeIndexRef.current) {
+      activeIndexRef.current = newIndex;
+      setActiveIndex(newIndex);
+    }
+
+    rafRef.current = requestAnimationFrame(updateActiveIndex);
+  }, [lines]);
 
   useEffect(() => {
-    if (activeIndex >= 0 && listRef.current) {
+    rafRef.current = requestAnimationFrame(updateActiveIndex);
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, [updateActiveIndex]);
+
+  useEffect(() => {
+    if (activeIndex >= 0 && listRef.current && !isDragging) {
       const activeElement = listRef.current.children[activeIndex] as HTMLElement;
       if (activeElement) {
         const container = listRef.current.parentElement;
@@ -52,33 +78,58 @@ export default function LyricsDisplay({ lines, currentTime, onSeek, onLineTimeCh
         }
       }
     }
-  }, [activeIndex]);
+  }, [activeIndex, isDragging]);
 
   const handleLineClick = useCallback((e: React.MouseEvent, time: number) => {
-    if (draggingLineId) return;
+    if (isDragging) return;
     e.preventDefault();
     onSeek(time);
-  }, [draggingLineId, onSeek]);
+  }, [isDragging, onSeek]);
+
+  const debouncedSave = useCallback((lineId: string, newTime: number) => {
+    pendingTimeChangeRef.current = { id: lineId, time: newTime };
+    
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = window.setTimeout(() => {
+      if (pendingTimeChangeRef.current) {
+        onLineTimeChange(pendingTimeChangeRef.current.id, pendingTimeChangeRef.current.time);
+        pendingTimeChangeRef.current = null;
+      }
+    }, 100);
+  }, [onLineTimeChange]);
 
   const handleDragStart = useCallback((e: React.MouseEvent, line: LyricLine) => {
     e.preventDefault();
+    e.stopPropagation();
     setDraggingLineId(line.id);
     setDragStartY(e.clientY);
     setDragStartTime(line.time);
+    setIsDragging(true);
   }, []);
 
   const handleDragMove = useCallback((e: MouseEvent) => {
     if (!draggingLineId) return;
     
+    e.preventDefault();
     const deltaY = e.clientY - dragStartY;
-    const timeDelta = deltaY * 0.05;
+    const timeDelta = deltaY * 0.03;
     const newTime = Math.max(0, dragStartTime + timeDelta);
-    onLineTimeChange(draggingLineId, newTime);
-  }, [draggingLineId, dragStartY, dragStartTime, onLineTimeChange]);
+    
+    debouncedSave(draggingLineId, newTime);
+  }, [draggingLineId, dragStartY, dragStartTime, debouncedSave]);
 
   const handleDragEnd = useCallback(() => {
+    if (pendingTimeChangeRef.current && saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+      onLineTimeChange(pendingTimeChangeRef.current.id, pendingTimeChangeRef.current.time);
+      pendingTimeChangeRef.current = null;
+    }
     setDraggingLineId(null);
-  }, []);
+    setIsDragging(false);
+  }, [onLineTimeChange]);
 
   useEffect(() => {
     if (draggingLineId) {
@@ -114,10 +165,15 @@ export default function LyricsDisplay({ lines, currentTime, onSeek, onLineTimeCh
               key={line.id}
               className={`lyric-line ${index === activeIndex ? 'active' : ''} ${draggingLineId === line.id ? 'dragging' : ''}`}
               onClick={(e) => handleLineClick(e, line.time)}
-              onMouseDown={(e) => handleDragStart(e, line)}
             >
-              <span className="drag-handle">⋮⋮</span>
-              <div>{line.text}</div>
+              <span
+                className="drag-handle"
+                onMouseDown={(e) => handleDragStart(e, line)}
+                title="拖拽调整时间"
+              >
+                ⋮⋮
+              </span>
+              <div className="lyric-text">{line.text}</div>
               <div className="lyric-time">{formatTime(line.time)}</div>
             </div>
           ))}

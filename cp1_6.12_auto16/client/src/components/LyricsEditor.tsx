@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { LyricLine, LyricsTrack } from '../types';
-import { parseLRC } from '../utils/db';
+import { parseLRC, formatLRC } from '../utils/db';
 
 interface LyricsEditorProps {
   track: LyricsTrack | null;
@@ -17,10 +17,18 @@ export default function LyricsEditor({
   onDeleteLine,
   onImportLRC
 }: LyricsEditorProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeLineId, setActiveLineId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newLineTime, setNewLineTime] = useState('00:00.00');
   const [newLineText, setNewLineText] = useState('');
+  const pendingUpdatesRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    return () => {
+      pendingUpdatesRef.current.forEach(timeout => clearTimeout(timeout));
+      pendingUpdatesRef.current.clear();
+    };
+  }, []);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -34,19 +42,34 @@ export default function LyricsEditor({
     if (parts.length === 2) {
       const [mins, rest] = parts;
       const [secs, ms = '0'] = rest.split('.');
-      return parseInt(mins) * 60 + parseInt(secs) + parseInt(ms.padEnd(3, '0')) / 1000;
+      const parsedMins = parseInt(mins) || 0;
+      const parsedSecs = parseInt(secs) || 0;
+      const parsedMs = parseInt((ms || '0').padEnd(3, '0')) || 0;
+      return parsedMins * 60 + parsedSecs + parsedMs / 1000;
     }
     return 0;
   };
 
-  const handleTimeChange = useCallback((line: LyricLine, timeStr: string) => {
-    const newTime = parseTime(timeStr);
-    onUpdateLine({ ...line, time: newTime });
+  const debouncedUpdate = useCallback((line: LyricLine) => {
+    const existingTimeout = pendingUpdatesRef.current.get(line.id);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    const timeout = window.setTimeout(() => {
+      onUpdateLine(line);
+      pendingUpdatesRef.current.delete(line.id);
+    }, 200);
+    pendingUpdatesRef.current.set(line.id, timeout);
   }, [onUpdateLine]);
 
+  const handleTimeChange = useCallback((line: LyricLine, timeStr: string) => {
+    const newTime = parseTime(timeStr);
+    debouncedUpdate({ ...line, time: newTime });
+  }, [debouncedUpdate]);
+
   const handleTextChange = useCallback((line: LyricLine, text: string) => {
-    onUpdateLine({ ...line, text });
-  }, [onUpdateLine]);
+    debouncedUpdate({ ...line, text });
+  }, [debouncedUpdate]);
 
   const handleAddLine = useCallback(() => {
     if (!newLineText.trim()) return;
@@ -74,32 +97,55 @@ export default function LyricsEditor({
     }
   }, [onImportLRC]);
 
+  const handleExportLRC = useCallback(() => {
+    if (!track) return;
+    const lrcContent = formatLRC(track.lines);
+    const blob = new Blob([lrcContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${track.title || 'lyrics'}.lrc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [track]);
+
   const handleMoveUp = useCallback((index: number) => {
     if (!track || index <= 0) return;
     const lines = [...track.lines];
-    const temp = { ...lines[index - 1] };
-    lines[index - 1] = { ...lines[index], time: lines[index - 1].time };
-    lines[index] = { ...temp, time: lines[index].time };
-    onUpdateLine(lines[index - 1]);
-    onUpdateLine(lines[index]);
+    const prevLine = { ...lines[index - 1], time: lines[index].time };
+    const currLine = { ...lines[index], time: lines[index - 1].time };
+    onUpdateLine(prevLine);
+    onUpdateLine(currLine);
   }, [track, onUpdateLine]);
 
   const handleMoveDown = useCallback((index: number) => {
     if (!track || index >= track.lines.length - 1) return;
     const lines = [...track.lines];
-    const temp = { ...lines[index + 1] };
-    lines[index + 1] = { ...lines[index], time: lines[index + 1].time };
-    lines[index] = { ...temp, time: lines[index].time };
-    onUpdateLine(lines[index + 1]);
-    onUpdateLine(lines[index]);
+    const nextLine = { ...lines[index + 1], time: lines[index].time };
+    const currLine = { ...lines[index], time: lines[index + 1].time };
+    onUpdateLine(nextLine);
+    onUpdateLine(currLine);
   }, [track, onUpdateLine]);
+
+  const handleDeleteWithConfirm = useCallback((lineId: string, text: string) => {
+    if (confirm(`确定删除歌词 "${text}"？`)) {
+      const existingTimeout = pendingUpdatesRef.current.get(lineId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        pendingUpdatesRef.current.delete(lineId);
+      }
+      onDeleteLine(lineId);
+    }
+  }, [onDeleteLine]);
 
   if (!track) {
     return (
       <div className="editor-view">
         <div className="empty-state">
           <div className="empty-icon">📝</div>
-          <p>请先选择一首歌曲</p>
+          <p>请先在播放器中选择一首歌曲</p>
         </div>
       </div>
     );
@@ -108,7 +154,7 @@ export default function LyricsEditor({
   return (
     <div className="editor-view">
       <div className="editor-header">
-        <h2 className="editor-title">歌词编辑器 - {track.title}</h2>
+        <h2 className="editor-title">🎼 歌词编辑器 - {track.title}</h2>
         <div className="editor-actions">
           <input
             ref={fileInputRef}
@@ -118,12 +164,15 @@ export default function LyricsEditor({
             onChange={handleFileImport}
           />
           <button className="btn" onClick={() => fileInputRef.current?.click()}>
-            导入 LRC
+            📂 导入 LRC
+          </button>
+          <button className="btn" onClick={handleExportLRC}>
+            💾 导出 LRC
           </button>
         </div>
       </div>
 
-      <div className="lyric-editor-row" style={{ background: 'rgba(0, 255, 204, 0.05)' }}>
+      <div className="lyric-editor-row" style={{ background: 'rgba(0, 255, 204, 0.08)', borderColor: 'rgba(0, 255, 204, 0.3)' }}>
         <input
           type="text"
           className="time-input"
@@ -136,7 +185,7 @@ export default function LyricsEditor({
           className="text-input"
           value={newLineText}
           onChange={(e) => setNewLineText(e.target.value)}
-          placeholder="输入歌词文本..."
+          placeholder="输入歌词文本，按回车添加..."
           onKeyDown={(e) => e.key === 'Enter' && handleAddLine()}
         />
         <button className="btn btn-primary" onClick={handleAddLine}>
@@ -148,23 +197,24 @@ export default function LyricsEditor({
         {track.lines.map((line, index) => (
           <div
             key={line.id}
-            className={`lyric-editor-row ${editingId === line.id ? 'active' : ''}`}
+            className={`lyric-editor-row ${activeLineId === line.id ? 'active' : ''}`}
           >
             <input
               type="text"
               className="time-input"
-              value={formatTime(line.time)}
+              defaultValue={formatTime(line.time)}
               onChange={(e) => handleTimeChange(line, e.target.value)}
-              onFocus={() => setEditingId(line.id)}
-              onBlur={() => setEditingId(null)}
+              onFocus={() => setActiveLineId(line.id)}
+              onBlur={() => setActiveLineId(null)}
             />
             <input
               type="text"
               className="text-input"
-              value={line.text}
+              defaultValue={line.text}
               onChange={(e) => handleTextChange(line, e.target.value)}
-              onFocus={() => setEditingId(line.id)}
-              onBlur={() => setEditingId(null)}
+              onFocus={() => setActiveLineId(line.id)}
+              onBlur={() => setActiveLineId(null)}
+              placeholder="歌词内容..."
             />
             <div className="row-actions">
               <button
@@ -185,7 +235,7 @@ export default function LyricsEditor({
               </button>
               <button
                 className="icon-btn danger"
-                onClick={() => onDeleteLine(line.id)}
+                onClick={() => handleDeleteWithConfirm(line.id, line.text)}
                 title="删除"
               >
                 ×
