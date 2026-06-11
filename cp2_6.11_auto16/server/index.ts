@@ -130,9 +130,18 @@ wss.on('connection', (ws, req) => {
   });
 
   const currentStats = calculateStats(eventId);
+  const eventVotes = votes.get(eventId) || [];
   if (currentStats) {
-    ws.send(JSON.stringify({ type: 'initial', data: currentStats }));
+    ws.send(JSON.stringify({
+      type: 'initial',
+      data: {
+        stats: currentStats,
+        votes: eventVotes,
+        event: events.get(eventId)
+      }
+    }));
   }
+  console.log(`[WS] Client connected to event ${eventId}, total: ${clients.get(eventId)?.size}`);
 });
 
 app.post('/api/events', (req: Request, res: Response) => {
@@ -212,7 +221,18 @@ app.post('/api/vote', (req: Request, res: Response) => {
 
   const stats = calculateStats(eventId);
   if (stats) {
-    broadcast(eventId, { type: 'vote_update', data: stats });
+    const allVotes = votes.get(eventId) || [];
+    console.log(`[VOTE] Event ${eventId}: ${participantName} -> ${status} for ${candidateTimeId}`);
+    console.log(`[WS] Broadcasting to ${clients.get(eventId)?.size || 0} clients`);
+    
+    broadcast(eventId, {
+      type: 'vote_update',
+      data: {
+        stats,
+        votes: allVotes,
+        updatedVote: vote
+      }
+    });
   }
 
   res.status(200).json({ success: true, vote });
