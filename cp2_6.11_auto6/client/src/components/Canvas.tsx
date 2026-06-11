@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import useStore from '../store/useStore';
 import { useSocket } from '../hooks/useSocket';
-import { DrawAction } from '../../../shared/types';
+import { DrawAction } from '../types';
 
 function generateId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {

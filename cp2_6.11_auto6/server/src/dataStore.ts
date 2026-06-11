@@ -1,4 +1,4 @@
-import { DrawAction, StickyNoteData, UserInfo, RoomStore } from '../../shared/types';
+import { DrawAction, StickyNoteData, UserInfo, RoomStore } from './types';
 
 const rooms = new Map<string, RoomStore>();
 

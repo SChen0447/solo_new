@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
-import { DrawAction, StickyNoteData, UserInfo, ToolType } from '../../../shared/types';
+import { DrawAction, StickyNoteData, UserInfo, ToolType } from '../types';
 
 interface TextInputState {
   active: boolean;

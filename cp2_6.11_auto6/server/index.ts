@@ -17,7 +17,7 @@ import {
   updateUserCursor,
   getTimeline,
 } from './src/dataStore';
-import { UserInfo, DrawAction, StickyNoteData } from '../shared/types';
+import { UserInfo, DrawAction, StickyNoteData } from './src/types';
 
 const app = express();
 app.use(cors());

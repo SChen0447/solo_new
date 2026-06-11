@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { X, GripVertical, Maximize2 } from 'lucide-react';
 import useStore from '../store/useStore';
-import { StickyNoteData } from '../../../shared/types';
+import { StickyNoteData } from '../types';
 
 const SNAP_GRID = 20;
 const SPRING_DAMPING = 0.6;

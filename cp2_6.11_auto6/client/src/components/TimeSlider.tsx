@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Clock, Play, Pause, SkipForward } from 'lucide-react';
 import useStore from '../store/useStore';
 import { useSocket } from '../hooks/useSocket';
-import { DrawAction, StickyNoteData } from '../../../shared/types';
+import { DrawAction, StickyNoteData } from '../types';
 
 function formatTime(ts: number) {
   if (!ts) return '--:--:--';
