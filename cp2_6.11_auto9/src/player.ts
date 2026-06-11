@@ -12,7 +12,7 @@ export class Player {
   private y: number;
   private readonly width: number = 16;
   private readonly height: number = 16;
-  private readonly speed: number = 90;
+  private readonly speed: number = 3 * 60;
   private animFrame: number;
   private animTimer: number;
   private facing: 'left' | 'right' | 'up' | 'down';

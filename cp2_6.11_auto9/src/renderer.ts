@@ -184,17 +184,34 @@ export class Renderer {
     this.ctx.save();
 
     if (canExit && isNear) {
-      const pulse = 0.7 + 0.3 * Math.sin(pulsePhase);
-      const glowGradient = this.ctx.createRadialGradient(
+      const pulse = 0.6 + 0.4 * Math.sin(pulsePhase * 2.5);
+      
+      const outerGlow = this.ctx.createRadialGradient(
         px + TILE_SIZE / 2, py + TILE_SIZE / 2, 0,
-        px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE * 1.5
+        px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE * 2.5
       );
-      glowGradient.addColorStop(0, `rgba(100, 200, 255, ${0.6 * pulse})`);
-      glowGradient.addColorStop(1, 'rgba(100, 200, 255, 0)');
-      this.ctx.fillStyle = glowGradient;
+      outerGlow.addColorStop(0, `rgba(120, 220, 255, ${0.7 * pulse})`);
+      outerGlow.addColorStop(0.4, `rgba(80, 180, 255, ${0.4 * pulse})`);
+      outerGlow.addColorStop(1, 'rgba(60, 140, 255, 0)');
+      this.ctx.fillStyle = outerGlow;
+      this.ctx.fillRect(px - TILE_SIZE * 2, py - TILE_SIZE * 2, TILE_SIZE * 5, TILE_SIZE * 5);
+
+      const innerGlow = this.ctx.createRadialGradient(
+        px + TILE_SIZE / 2, py + TILE_SIZE / 2, 0,
+        px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE * 1.2
+      );
+      innerGlow.addColorStop(0, `rgba(200, 240, 255, ${0.9 * pulse})`);
+      innerGlow.addColorStop(0.7, `rgba(100, 200, 255, ${0.6 * pulse})`);
+      innerGlow.addColorStop(1, 'rgba(80, 180, 255, 0)');
+      this.ctx.fillStyle = innerGlow;
       this.ctx.fillRect(px - TILE_SIZE, py - TILE_SIZE, TILE_SIZE * 3, TILE_SIZE * 3);
 
-      this.ctx.fillStyle = `rgba(80, 180, 255, ${0.85 * pulse + 0.15})`;
+      const solidAlpha = 0.85 + 0.15 * pulse;
+      const solidGradient = this.ctx.createLinearGradient(px, py, px + TILE_SIZE, py + TILE_SIZE);
+      solidGradient.addColorStop(0, `rgba(120, 220, 255, ${solidAlpha})`);
+      solidGradient.addColorStop(0.5, `rgba(80, 180, 255, ${solidAlpha})`);
+      solidGradient.addColorStop(1, `rgba(100, 200, 255, ${solidAlpha})`);
+      this.ctx.fillStyle = solidGradient;
     } else {
       const alpha = 0.3 + 0.15 * Math.sin(pulsePhase);
       this.ctx.fillStyle = `rgba(80, 160, 255, ${canExit ? alpha : alpha * 0.4})`;
@@ -202,18 +219,39 @@ export class Renderer {
 
     this.ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
 
-    this.ctx.strokeStyle = canExit ? (isNear ? '#80d0ff' : '#4080c0') : '#304060';
-    this.ctx.lineWidth = 2;
+    if (canExit && isNear) {
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${0.4 + 0.3 * Math.sin(pulsePhase * 3)})`;
+      this.ctx.fillRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+    }
+
+    this.ctx.strokeStyle = canExit ? (isNear ? '#a0e0ff' : '#4080c0') : '#304060';
+    this.ctx.lineWidth = canExit && isNear ? 3 : 2;
     this.ctx.strokeRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
 
-    this.ctx.strokeStyle = canExit ? (isNear ? 'rgba(200, 230, 255, 0.8)' : 'rgba(150, 200, 255, 0.5)') : 'rgba(100, 120, 150, 0.3)';
+    if (canExit && isNear) {
+      this.ctx.strokeStyle = `rgba(255, 255, 255, ${0.6 + 0.4 * Math.sin(pulsePhase * 2)})`;
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+    }
+
+    this.ctx.strokeStyle = canExit ? (isNear ? 'rgba(220, 240, 255, 0.9)' : 'rgba(150, 200, 255, 0.5)') : 'rgba(100, 120, 150, 0.3)';
     this.ctx.lineWidth = 1;
-    const lineOffset = (pulsePhase * 8) % 8;
+    const lineSpeed = canExit && isNear ? 12 : 8;
+    const lineOffset = (pulsePhase * lineSpeed) % 8;
     for (let i = -TILE_SIZE; i < TILE_SIZE * 2; i += 8) {
       this.ctx.beginPath();
       this.ctx.moveTo(px + i + lineOffset, py);
       this.ctx.lineTo(px + i + lineOffset + TILE_SIZE, py + TILE_SIZE);
       this.ctx.stroke();
+    }
+
+    if (canExit && isNear) {
+      for (let i = -TILE_SIZE; i < TILE_SIZE * 2; i += 8) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(px + TILE_SIZE - (i + lineOffset), py);
+        this.ctx.lineTo(px + TILE_SIZE - (i + lineOffset + TILE_SIZE), py + TILE_SIZE);
+        this.ctx.stroke();
+      }
     }
 
     this.ctx.restore();
@@ -303,33 +341,52 @@ export class Renderer {
     for (let y = 0; y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const cell = fog[y][x];
-        const flicker = 0.85 + 0.15 * Math.sin(cell.flickerPhase);
         const dx = x + 0.5 - px;
         const dy = y + 0.5 - py;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
+        const noiseVal = Math.sin(cell.noisePhase) * 0.3 + Math.sin(cell.noisePhase * 1.7 + 1.3) * 0.2 + Math.sin(cell.noisePhase * 2.3 + 2.7) * 0.15;
+        const flicker = 0.75 + 0.25 * Math.sin(cell.flickerPhase) + noiseVal * 0.2;
+
+        const warpX = Math.sin(cell.warpOffsetX) * 0.15;
+        const warpY = Math.cos(cell.warpOffsetY) * 0.15;
+
         let alpha = cell.alpha * flicker;
 
-        if (dist > 3 && dist < 6) {
-          const edgeFactor = (dist - 3) / 3;
-          alpha = cell.alpha * (0.7 + 0.3 * Math.sin(cell.flickerPhase * 2)) * edgeFactor;
+        if (dist > 3 && dist < 7) {
+          const edgeFactor = (dist - 3) / 4;
+          const edgeNoise = Math.sin(cell.noisePhase * 3 + x * 0.5 + y * 0.3) * 0.3;
+          alpha = cell.alpha * (0.65 + 0.35 * Math.sin(cell.flickerPhase * 2 + edgeNoise)) * edgeFactor;
         }
 
         if (alpha > 0.05) {
+          const centerX = x * TILE_SIZE + TILE_SIZE / 2 + warpX * TILE_SIZE * 0.3;
+          const centerY = y * TILE_SIZE + TILE_SIZE / 2 + warpY * TILE_SIZE * 0.3;
+
           const gradient = this.ctx.createRadialGradient(
-            x * TILE_SIZE + TILE_SIZE / 2,
-            y * TILE_SIZE + TILE_SIZE / 2,
+            centerX,
+            centerY,
             0,
-            x * TILE_SIZE + TILE_SIZE / 2,
-            y * TILE_SIZE + TILE_SIZE / 2,
-            TILE_SIZE * 0.8
+            centerX,
+            centerY,
+            TILE_SIZE * 0.9
           );
-          gradient.addColorStop(0, `rgba(0, 0, 0, ${alpha * 0.3})`);
-          gradient.addColorStop(0.6, `rgba(0, 0, 0, ${alpha * 0.8})`);
-          gradient.addColorStop(1, `rgba(0, 0, 0, ${alpha})`);
+
+          const noiseAlpha = alpha * (0.85 + noiseVal * 0.3);
+          gradient.addColorStop(0, `rgba(0, 0, 0, ${noiseAlpha * 0.25})`);
+          gradient.addColorStop(0.5, `rgba(0, 0, 0, ${noiseAlpha * 0.75})`);
+          gradient.addColorStop(1, `rgba(0, 0, 0, ${noiseAlpha})`);
 
           this.ctx.fillStyle = gradient;
           this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+          if (dist > 4 && dist < 6 && alpha > 0.3) {
+            const crackAlpha = Math.max(0, Math.sin(cell.noisePhase * 5 + x + y) - 0.7) * alpha * 0.4;
+            if (crackAlpha > 0) {
+              this.ctx.fillStyle = `rgba(40, 20, 60, ${crackAlpha})`;
+              this.ctx.fillRect(x * TILE_SIZE + TILE_SIZE * 0.3, y * TILE_SIZE + TILE_SIZE * 0.3, TILE_SIZE * 0.4, TILE_SIZE * 0.4);
+            }
+          }
         }
       }
     }

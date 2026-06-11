@@ -47,6 +47,11 @@ export interface FogCell {
   alpha: number;
   flickerPhase: number;
   flickerSpeed: number;
+  noisePhase: number;
+  noiseSpeed: number;
+  warpOffsetX: number;
+  warpOffsetY: number;
+  warpSpeed: number;
 }
 
 export class Level {
@@ -125,7 +130,12 @@ export class Level {
         this.fog[y][x] = {
           alpha: 0.9,
           flickerPhase: Math.random() * Math.PI * 2,
-          flickerSpeed: 0.05 + Math.random() * 0.1
+          flickerSpeed: 0.05 + Math.random() * 0.1,
+          noisePhase: Math.random() * Math.PI * 2,
+          noiseSpeed: 0.08 + Math.random() * 0.12,
+          warpOffsetX: Math.random() * Math.PI * 2,
+          warpOffsetY: Math.random() * Math.PI * 2,
+          warpSpeed: 0.03 + Math.random() * 0.05
         };
       }
     }
@@ -238,6 +248,9 @@ export class Level {
 
         this.fog[y][x].alpha += (targetAlpha - this.fog[y][x].alpha) * 0.1;
         this.fog[y][x].flickerPhase += this.fog[y][x].flickerSpeed;
+        this.fog[y][x].noisePhase += this.fog[y][x].noiseSpeed;
+        this.fog[y][x].warpOffsetX += this.fog[y][x].warpSpeed;
+        this.fog[y][x].warpOffsetY += this.fog[y][x].warpSpeed * 0.7;
       }
     }
   }
@@ -255,11 +268,15 @@ export class Level {
   }
 
   private updateFootprints(deltaTime: number): void {
+    const maxFootprints = 20;
     for (let i = this.footprints.length - 1; i >= 0; i--) {
       this.footprints[i].age += deltaTime;
       if (this.footprints[i].age >= this.footprints[i].maxAge) {
         this.footprints.splice(i, 1);
       }
+    }
+    while (this.footprints.length > maxFootprints) {
+      this.footprints.shift();
     }
   }
 
@@ -284,8 +301,15 @@ export class Level {
   }
 
   private spawnCollectionParticles(x: number, y: number): void {
-    for (let i = 0; i < 20; i++) {
-      if (this.particles.length >= 60) break;
+    const maxParticles = 60;
+    const newParticleCount = 20;
+    
+    while (this.particles.length + newParticleCount > maxParticles) {
+      this.particles.shift();
+    }
+    
+    for (let i = 0; i < newParticleCount; i++) {
+      if (this.particles.length >= maxParticles) break;
       const angle = Math.random() * Math.PI * 2;
       const speed = 50 + Math.random() * 100;
       this.particles.push({
@@ -325,7 +349,7 @@ export class Level {
     const py = playerY / TILE_SIZE + 0.5;
     const dx = this.exitPos.x + 0.5 - px;
     const dy = this.exitPos.y + 0.5 - py;
-    return dx * dx + dy * dy < 1.5;
+    return dx * dx + dy * dy < 1.0;
   }
 
   public canExit(): boolean {
