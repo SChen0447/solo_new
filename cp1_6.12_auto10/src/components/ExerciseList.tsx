@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import type { Exercise, ExerciseType } from '../types';
 import {
   getExercises,
@@ -30,56 +30,65 @@ function formatDate(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export default function ExerciseList({ onEdit, onPlay, onGoDashboard }: Props) {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+const ExerciseList = memo(function ExerciseList({ onEdit, onPlay, onGoDashboard }: Props) {
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [filterType, setFilterType] = useState<ExerciseType | 'all'>('all');
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
   const [loading, setLoading] = useState(true);
   const [accuracy, setAccuracy] = useState<number>(0);
   const [totalAttempts, setTotalAttempts] = useState<number>(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [list, stats] = await Promise.all([
-        getExercises({ type: filterType, sort }),
-        getStatistics(),
-      ]);
-      setExercises(list);
-      setAccuracy(stats.overallAccuracy);
-      setTotalAttempts(stats.totalAttempts);
-    } finally {
-      setLoading(false);
-    }
-  }, [filterType, sort]);
-
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const [list, stats] = await Promise.all([
+          getExercises({ type: 'all', sort: 'newest' }),
+          getStatistics(),
+        ]);
+        if (!cancelled) {
+          setAllExercises(list);
+          setAccuracy(stats.overallAccuracy);
+          setTotalAttempts(stats.totalAttempts);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleDelete = useCallback(
     async (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
       if (!confirm('确定要删除这条练习吗？相关作答记录也会被清除。')) return;
       await deleteExercise(id);
-      load();
+      setAllExercises((prev) => prev.filter((ex) => ex.id !== id));
     },
-    [load]
+    []
   );
 
   const counts = useMemo(() => {
     const c: Record<ExerciseType | 'all', number> = {
-      all: exercises.length,
+      all: allExercises.length,
       choice: 0,
       short: 0,
       code: 0,
     };
-    const base = [...exercises];
-    (['choice', 'short', 'code'] as ExerciseType[]).forEach((t) => {
-      c[t] = base.filter((x) => x.type === t).length;
-    });
+    allExercises.forEach((ex) => { c[ex.type]++; });
     return c;
-  }, [exercises]);
+  }, [allExercises]);
+
+  const filteredAndSorted = useMemo(() => {
+    let list = filterType === 'all'
+      ? [...allExercises]
+      : allExercises.filter((e) => e.type === filterType);
+    list.sort((a, b) =>
+      sort === 'newest' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt
+    );
+    return list;
+  }, [allExercises, filterType, sort]);
 
   return (
     <div>
@@ -99,33 +108,41 @@ export default function ExerciseList({ onEdit, onPlay, onGoDashboard }: Props) {
 
       <div className="toolbar">
         <div className="toolbar-left">
-          <select
-            className="select"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as ExerciseType | 'all')}
+          <div className="filter-chips">
+            {(['all', 'choice', 'short', 'code'] as const).map((t) => (
+              <button
+                key={t}
+                className={`filter-chip ${filterType === t ? 'active' : ''} ${t !== 'all' ? `chip-${t}` : ''}`}
+                onClick={() => setFilterType(t)}
+              >
+                {t === 'all' ? '全部' : `${TYPE_ICONS[t]} ${TYPE_LABELS[t]}`}
+                <span className="chip-count">{counts[t]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sort-toggle">
+          <button
+            className={`sort-btn ${sort === 'newest' ? 'active' : ''}`}
+            onClick={() => setSort('newest')}
           >
-            <option value="all">全部类型（{counts.all}）</option>
-            <option value="choice">选择题（{counts.choice}）</option>
-            <option value="short">简答题（{counts.short}）</option>
-            <option value="code">编码题（{counts.code}）</option>
-          </select>
-          <select
-            className="select"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as 'newest' | 'oldest')}
+            ↓ 最新
+          </button>
+          <button
+            className={`sort-btn ${sort === 'oldest' ? 'active' : ''}`}
+            onClick={() => setSort('oldest')}
           >
-            <option value="newest">创建时间：最新优先</option>
-            <option value="oldest">创建时间：最早优先</option>
-          </select>
+            ↑ 最早
+          </button>
         </div>
       </div>
 
-      {loading && exercises.length === 0 ? (
+      {loading && allExercises.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">⏳</div>
           <div className="empty-text">加载中...</div>
         </div>
-      ) : exercises.length === 0 ? (
+      ) : filteredAndSorted.length === 0 ? (
         <div className="empty-state card">
           <div className="empty-icon">📝</div>
           <div className="empty-text" style={{ marginBottom: 16 }}>
@@ -134,7 +151,7 @@ export default function ExerciseList({ onEdit, onPlay, onGoDashboard }: Props) {
         </div>
       ) : (
         <div className="exercise-grid">
-          {exercises.map((ex) => (
+          {filteredAndSorted.map((ex) => (
             <div
               key={ex.id}
               className="card exercise-card"
@@ -185,4 +202,6 @@ export default function ExerciseList({ onEdit, onPlay, onGoDashboard }: Props) {
       )}
     </div>
   );
-}
+});
+
+export default ExerciseList;

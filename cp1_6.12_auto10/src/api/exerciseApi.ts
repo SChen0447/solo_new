@@ -12,10 +12,24 @@ import type {
 } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Performance notes:
+ * - All data operations use localStorage for persistence (no server needed).
+ * - Simulated async delay is kept minimal (50ms) to approximate real API latency.
+ * - For lists < 100 items (typical exercise book size), rendering should complete
+ *   well under 100ms since the data is read synchronously from localStorage and
+ *   filtering/sorting is done in-memory with O(n log n) complexity.
+ * - If the dataset grows beyond ~500 items, consider:
+ *   1. Implementing pagination in getExercises()
+ *   2. Using a virtual list (e.g., react-window) for ExerciseList rendering
+ *   3. Debouncing filter/sort changes to avoid redundant re-renders
+ *   4. Caching parsed localStorage data in a module-level variable with TTL
+ */
+
 const EXERCISES_KEY = 'exercise_book_exercises';
 const ATTEMPTS_KEY = 'exercise_book_attempts';
 
-function delay<T>(data: T, ms = 150): Promise<T> {
+function delay<T>(data: T, ms = 50): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms));
 }
 
@@ -220,40 +234,73 @@ export async function getAttempts(exerciseId?: string): Promise<AttemptRecord[]>
   return delay(list);
 }
 
+function toLocalDateKey(ts: number): string {
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getLocalDaysAgoKey(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export async function getStatistics(): Promise<Statistics> {
   const exercises = readExercises();
   const attempts = readAttempts();
 
   let correctCount = 0;
-  let totalScore = 0;
-  let maxTotalScore = 0;
+
+  const typeCorrectMap: Record<ExerciseType, number> = { choice: 0, short: 0, code: 0 };
+  const typeTotalMap: Record<ExerciseType, number> = { choice: 0, short: 0, code: 0 };
 
   attempts.forEach((a) => {
-    totalScore += a.score;
-    maxTotalScore += a.maxScore;
+    typeTotalMap[a.type]++;
+
+    let isTypeCorrect = false;
     if (a.type === 'choice' && typeof a.isCorrect === 'boolean') {
-      if (a.isCorrect) correctCount++;
+      isTypeCorrect = a.isCorrect;
     } else if (a.type === 'short' && typeof a.selfScore === 'number') {
-      if (a.selfScore >= 4) correctCount++;
+      isTypeCorrect = a.selfScore >= 4;
     } else if (a.type === 'code' && a.masteryLevel) {
-      if (a.masteryLevel === 'familiar') correctCount++;
+      isTypeCorrect = a.masteryLevel === 'familiar';
+    }
+
+    if (isTypeCorrect) {
+      correctCount++;
+      typeCorrectMap[a.type]++;
     }
   });
 
   const overallAccuracy =
     attempts.length > 0 ? Math.round((correctCount / attempts.length) * 100) : 0;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const choiceAccuracy =
+    typeTotalMap.choice > 0
+      ? Math.round((typeCorrectMap.choice / typeTotalMap.choice) * 100)
+      : 0;
+  const shortAccuracy =
+    typeTotalMap.short > 0
+      ? Math.round((typeCorrectMap.short / typeTotalMap.short) * 100)
+      : 0;
+  const codeAccuracy =
+    typeTotalMap.code > 0
+      ? Math.round((typeCorrectMap.code / typeTotalMap.code) * 100)
+      : 0;
+
   const dailyMap = new Map<string, number>();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
+    const key = getLocalDaysAgoKey(i);
     dailyMap.set(key, 0);
   }
   attempts.forEach((a) => {
-    const key = new Date(a.submittedAt).toISOString().slice(0, 10);
+    const key = toLocalDateKey(a.submittedAt);
     if (dailyMap.has(key)) {
       dailyMap.set(key, (dailyMap.get(key) ?? 0) + 1);
     }
@@ -283,12 +330,20 @@ export async function getStatistics(): Promise<Statistics> {
         ? Math.round((info.totalScore / info.attempts) * 10) / 10
         : 0,
     totalAttempts: info.attempts,
+    accuracy:
+      typeTotalMap[type] > 0
+        ? Math.round((typeCorrectMap[type] / typeTotalMap[type]) * 100)
+        : 0,
+    correctCount: typeCorrectMap[type],
   }));
 
   return delay({
     totalExercises: exercises.length,
     totalAttempts: attempts.length,
     overallAccuracy,
+    choiceAccuracy,
+    shortAccuracy,
+    codeAccuracy,
     dailyHeatmap,
     typeAverages,
   });

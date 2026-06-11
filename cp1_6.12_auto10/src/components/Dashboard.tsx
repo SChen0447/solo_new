@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, memo } from 'react';
 import type { Statistics, ExerciseType } from '../types';
 import { getStatistics } from '../api/exerciseApi';
 
@@ -18,11 +18,11 @@ function formatShortDate(iso: string): string {
 }
 
 function getWeekday(iso: string): string {
-  const d = new Date(iso);
+  const d = new Date(iso + 'T00:00:00');
   return ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
 }
 
-export default function Dashboard({ onBack }: Props) {
+const Dashboard = memo(function Dashboard({ onBack }: Props) {
   const [stats, setStats] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -106,7 +106,37 @@ export default function Dashboard({ onBack }: Props) {
 
           <div className="card chart-card">
             <div className="chart-header">
-              <div className="chart-title">🔥 最近7天练习热度图</div>
+              <div className="chart-title">� 各题型正确率</div>
+            </div>
+            <div className="type-accuracy-row">
+              {stats.typeAverages.map((a) => (
+                <div key={a.type} className={`type-accuracy-card type-${a.type}`}>
+                  <div className="type-accuracy-label">{TYPE_LABELS[a.type]}</div>
+                  <div className="type-accuracy-ring">
+                    <svg viewBox="0 0 36 36" className="accuracy-ring-svg">
+                      <path
+                        className="accuracy-ring-bg"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className="accuracy-ring-fill"
+                        strokeDasharray={`${a.accuracy}, 100`}
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <div className="type-accuracy-value">{a.accuracy}%</div>
+                  </div>
+                  <div className="type-accuracy-detail">
+                    {a.correctCount}/{a.totalAttempts} 正确
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card chart-card">
+            <div className="chart-header">
+              <div className="chart-title">�🔥 最近7天练习热度图</div>
               <div style={{ fontSize: 13, color: '#616161' }}>
                 总练习次数：
                 <strong style={{ color: 'var(--color-accent)' }}>
@@ -192,7 +222,7 @@ export default function Dashboard({ onBack }: Props) {
             </div>
             <ul style={{ fontSize: 14, color: '#424242', lineHeight: 2, paddingLeft: 20 }}>
               <li>
-                <strong>选择题正确率：</strong>按系统自动判定的正确 / 总作答次数计算；
+                <strong>选择题正确率：</strong>按系统自动判定的正确 / 该类型总作答次数计算；
               </li>
               <li>
                 <strong>简答题正确率：</strong>按 1-5 自我评分 ≥ 4 视为正确，同时折算为加权得分（分数 × 自评/5）；
@@ -212,4 +242,6 @@ export default function Dashboard({ onBack }: Props) {
       )}
     </div>
   );
-}
+});
+
+export default Dashboard;

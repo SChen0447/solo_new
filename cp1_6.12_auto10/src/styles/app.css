@@ -940,3 +940,401 @@
 .legend-dot.code {
   background: #7b1fa2;
 }
+
+.type-accuracy-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.type-accuracy-card {
+  flex: 1;
+  min-width: 160px;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: all var(--transition);
+}
+
+.type-accuracy-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.type-accuracy-card.type-choice {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  border: 1.5px solid #90caf9;
+}
+
+.type-accuracy-card.type-short {
+  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  border: 1.5px solid #a5d6a7;
+}
+
+.type-accuracy-card.type-code {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  border: 1.5px solid #ce93d8;
+}
+
+.type-accuracy-label {
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+
+.type-choice .type-accuracy-label {
+  color: #1565c0;
+}
+
+.type-short .type-accuracy-label {
+  color: #2e7d32;
+}
+
+.type-code .type-accuracy-label {
+  color: #7b1fa2;
+}
+
+.type-accuracy-ring {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 10px;
+}
+
+.accuracy-ring-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.accuracy-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 3;
+}
+
+.accuracy-ring-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s ease;
+}
+
+.type-choice .accuracy-ring-fill {
+  stroke: #1565c0;
+}
+
+.type-short .accuracy-ring-fill {
+  stroke: #2e7d32;
+}
+
+.type-code .accuracy-ring-fill {
+  stroke: #7b1fa2;
+}
+
+.type-accuracy-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.type-choice .type-accuracy-value {
+  color: #1565c0;
+}
+
+.type-short .type-accuracy-value {
+  color: #2e7d32;
+}
+
+.type-code .type-accuracy-value {
+  color: #7b1fa2;
+}
+
+.type-accuracy-detail {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.code-editor-wrap {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1.5px solid #37474f;
+}
+
+.code-editor-wrap:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(255, 109, 0, 0.25);
+}
+
+.code-editor-inner {
+  display: flex;
+  background: #1e272e;
+}
+
+.code-line-numbers {
+  padding: 14px 0;
+  background: #1a2127;
+  color: #546e7a;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: right;
+  user-select: none;
+  min-width: 42px;
+  border-right: 1px solid #37474f;
+}
+
+.code-line-num {
+  padding: 0 10px 0 8px;
+}
+
+.code-textarea-overlay {
+  position: relative;
+  flex: 1;
+}
+
+.code-highlight-pre {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 14px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  color: transparent;
+  background: transparent;
+}
+
+.code-textarea {
+  width: 100%;
+  padding: 14px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #1e272e;
+  color: #eceff1;
+  border: none;
+  resize: vertical;
+  min-height: 260px;
+  tab-size: 2;
+  caret-color: #ff6d00;
+  position: relative;
+  z-index: 1;
+}
+
+.code-textarea:focus {
+  outline: none;
+}
+
+.code-textarea::placeholder {
+  color: #546e7a;
+}
+
+.hl-keyword {
+  color: #c792ea;
+  font-weight: 700;
+}
+
+.hl-string {
+  color: #c3e88d;
+}
+
+.hl-number {
+  color: #f78c6c;
+}
+
+.hl-comment {
+  color: #546e7a;
+  font-style: italic;
+}
+
+.hl-function {
+  color: #82aaff;
+}
+
+.hl-type {
+  color: #ffcb6b;
+}
+
+.hl-operator {
+  color: #89ddff;
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .exercise-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .type-accuracy-row {
+    gap: 14px;
+  }
+
+  .type-accuracy-card {
+    min-width: 140px;
+    padding: 16px;
+  }
+
+  .type-accuracy-ring {
+    width: 80px;
+    height: 80px;
+  }
+
+  .type-accuracy-value {
+    font-size: 15px;
+  }
+
+  .player-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .editor-layout {
+    max-width: 100%;
+  }
+
+  .container {
+    padding: 20px;
+  }
+
+  .app-title {
+    font-size: 18px;
+  }
+
+  .app-nav {
+    gap: 6px;
+  }
+
+  .nav-btn {
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+
+  .heatmap-row {
+    gap: 6px;
+  }
+
+  .bars-row {
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .exercise-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  .stats-overview {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .type-accuracy-row {
+    gap: 24px;
+  }
+
+  .player-layout {
+    grid-template-columns: 1.1fr 1fr;
+    gap: 24px;
+  }
+
+  .editor-layout {
+    max-width: 820px;
+  }
+
+  .container {
+    max-width: 1200px;
+    padding: 24px 32px;
+  }
+
+  .app-header-inner {
+    padding: 0 32px;
+  }
+
+  .bars-row {
+    gap: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  .exercise-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .type-accuracy-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .type-accuracy-card {
+    min-width: 100%;
+  }
+
+  .player-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .container {
+    padding: 12px;
+  }
+
+  .app-title {
+    font-size: 16px;
+  }
+
+  .app-nav {
+    gap: 4px;
+  }
+
+  .nav-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .heatmap-row {
+    gap: 4px;
+  }
+
+  .heatmap-bar {
+    width: 90%;
+  }
+
+  .section-title {
+    font-size: 17px;
+  }
+
+  .editor-card {
+    padding: 16px;
+  }
+
+  .player-pane {
+    padding: 16px;
+  }
+
+  .chart-card {
+    padding: 16px;
+  }
+
+  .bars-row {
+    gap: 12px;
+  }
+}

@@ -85,12 +85,17 @@ export interface TypeAverageScore {
   type: ExerciseType;
   averageScore: number;
   totalAttempts: number;
+  accuracy: number;
+  correctCount: number;
 }
 
 export interface Statistics {
   totalExercises: number;
   totalAttempts: number;
   overallAccuracy: number;
+  choiceAccuracy: number;
+  shortAccuracy: number;
+  codeAccuracy: number;
   dailyHeatmap: DailyHeatmapItem[];
   typeAverages: TypeAverageScore[];
 }

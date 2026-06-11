@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import type {
   Exercise,
   ChoiceExercise,
@@ -11,6 +11,7 @@ import {
   gradeExercise,
   submitAttempt,
 } from '../api/exerciseApi';
+import CodeEditor from './CodeEditor';
 
 interface Props {
   exercise: Exercise;
@@ -24,7 +25,7 @@ const TYPE_LABELS: Record<Exercise['type'], string> = {
   code: '编码题',
 };
 
-export default function ExercisePlayer({ exercise, onBack, onEdit }: Props) {
+const ExercisePlayer = memo(function ExercisePlayer({ exercise, onBack, onEdit }: Props) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [shortText, setShortText] = useState('');
   const [codeText, setCodeText] = useState('');
@@ -437,14 +438,13 @@ export default function ExercisePlayer({ exercise, onBack, onEdit }: Props) {
               <label className="form-label">
                 请编写代码（语言：{codeEx.language || '未指定'}）
               </label>
-              <textarea
-                className="textarea code-edit"
-                style={{ minHeight: 260 }}
-                placeholder="// 请在此编写你的代码..."
+              <CodeEditor
                 value={codeText}
-                onChange={(e) => setCodeText(e.target.value)}
+                onChange={setCodeText}
+                placeholder="// 请在此编写你的代码..."
                 disabled={!!grading}
-                spellCheck={false}
+                language={codeEx.language}
+                minLines={14}
               />
             </>
           )}
@@ -496,4 +496,6 @@ export default function ExercisePlayer({ exercise, onBack, onEdit }: Props) {
       </div>
     </div>
   );
-}
+});
+
+export default ExercisePlayer;

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, memo } from 'react';
 import type {
   Exercise,
   ExerciseType,
@@ -23,7 +23,7 @@ const TYPE_LABELS: Record<ExerciseType, string> = {
   code: '编码题',
 };
 
-export default function ExerciseEditor({
+const ExerciseEditor = memo(function ExerciseEditor({
   mode,
   exercise,
   onCancel,
@@ -460,4 +460,6 @@ export default function ExerciseEditor({
       </div>
     </div>
   );
-}
+});
+
+export default ExerciseEditor;
