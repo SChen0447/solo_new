@@ -411,7 +411,7 @@ const ExercisePlayer = memo(function ExercisePlayer({ exercise, onBack, onEdit }
                     choiceEx.options
                       .filter((o) => selectedIds.includes(o.id))
                       .map(
-                        (o, i) =>
+                        (o) =>
                           `${String.fromCharCode(65 + choiceEx!.options.indexOf(o))}. ${o.text}`
                       )
                       .join('；')}

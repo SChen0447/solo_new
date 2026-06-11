@@ -30,13 +30,44 @@ function formatDate(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+const STORAGE_KEY_FILTER = 'exercise_list_filter';
+const STORAGE_KEY_SORT = 'exercise_list_sort';
+
+function loadStoredFilter(): ExerciseType | 'all' {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY_FILTER);
+    if (v === 'all' || v === 'choice' || v === 'short' || v === 'code') return v;
+  } catch {
+    // ignore
+  }
+  return 'all';
+}
+
+function loadStoredSort(): 'newest' | 'oldest' {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY_SORT);
+    if (v === 'newest' || v === 'oldest') return v;
+  } catch {
+    // ignore
+  }
+  return 'newest';
+}
+
 const ExerciseList = memo(function ExerciseList({ onEdit, onPlay, onGoDashboard }: Props) {
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
-  const [filterType, setFilterType] = useState<ExerciseType | 'all'>('all');
-  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
+  const [filterType, setFilterType] = useState<ExerciseType | 'all'>(loadStoredFilter);
+  const [sort, setSort] = useState<'newest' | 'oldest'>(loadStoredSort);
   const [loading, setLoading] = useState(true);
   const [accuracy, setAccuracy] = useState<number>(0);
   const [totalAttempts, setTotalAttempts] = useState<number>(0);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY_FILTER, filterType); } catch { /* empty */ }
+  }, [filterType]);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY_SORT, sort); } catch { /* empty */ }
+  }, [sort]);
 
   useEffect(() => {
     let cancelled = false;

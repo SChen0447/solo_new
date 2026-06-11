@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, memo } from 'react';
+import { useCallback, useMemo, useRef, useEffect, memo } from 'react';
 
 interface Props {
   value: string;
@@ -27,22 +27,45 @@ const KEYWORDS_PY = new Set([
   'async', 'await', 'print',
 ]);
 
+const PAIRS: Record<string, string> = {
+  '(': ')',
+  '[': ']',
+  '{': '}',
+  '"': '"',
+  "'": "'",
+  '`': '`',
+};
+
+const REVERSE_PAIRS: Record<string, string> = {
+  ')': '(',
+  ']': '[',
+  '}': '{',
+  '"': '"',
+  "'": "'",
+  '`': '`',
+};
+
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function highlightCode(code: string, language?: string): string {
   const lang = (language || '').toLowerCase();
-  const keywords = lang.includes('python') || lang.includes('py')
-    ? KEYWORDS_PY
-    : KEYWORDS_TS;
+  const keywords =
+    lang.includes('python') || lang.includes('py') ? KEYWORDS_PY : KEYWORDS_TS;
 
   let result = '';
   let i = 0;
   const len = code.length;
 
   while (i < len) {
-    if (code[i] === '/' && code[i + 1] === '/') {
+    const ch = code[i];
+    const next = code[i + 1];
+
+    if (ch === '/' && next === '/') {
       let end = code.indexOf('\n', i);
       if (end === -1) end = len;
       result += `<span class="hl-comment">${escapeHtml(code.slice(i, end))}</span>`;
@@ -50,7 +73,7 @@ function highlightCode(code: string, language?: string): string {
       continue;
     }
 
-    if (code[i] === '/' && code[i + 1] === '*') {
+    if (ch === '/' && next === '*') {
       let end = code.indexOf('*/', i + 2);
       if (end === -1) end = len;
       else end += 2;
@@ -59,7 +82,7 @@ function highlightCode(code: string, language?: string): string {
       continue;
     }
 
-    if (code[i] === '#' && (lang.includes('python') || lang.includes('py'))) {
+    if (ch === '#' && (lang.includes('python') || lang.includes('py'))) {
       let end = code.indexOf('\n', i);
       if (end === -1) end = len;
       result += `<span class="hl-comment">${escapeHtml(code.slice(i, end))}</span>`;
@@ -67,12 +90,21 @@ function highlightCode(code: string, language?: string): string {
       continue;
     }
 
-    if (code[i] === '"' || code[i] === "'" || code[i] === '`') {
-      const quote = code[i];
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
       let j = i + 1;
       while (j < len) {
-        if (code[j] === '\\') { j += 2; continue; }
-        if (code[j] === quote) { j++; break; }
+        if (code[j] === '\\') {
+          j += 2;
+          continue;
+        }
+        if (code[j] === quote) {
+          j++;
+          break;
+        }
+        if (code[j] === '\n') {
+          break;
+        }
         j++;
       }
       result += `<span class="hl-string">${escapeHtml(code.slice(i, j))}</span>`;
@@ -80,7 +112,7 @@ function highlightCode(code: string, language?: string): string {
       continue;
     }
 
-    if (/[0-9]/.test(code[i]) && (i === 0 || !/[a-zA-Z_]/.test(code[i - 1]))) {
+    if (/[0-9]/.test(ch) && (i === 0 || !/[a-zA-Z_$]/.test(code[i - 1]))) {
       let j = i;
       while (j < len && /[0-9.xXa-fA-F_]/.test(code[j])) j++;
       result += `<span class="hl-number">${escapeHtml(code.slice(i, j))}</span>`;
@@ -88,7 +120,7 @@ function highlightCode(code: string, language?: string): string {
       continue;
     }
 
-    if (/[a-zA-Z_$]/.test(code[i])) {
+    if (/[a-zA-Z_$]/.test(ch)) {
       let j = i;
       while (j < len && /[a-zA-Z0-9_$]/.test(code[j])) j++;
       const word = code.slice(i, j);
@@ -96,7 +128,10 @@ function highlightCode(code: string, language?: string): string {
         result += `<span class="hl-keyword">${escapeHtml(word)}</span>`;
       } else if (j < len && code[j] === '(') {
         result += `<span class="hl-function">${escapeHtml(word)}</span>`;
-      } else if (word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {
+      } else if (
+        word[0] === word[0].toUpperCase() &&
+        word[0] !== word[0].toLowerCase()
+      ) {
         result += `<span class="hl-type">${escapeHtml(word)}</span>`;
       } else {
         result += escapeHtml(word);
@@ -105,7 +140,7 @@ function highlightCode(code: string, language?: string): string {
       continue;
     }
 
-    if ('=<>!+-*/%&|^~?:'.includes(code[i])) {
+    if ('=<>!+-*/%&|^~?:'.includes(ch)) {
       let j = i + 1;
       while (j < len && '=<>!+-*/%&|^~?:'.includes(code[j])) j++;
       result += `<span class="hl-operator">${escapeHtml(code.slice(i, j))}</span>`;
@@ -113,7 +148,7 @@ function highlightCode(code: string, language?: string): string {
       continue;
     }
 
-    result += escapeHtml(code[i]);
+    result += escapeHtml(ch);
     i++;
   }
 
@@ -129,6 +164,7 @@ const CodeEditor = memo(function CodeEditor({
   minLines = 15,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
 
   const lines = useMemo(() => {
     const count = value.split('\n').length;
@@ -139,76 +175,182 @@ const CodeEditor = memo(function CodeEditor({
     return highlightCode(value, language);
   }, [value, language]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      const ta = textareaRef.current;
-      if (!ta) return;
-
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        const newValue =
-          value.substring(0, start) + '  ' + value.substring(end);
-        onChange(newValue);
-        requestAnimationFrame(() => {
-          ta.selectionStart = ta.selectionEnd = start + 2;
-        });
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        const start = ta.selectionStart;
-        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-        const currentLine = value.substring(lineStart, start);
-        const indent = currentLine.match(/^(\s*)/)?.[1] || '';
-        const charBefore = value[start - 1];
-        let extra = '';
-        if (charBefore === '{' || charBefore === '(' || charBefore === '[') {
-          extra = '  ';
-        }
-        e.preventDefault();
-        const newValue =
-          value.substring(0, start) + '\n' + indent + extra + value.substring(ta.selectionEnd);
-        onChange(newValue);
-        requestAnimationFrame(() => {
-          ta.selectionStart = ta.selectionEnd = start + 1 + indent.length + extra.length;
-        });
-        return;
-      }
-
-      const pairs: Record<string, string> = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
-      if (pairs[e.key]) {
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        if (start !== end) {
-          e.preventDefault();
-          const wrapped = pairs[e.key] + value.substring(start, end) + pairs[e.key];
-          const newValue = value.substring(0, start) + wrapped + value.substring(end);
-          onChange(newValue);
-          requestAnimationFrame(() => {
-            ta.selectionStart = start + 1;
-            ta.selectionEnd = end + 1;
-          });
-        }
-      }
-    },
-    [value, onChange]
-  );
+  useEffect(() => {
+    const ta = textareaRef.current;
+    const pre = preRef.current;
+    if (ta && pre) {
+      pre.scrollTop = ta.scrollTop;
+      pre.scrollLeft = ta.scrollLeft;
+    }
+  }, [highlighted]);
 
   const handleScroll = useCallback(() => {
     const ta = textareaRef.current;
-    const pre = ta?.parentElement?.querySelector('.code-highlight-pre') as HTMLElement | null;
+    const pre = preRef.current;
     if (ta && pre) {
       pre.scrollTop = ta.scrollTop;
       pre.scrollLeft = ta.scrollLeft;
     }
   }, []);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+          const currentLine = value.substring(lineStart, end);
+          if (currentLine.startsWith('  ')) {
+            const newValue =
+              value.substring(0, lineStart) +
+              currentLine.slice(2) +
+              value.substring(end);
+            onChange(newValue);
+            requestAnimationFrame(() => {
+              ta.selectionStart = Math.max(lineStart, start - 2);
+              ta.selectionEnd = Math.max(lineStart, end - 2);
+            });
+          }
+          return;
+        }
+
+        if (start !== end) {
+          let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+          let nextNewLine = value.indexOf('\n', end);
+          if (nextNewLine === -1) nextNewLine = value.length;
+          const block = value.substring(lineStart, nextNewLine);
+          const indented = block
+            .split('\n')
+            .map((line) => '  ' + line)
+            .join('\n');
+          const newValue =
+            value.substring(0, lineStart) + indented + value.substring(nextNewLine);
+          onChange(newValue);
+          requestAnimationFrame(() => {
+            ta.selectionStart = start + 2;
+            ta.selectionEnd = end + 2 * (block.split('\n').length);
+          });
+        } else {
+          const newValue =
+            value.substring(0, start) + '  ' + value.substring(end);
+          onChange(newValue);
+          requestAnimationFrame(() => {
+            ta.selectionStart = ta.selectionEnd = start + 2;
+          });
+        }
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const currentLine = value.substring(lineStart, start);
+        const indentMatch = currentLine.match(/^(\s*)/);
+        const indent = indentMatch ? indentMatch[1] : '';
+        const charBefore = value[start - 1];
+        let extraIndent = '';
+        if (charBefore === '{' || charBefore === '(' || charBefore === '[') {
+          extraIndent = '  ';
+        }
+
+        const charAfter = value[end];
+        let closingLine = '';
+        if (
+          (charBefore === '{' && charAfter === '}') ||
+          (charBefore === '(' && charAfter === ')') ||
+          (charBefore === '[' && charAfter === ']')
+        ) {
+          closingLine = '\n' + indent;
+        }
+
+        const newValue =
+          value.substring(0, start) +
+          '\n' +
+          indent +
+          extraIndent +
+          closingLine +
+          value.substring(end);
+        onChange(newValue);
+        const cursorPos = start + 1 + indent.length + extraIndent.length;
+        requestAnimationFrame(() => {
+          ta.selectionStart = ta.selectionEnd = cursorPos;
+        });
+        return;
+      }
+
+      if (e.key === 'Backspace' && start === end && start > 0) {
+        const charBefore = value[start - 1];
+        const charAfter = value[start];
+        if (PAIRS[charBefore] && PAIRS[charBefore] === charAfter) {
+          e.preventDefault();
+          const newValue =
+            value.substring(0, start - 1) + value.substring(start + 1);
+          onChange(newValue);
+          requestAnimationFrame(() => {
+            ta.selectionStart = ta.selectionEnd = start - 1;
+          });
+          return;
+        }
+      }
+
+      if (PAIRS[e.key]) {
+        const closeChar = PAIRS[e.key];
+        if (start !== end) {
+          e.preventDefault();
+          const selected = value.substring(start, end);
+          const newValue =
+            value.substring(0, start) +
+            e.key +
+            selected +
+            closeChar +
+            value.substring(end);
+          onChange(newValue);
+          requestAnimationFrame(() => {
+            ta.selectionStart = start + 1;
+            ta.selectionEnd = end + 1;
+          });
+        } else {
+          e.preventDefault();
+          const newValue =
+            value.substring(0, start) + e.key + closeChar + value.substring(end);
+          onChange(newValue);
+          requestAnimationFrame(() => {
+            ta.selectionStart = ta.selectionEnd = start + 1;
+          });
+        }
+        return;
+      }
+
+      if (REVERSE_PAIRS[e.key] && start === end) {
+        const charAfter = value[start];
+        if (charAfter === e.key) {
+          const beforeChar = value[start - 1];
+          if (
+            beforeChar === REVERSE_PAIRS[e.key] &&
+            PAIRS[beforeChar] === e.key
+          ) {
+            e.preventDefault();
+            requestAnimationFrame(() => {
+              ta.selectionStart = ta.selectionEnd = start + 1;
+            });
+            return;
+          }
+        }
+      }
+    },
+    [value, onChange]
+  );
+
   return (
     <div className="code-editor-wrap">
       <div className="code-editor-inner">
-        <div className="code-line-numbers">
+        <div className="code-line-numbers" aria-hidden="true">
           {Array.from({ length: lines }, (_, i) => (
             <div key={i} className="code-line-num">
               {i + 1}
@@ -217,10 +359,12 @@ const CodeEditor = memo(function CodeEditor({
         </div>
         <div className="code-textarea-overlay">
           <pre
+            ref={preRef}
             className="code-highlight-pre"
-            dangerouslySetInnerHTML={{ __html: highlighted + '\n' }}
             aria-hidden="true"
-          />
+          >
+            <code dangerouslySetInnerHTML={{ __html: highlighted + '\n' }} />
+          </pre>
           <textarea
             ref={textareaRef}
             className="code-textarea"

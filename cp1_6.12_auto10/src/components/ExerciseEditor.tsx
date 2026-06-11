@@ -159,29 +159,27 @@ const ExerciseEditor = memo(function ExerciseEditor({
             });
           }
         } else if (exercise) {
-          const base: Partial<Omit<Exercise, 'id' | 'createdAt' | 'updatedAt'>> = {
+          const base = {
             title: title.trim(),
             content: content.trim(),
             score: Number(score),
             type,
+            ...(type === 'choice'
+              ? {
+                  isMultiple,
+                  options,
+                  explanation: explanation.trim(),
+                  referenceAnswer: referenceAnswer.trim(),
+                }
+              : type === 'short'
+              ? {
+                  referenceAnswer: referenceAnswer.trim(),
+                }
+              : {
+                  referenceSolution: referenceSolution.trim(),
+                  language: language.trim(),
+                }),
           };
-          if (type === 'choice') {
-            Object.assign(base, {
-              isMultiple,
-              options,
-              explanation: explanation.trim(),
-              referenceAnswer: referenceAnswer.trim(),
-            });
-          } else if (type === 'short') {
-            Object.assign(base, {
-              referenceAnswer: referenceAnswer.trim(),
-            });
-          } else {
-            Object.assign(base, {
-              referenceSolution: referenceSolution.trim(),
-              language: language.trim(),
-            });
-          }
           await updateExercise(exercise.id, base);
         }
         onSaved();

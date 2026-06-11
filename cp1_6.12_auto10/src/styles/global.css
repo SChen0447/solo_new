@@ -84,12 +84,6 @@ select {
   padding: 24px;
 }
 
-@media (max-width: 768px) {
-  .container {
-    padding: 16px;
-  }
-}
-
 .app-header {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
   color: #fff;
@@ -433,4 +427,210 @@ select {
 
 .empty-text {
   font-size: 16px;
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container {
+    padding: 20px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .app-header-inner {
+    padding: 0 20px;
+  }
+
+  .app-title {
+    font-size: 19px;
+  }
+
+  .app-nav {
+    gap: 6px;
+  }
+
+  .nav-btn {
+    padding: 7px 16px;
+    font-size: 13px;
+  }
+
+  .section-title {
+    font-size: 18px;
+  }
+
+  .btn {
+    padding: 9px 18px;
+    font-size: 13px;
+  }
+
+  .form-label {
+    font-size: 13px;
+  }
+
+  .toolbar {
+    gap: 10px;
+  }
+
+  .filter-chips {
+    gap: 5px;
+  }
+
+  .filter-chip {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .app-header-inner {
+    max-width: 1200px;
+    padding: 0 24px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .container {
+    max-width: 1360px;
+    padding: 32px;
+  }
+
+  .app-header-inner {
+    max-width: 1360px;
+    padding: 0 32px;
+  }
+
+  .app-title {
+    font-size: 24px;
+  }
+
+  .section-title {
+    font-size: 22px;
+  }
+
+  .btn {
+    padding: 11px 22px;
+    font-size: 15px;
+  }
+
+  .card {
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 12px;
+  }
+
+  .app-header {
+    padding: 14px 0;
+  }
+
+  .app-header-inner {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .app-title {
+    font-size: 16px;
+  }
+
+  .app-logo {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+
+  .app-nav {
+    gap: 4px;
+  }
+
+  .nav-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .section-title {
+    font-size: 17px;
+  }
+
+  .btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .toolbar {
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .filter-chips {
+    gap: 4px;
+  }
+
+  .filter-chip {
+    padding: 5px 11px;
+    font-size: 12px;
+  }
+
+  .form-label {
+    font-size: 13px;
+  }
+
+  .card {
+    border-radius: 8px;
+  }
+
+  .empty-state {
+    padding: 40px 16px;
+  }
+
+  .empty-icon {
+    font-size: 40px;
+  }
+
+  .empty-text {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header-inner {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .app-title {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+
+  .app-nav {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-left {
+    justify-content: center;
+  }
+
+  .sort-toggle {
+    justify-content: center;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }

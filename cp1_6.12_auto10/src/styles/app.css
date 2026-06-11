@@ -1116,6 +1116,15 @@
   background: transparent;
 }
 
+.code-highlight-pre code {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  display: block;
+}
+
 .code-textarea {
   width: 100%;
   padding: 14px;
@@ -1131,6 +1140,8 @@
   caret-color: #ff6d00;
   position: relative;
   z-index: 1;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .code-textarea:focus {
