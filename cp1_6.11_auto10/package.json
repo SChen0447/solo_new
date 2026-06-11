@@ -5,13 +5,18 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "npx tsx tests/unit/particleSystem.test.ts",
+    "benchmark": "npx tsx tests/benchmark/performance.test.ts"
   },
   "dependencies": {
     "three": "^0.160.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.7",
     "@types/three": "^0.160.0",
+    "jsdom": "^22.1.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.3.3",
     "vite": "^5.0.12"
   }

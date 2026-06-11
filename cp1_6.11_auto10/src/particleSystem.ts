@@ -115,11 +115,11 @@ export class ParticleSystem {
   private noise: SimplexNoise3D;
   private attractors: THREE.Vector3[];
 
-  private static readonly LORENZ_SIGMA = 10;
-  private static readonly LORENZ_RHO = 28;
-  private static readonly LORENZ_BETA = 8/3;
-  private static readonly LORENZ_SCALE = 0.12;
-  private static readonly BOUNDARY = 12;
+  public static readonly LORENZ_SIGMA = 10;
+  public static readonly LORENZ_RHO = 28;
+  public static readonly LORENZ_BETA = 8/3;
+  public static readonly LORENZ_SCALE = 0.12;
+  public static readonly BOUNDARY = 12;
 
   constructor(params: Partial<ParticleParams> = {}) {
     this.params = {
@@ -323,7 +323,6 @@ export class ParticleSystem {
       pts.frustumCulled = false;
       pts.renderOrder = 2 + t;
       this.trailMeshes.push(pts);
-      void count;
     }
   }
 
