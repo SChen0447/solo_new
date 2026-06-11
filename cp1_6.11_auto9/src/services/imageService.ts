@@ -10,7 +10,7 @@
  *   imageService.cacheImage() → imageService.preloadNeighbors() → 浏览器图片缓存
  *
  * 导出：
- *   - ImageItem 类型：图片数据结构（id, title, thumbUrl, placeholderUrl, fullUrl, width, height）
+ *   - ImageItem 类型：图片数据结构（id, title, thumbUrl, placeholderBase64, fullUrl, width, height）
  *   - imageService.getImages()：返回图片列表 Promise
  *   - imageService.cacheImage()：缓存单张图片
  *   - imageService.preloadNeighbors()：预加载当前图片的前后邻居
@@ -19,7 +19,7 @@ export interface ImageItem {
   id: number
   title: string
   thumbUrl: string
-  placeholderUrl: string
+  placeholderBase64: string
   fullUrl: string
   width: number
   height: number
@@ -33,15 +33,40 @@ const SEEDS = [
   'river', 'valley', 'island', 'meadow', 'hill'
 ]
 
+const PLACEHOLDER_COLORS = [
+  '#4a6fa5', '#2e8b8b', '#3a7a5c', '#8b6e4e', '#a55d4a',
+  '#9b7b4e', '#5b7fa5', '#4e8b6e', '#6a8ba5', '#a58b5b',
+  '#7a6e5b', '#4a7a8b', '#8b5b7a', '#5b6e8b', '#6e8b7a',
+  '#4e7a6e', '#8b7a5b', '#5b8ba5', '#7a8b4e', '#6e5b8b'
+]
+
+const generatePlaceholderSvg = (color: string, seed: string): string => {
+  const darkerColor = color
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${darkerColor};stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#1a1a2e;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#g)"/>
+  <circle cx="480" cy="80" r="60" fill="rgba(255,255,255,0.06)"/>
+  <circle cx="120" cy="320" r="90" fill="rgba(255,255,255,0.04)"/>
+  <rect x="50" y="200" width="200" height="120" rx="4" fill="rgba(255,255,255,0.03)"/>
+</svg>`
+  return `data:image/svg+xml;base64,${btoa(svg)}`
+}
+
 const generateImages = (): ImageItem[] => {
   return SEEDS.map((seed, index) => {
     const id = index + 1
     const width = 1920
     const height = 1080 + ((index % 3) * 180)
+    const color = PLACEHOLDER_COLORS[index % PLACEHOLDER_COLORS.length]
     return {
       id,
       title: `作品 ${String(id).padStart(2, '0')} · ${seed}`,
-      placeholderUrl: `${PICSUM_BASE}/seed/${seed}/60/40`,
+      placeholderBase64: generatePlaceholderSvg(color, seed),
       thumbUrl: `${PICSUM_BASE}/seed/${seed}/600/400`,
       fullUrl: `${PICSUM_BASE}/seed/${seed}/${width}/${height}`,
       width,

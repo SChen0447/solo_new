@@ -14,10 +14,11 @@
   功能：
     - 全屏灯箱预览，图片居中显示
     - 鼠标滚轮缩放（以光标位置为中心），平移拖拽
-    - 双指缩放手势（移动端），单指拖拽平移
+    - 双指缩放手势（移动端），以双指中心点为缩放原点，补偿缩放后平移偏移
     - 键盘导航：左右方向键切换，ESC关闭，自动聚焦+阻止冒泡
     - 底部圆点指示器，点击跳转，区分激活/可点击样式
-    - requestAnimationFrame FPS 帧率统计，控制台输出性能数据
+    - requestAnimationFrame FPS 帧率统计，UI 实时显示，低于55fps触发降级
+    - 切换计时：从用户触发到图片完全显示（含过渡动画）的完整时间
     - GPU 硬件加速（will-change, transform: translateZ(0)）
 -->
 <script setup lang="ts">
@@ -57,10 +58,12 @@ const startTranslateX = ref(0)
 const startTranslateY = ref(0)
 const isImageLoaded = ref(false)
 const hasImageError = ref(false)
+const isTransitionComplete = ref(false)
 
 const MIN_SCALE = 1
 const MAX_SCALE = 5
 const SCALE_STEP = 0.15
+const TRANSITION_DURATION = 300
 
 let lastPinchDistance = 0
 let lastTouchTime = 0
@@ -69,8 +72,11 @@ const TOUCH_THROTTLE_MS = 16
 let fpsFrameCount = 0
 let fpsLastTime = 0
 let fpsAnimId = 0
-let fpsCurrent = 0
+const fpsDisplay = ref(0)
+const isLowFps = ref(false)
+
 let switchStartTime = 0
+let switchAnimTimer: ReturnType<typeof setTimeout> | null = null
 
 const currentImage = computed(() => props.images[props.currentIndex])
 
@@ -78,9 +84,16 @@ const counterText = computed(() => {
   return `第 ${props.currentIndex + 1} 张 / 共 ${props.images.length} 张`
 })
 
+const fpsClass = computed(() => ({
+  'fps-good': fpsDisplay.value >= 55,
+  'fps-warn': fpsDisplay.value > 0 && fpsDisplay.value < 55
+}))
+
 const imageTransform = computed(() => {
   return `translate3d(${translateX.value}px, ${translateY.value}px, 0) scale3d(${scale.value}, ${scale.value}, 1)`
 })
+
+const shouldDisableAnimation = computed(() => isLowFps.value)
 
 const resetTransform = () => {
   scale.value = 1
@@ -88,22 +101,43 @@ const resetTransform = () => {
   translateY.value = 0
 }
 
-const goToPrev = () => {
+const recordSwitchStart = () => {
   switchStartTime = performance.now()
+  isTransitionComplete.value = false
+  if (switchAnimTimer) {
+    clearTimeout(switchAnimTimer)
+    switchAnimTimer = null
+  }
+}
+
+const completeSwitchTiming = () => {
+  if (switchStartTime > 0 && !isTransitionComplete.value) {
+    isTransitionComplete.value = true
+    const elapsed = performance.now() - switchStartTime
+    console.log(
+      `[Lightbox Performance] 图片切换完整时间(含动画): ${elapsed.toFixed(1)}ms` +
+      `${elapsed < 100 ? ' ✅' : ' ⚠️ 超过100ms'}`
+    )
+    switchStartTime = 0
+  }
+}
+
+const goToPrev = () => {
+  recordSwitchStart()
   const newIndex =
     (props.currentIndex - 1 + props.images.length) % props.images.length
   emit('index-change', newIndex)
 }
 
 const goToNext = () => {
-  switchStartTime = performance.now()
+  recordSwitchStart()
   const newIndex = (props.currentIndex + 1) % props.images.length
   emit('index-change', newIndex)
 }
 
 const goToIndex = (index: number) => {
   if (index !== props.currentIndex) {
-    switchStartTime = performance.now()
+    recordSwitchStart()
     emit('index-change', index)
   }
 }
@@ -111,16 +145,24 @@ const goToIndex = (index: number) => {
 const handleImageLoad = () => {
   isImageLoaded.value = true
   hasImageError.value = false
-  if (switchStartTime > 0) {
-    const elapsed = performance.now() - switchStartTime
-    console.log(`[Lightbox Performance] 图片切换响应时间: ${elapsed.toFixed(1)}ms${elapsed < 100 ? ' ✅' : ' ⚠️ 超过100ms'}`)
-    switchStartTime = 0
+
+  if (switchAnimTimer) {
+    clearTimeout(switchAnimTimer)
   }
+  switchAnimTimer = setTimeout(() => {
+    completeSwitchTiming()
+    switchAnimTimer = null
+  }, shouldDisableAnimation.value ? 0 : TRANSITION_DURATION)
 }
 
 const handleImageError = () => {
   hasImageError.value = true
   isImageLoaded.value = false
+  completeSwitchTiming()
+}
+
+const handleTransitionEnd = () => {
+  completeSwitchTiming()
 }
 
 const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s))
@@ -173,6 +215,13 @@ const handleMouseUp = () => {
   isDragging.value = false
 }
 
+const getPinchCenter = (touches: TouchList) => {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2
+  }
+}
+
 const getPinchDistance = (touches: TouchList): number => {
   const dx = touches[0].clientX - touches[1].clientX
   const dy = touches[0].clientY - touches[1].clientY
@@ -184,10 +233,9 @@ const handleTouchStart = (e: TouchEvent) => {
   if (e.touches.length === 2) {
     isDragging.value = false
     lastPinchDistance = getPinchDistance(e.touches)
-    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2
-    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2
-    dragStartX.value = cx
-    dragStartY.value = cy
+    const center = getPinchCenter(e.touches)
+    dragStartX.value = center.x
+    dragStartY.value = center.y
     startTranslateX.value = translateX.value
     startTranslateY.value = translateY.value
   } else if (e.touches.length === 1) {
@@ -207,34 +255,36 @@ const handleTouchMove = (e: TouchEvent) => {
   e.stopPropagation()
   if (e.touches.length === 2) {
     isDragging.value = false
+
     const newDist = getPinchDistance(e.touches)
+    const center = getPinchCenter(e.touches)
+
     if (lastPinchDistance > 0) {
       const pinchScale = newDist / lastPinchDistance
-      const newScale = clampScale(scale.value * pinchScale)
-
-      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2
-      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2
+      const oldScale = scale.value
+      const newScale = clampScale(oldScale * pinchScale)
 
       if (imageContainerRef.value) {
         const rect = imageContainerRef.value.getBoundingClientRect()
-        const pivotX = cx - rect.left - rect.width / 2
-        const pivotY = cy - rect.top - rect.height / 2
+        const pivotX = center.x - rect.left - rect.width / 2
+        const pivotY = center.y - rect.top - rect.height / 2
 
-        const scaleRatio = newScale / scale.value
-        translateX.value = pivotX - (pivotX - translateX.value) * scaleRatio
-        translateY.value = pivotY - (pivotY - translateY.value) * scaleRatio
+        const scaleRatio = newScale / oldScale
+        const newTx = pivotX - (pivotX - translateX.value) * scaleRatio
+        const newTy = pivotY - (pivotY - translateY.value) * scaleRatio
+
+        translateX.value = newTx
+        translateY.value = newTy
       }
 
       scale.value = newScale
     }
-    lastPinchDistance = newDist
 
-    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2
-    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2
+    lastPinchDistance = newDist
     startTranslateX.value = translateX.value
     startTranslateY.value = translateY.value
-    dragStartX.value = cx
-    dragStartY.value = cy
+    dragStartX.value = center.x
+    dragStartY.value = center.y
   } else if (e.touches.length === 1 && isDragging.value) {
     const now = performance.now()
     if (now - lastTouchTime < TOUCH_THROTTLE_MS) return
@@ -288,8 +338,13 @@ const fpsLoop = (timestamp: number) => {
   }
   const elapsed = timestamp - fpsLastTime
   if (elapsed >= 1000) {
-    fpsCurrent = Math.round((fpsFrameCount * 1000) / elapsed)
-    console.log(`[Lightbox FPS] 当前帧率: ${fpsCurrent}fps${fpsCurrent >= 55 ? ' ✅' : ' ⚠️ 低于55fps'}`)
+    const current = Math.round((fpsFrameCount * 1000) / elapsed)
+    fpsDisplay.value = current
+    isLowFps.value = current < 55
+    console.log(
+      `[Lightbox FPS] 当前帧率: ${current}fps` +
+      `${current >= 55 ? ' ✅' : ' ⚠️ 低于55fps - 已触发降级策略'}`
+    )
     fpsFrameCount = 0
     fpsLastTime = timestamp
   }
@@ -299,6 +354,8 @@ const fpsLoop = (timestamp: number) => {
 const startFpsMonitor = () => {
   fpsLastTime = 0
   fpsFrameCount = 0
+  fpsDisplay.value = 0
+  isLowFps.value = false
   fpsAnimId = requestAnimationFrame(fpsLoop)
   console.log('[Lightbox FPS] 性能监控已启动')
 }
@@ -308,6 +365,10 @@ const stopFpsMonitor = () => {
     cancelAnimationFrame(fpsAnimId)
     fpsAnimId = 0
   }
+  if (switchAnimTimer) {
+    clearTimeout(switchAnimTimer)
+    switchAnimTimer = null
+  }
   console.log('[Lightbox FPS] 性能监控已停止')
 }
 
@@ -316,6 +377,7 @@ watch(
   () => {
     isImageLoaded.value = false
     hasImageError.value = false
+    isTransitionComplete.value = false
     resetTransform()
     nextTick(() => {
       if (imageRef.value && imageRef.value.complete) {
@@ -330,7 +392,7 @@ onMounted(() => {
     overlayRef.value.focus()
   }
 
-  switchStartTime = performance.now()
+  recordSwitchStart()
   startFpsMonitor()
 })
 
@@ -343,10 +405,15 @@ onBeforeUnmount(() => {
   <div
     ref="overlayRef"
     class="lightbox-overlay"
+    :class="{ 'low-fps': isLowFps }"
     tabindex="-1"
     @click="handleBgClick"
     @keydown="handleKeydown"
   >
+    <div class="fps-indicator" :class="fpsClass">
+      {{ fpsDisplay > 0 ? fpsDisplay + ' FPS' : '-- FPS' }}
+    </div>
+
     <div class="lightbox-header">
       <div class="header-content">
         <span class="counter">{{ counterText }}</span>
@@ -400,9 +467,10 @@ onBeforeUnmount(() => {
             transform: imageTransform,
             opacity: isImageLoaded ? 1 : 0
           }"
-          class="lightbox-image"
+          :class="['lightbox-image', { 'no-transition': shouldDisableAnimation }]"
           @load="handleImageLoad"
           @error="handleImageError"
+          @transitionend="handleTransitionEnd"
           draggable="false"
         />
       </div>
@@ -448,8 +516,60 @@ onBeforeUnmount(() => {
   outline: none;
 }
 
+.lightbox-overlay.low-fps {
+  backdrop-filter: none;
+}
+
+.lightbox-overlay.low-fps .lightbox-image {
+  transition: none !important;
+}
+
+.lightbox-overlay.low-fps .nav-btn {
+  transition: none !important;
+}
+
+.lightbox-overlay.low-fps .indicator-dot {
+  transition: none !important;
+}
+
+.lightbox-overlay.low-fps .close-btn {
+  transition: none !important;
+}
+
 .lightbox-overlay:focus-visible {
   outline: none;
+}
+
+.fps-indicator {
+  position: fixed;
+  top: 16px;
+  right: 72px;
+  z-index: 1001;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  letter-spacing: 0.5px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+
+.fps-indicator.fps-good {
+  color: #66bb6a;
+  border-color: rgba(102, 187, 106, 0.3);
+}
+
+.fps-indicator.fps-warn {
+  color: #ff7043;
+  border-color: rgba(255, 112, 67, 0.3);
+  animation: fps-pulse 1s ease-in-out infinite;
+}
+
+@keyframes fps-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .lightbox-header {
@@ -552,6 +672,10 @@ onBeforeUnmount(() => {
   -webkit-user-drag: none;
   pointer-events: none;
   backface-visibility: hidden;
+}
+
+.lightbox-image.no-transition {
+  transition: none !important;
 }
 
 .dragging .lightbox-image {
@@ -761,6 +885,13 @@ onBeforeUnmount(() => {
   .indicator-dot.active {
     width: 24px;
     height: 8px;
+  }
+
+  .fps-indicator {
+    top: 12px;
+    right: 56px;
+    font-size: 11px;
+    padding: 3px 8px;
   }
 }
 </style>

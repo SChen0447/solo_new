@@ -11,9 +11,9 @@
 
   功能：
     - IntersectionObserver 实现懒加载：图片进入视口 200px 范围后才开始加载
-    - 渐进式加载：先显示低分辨率模糊占位图，缩略图加载完成后淡入替换
+    - 渐进式加载：先显示 base64 内联 SVG 占位图（零网络延迟），缩略图加载完成后淡入替换
     - 加载失败时显示错误状态占位
-    - CSS Grid auto-fill + minmax 实现自适应响应式列数
+    - 媒体查询明确指定列数：桌面4列、平板3列、移动端2列
 -->
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
@@ -103,7 +103,7 @@ onBeforeUnmount(() => {
     >
       <div class="thumbnail-wrapper">
         <img
-          :src="img.placeholderUrl"
+          :src="img.placeholderBase64"
           :alt="''"
           class="thumbnail-placeholder-img"
         />
@@ -137,7 +137,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .thumbnail-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
 
@@ -172,9 +172,9 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: blur(20px);
-  transform: scale(1.2);
-  opacity: 0.6;
+  filter: blur(10px);
+  transform: scale(1.1);
+  opacity: 0.7;
   transition: opacity 0.6s var(--ease);
   pointer-events: none;
 }
@@ -270,16 +270,16 @@ onBeforeUnmount(() => {
   color: var(--text-primary);
 }
 
-@media (max-width: 1024px) {
+@media (min-width: 601px) and (max-width: 1024px) {
   .thumbnail-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
   }
 }
 
 @media (max-width: 600px) {
   .thumbnail-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
 
