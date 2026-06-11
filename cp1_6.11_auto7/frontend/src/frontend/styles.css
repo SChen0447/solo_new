@@ -1,0 +1,94 @@
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font-family: inherit;
+}
+
+input, textarea {
+  font-family: inherit;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(63, 81, 181, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(63, 81, 181, 0.5);
+}
+
+/* 移动端响应式 - 768px以下 */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed !important;
+    z-index: 200;
+    width: 100% !important;
+    min-width: 100% !important;
+    transform: translateX(0);
+    transition: transform 0.3s ease !important;
+  }
+
+  .sidebar.closed {
+    transform: translateX(-100%);
+  }
+
+  .mobile-topbar {
+    display: block !important;
+  }
+
+  .content-area {
+    padding: 20px 16px !important;
+    width: 100%;
+  }
+
+  .main-layout {
+    flex-direction: column;
+  }
+
+  h1 {
+    font-size: 22px !important;
+  }
+
+  h2 {
+    font-size: 18px !important;
+  }
+}
+
+/* 涟漪动画增强 */
+button:active {
+  transform: scale(0.98);
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+/* 选择高亮 */
+::selection {
+  background: rgba(63, 81, 181, 0.2);
+}
