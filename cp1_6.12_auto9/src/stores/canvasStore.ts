@@ -68,6 +68,7 @@ interface CanvasStore extends CanvasStateData {
   exportJSON: () => string;
   clearAll: () => void;
   getFilteredBlocks: () => Block[];
+  commitHistory: () => void;
 }
 
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
@@ -78,7 +79,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   searchQuery: '',
   filterType: 'all',
 
-  _commitHistory() {
+  commitHistory: () => {
     const state = get();
     const past = [...state.history.past, state.blocks];
     if (past.length > MAX_HISTORY) past.shift();
@@ -86,7 +87,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   createStickyNote: (x: number, y: number, content?: string) => {
-    get()._commitHistory();
+    get().commitHistory();
     const id = uuidv4();
     const maxZ = get().blocks.reduce((m, b) => Math.max(m, b.zIndex), 0);
     const block: StickyNoteBlock = {
@@ -110,7 +111,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   createImageBlock: (x, y, src, originalWidth, originalHeight, width, height) => {
-    get()._commitHistory();
+    get().commitHistory();
     const id = uuidv4();
     const maxZ = get().blocks.reduce((m, b) => Math.max(m, b.zIndex), 0);
     let w = width ?? DEFAULT_IMAGE_SIZE.width;
@@ -143,7 +144,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   deleteBlock: (id) => {
-    get()._commitHistory();
+    get().commitHistory();
     set((s) => {
       const newState = {
         blocks: s.blocks.filter((b) => b.id !== id),
@@ -274,7 +275,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   clearAll: () => {
-    get()._commitHistory();
+    get().commitHistory();
     set({ blocks: [], selectedBlockId: null });
     saveToStorage(get() as CanvasStateData);
   },

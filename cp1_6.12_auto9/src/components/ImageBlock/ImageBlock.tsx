@@ -360,13 +360,13 @@ const CropDialog: React.FC<CropDialogProps> = ({
           <img
             src={src}
             alt=""
+            draggable={false}
             style={{
               width: displayW,
               height: displayH,
               display: 'block',
               userSelect: 'none',
               pointerEvents: 'none',
-              draggable: false,
             }}
           />
           <div
