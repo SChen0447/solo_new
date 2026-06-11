@@ -322,13 +322,18 @@ export class AsteroidManager {
     const baseAngle = Math.atan2(dy, dx);
     const angle = baseAngle + angleOffset;
 
-    const speedMultiplier = 1 + gameTime * GAME_CONFIG.ASTEROID_SPEED_INCREASE;
+    const speedIncrease = gameTime * 0.5;
     const baseSpeed = ASTEROID_CONFIGS[size].speed;
-    const speed = baseSpeed * speedMultiplier;
+    const speed = baseSpeed + speedIncrease;
     const vx = Math.cos(angle) * speed;
     const vy = Math.sin(angle) * speed;
 
-    const containsFragment = size === 'large' && Math.random() < GAME_CONFIG.FRAGMENT_HIDDEN_CHANCE;
+    let containsFragment = false;
+    if (size === 'large') {
+      containsFragment = Math.random() < GAME_CONFIG.FRAGMENT_HIDDEN_CHANCE_LARGE;
+    } else if (size === 'medium') {
+      containsFragment = Math.random() < GAME_CONFIG.FRAGMENT_HIDDEN_CHANCE_MEDIUM;
+    }
 
     const asteroid = new Asteroid(x, y, vx, vy, size, containsFragment);
     this.asteroids.push(asteroid);

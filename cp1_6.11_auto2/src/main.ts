@@ -154,6 +154,7 @@ class Game {
     const mousePos = this.inputManager.getMousePosition();
     this.ship.update(dt, mousePos.x, mousePos.y, this.width, this.height);
     
+    this.ship.consumeEnergy(dt);
     this.gameState.energy = this.ship.energy;
     
     const asteroidResult = this.asteroidManager.update(
@@ -182,8 +183,6 @@ class Game {
         this.fragmentManager.spawn(fragPos.x, fragPos.y);
       }
     }
-    
-    this.fragmentManager.spawnRandom(this.width, this.height, this.ship.x, this.ship.y);
     
     const collected = this.fragmentManager.update(dt, this.ship, this.width, this.height);
     if (collected > 0) {

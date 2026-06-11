@@ -140,109 +140,135 @@ export class Renderer {
   private drawUI(ctx: CanvasRenderingContext2D, gameState: GameState): void {
     const panelX = 20;
     const panelY = 20;
-    const panelWidth = 240;
-    const panelHeight = 140;
-    const padding = 16;
+    const panelWidth = 260;
+    const panelHeight = 150;
+    const padding = 18;
+    const cornerRadius = 14;
 
     ctx.save();
     
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 25;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 6;
+    
     ctx.beginPath();
-    ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 12);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.roundRect(panelX, panelY, panelWidth, panelHeight, cornerRadius);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
-    ctx.lineWidth = 1;
+    
+    ctx.shadowBlur = 0;
+    
+    ctx.beginPath();
+    ctx.roundRect(panelX, panelY, panelWidth, panelHeight, cornerRadius);
+    ctx.strokeStyle = 'rgba(0, 255, 204, 0.4)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
-
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 20;
-    ctx.shadowOffsetY = 4;
+    
+    ctx.save();
     ctx.beginPath();
-    ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 12);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-    ctx.fill();
+    ctx.roundRect(panelX, panelY, panelWidth, panelHeight, cornerRadius);
+    ctx.clip();
+    
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(panelX, panelY + i * 30, panelWidth, 15);
+    }
+    
+    ctx.restore();
     ctx.restore();
 
     const contentX = panelX + padding;
     let contentY = panelY + padding;
 
     ctx.save();
-    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#00ffff';
-    ctx.shadowColor = 'rgba(0, 255, 255, 0.5)';
-    ctx.shadowBlur = 10;
-    ctx.fillText(`得分: ${gameState.score}`, contentX, contentY + 20);
+    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillStyle = '#00ffcc';
+    ctx.shadowColor = 'rgba(0, 255, 204, 0.6)';
+    ctx.shadowBlur = 12;
+    ctx.fillText(`得分: ${gameState.score}`, contentX, contentY + 24);
     ctx.restore();
 
-    contentY += 36;
+    contentY += 40;
 
     ctx.save();
-    ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#00ffff';
-    ctx.fillText('能量', contentX, contentY + 14);
+    ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillStyle = '#00ffcc';
+    ctx.shadowColor = 'rgba(0, 255, 204, 0.4)';
+    ctx.shadowBlur = 6;
+    ctx.fillText('能量', contentX, contentY + 16);
     ctx.restore();
 
-    const barX = contentX + 45;
+    const barX = contentX + 55;
     const barY = contentY;
-    const barWidth = panelWidth - padding * 2 - 45;
-    const barHeight = 16;
+    const barWidth = panelWidth - padding * 2 - 55;
+    const barHeight = 18;
     const energyPercent = gameState.energy / gameState.maxEnergy;
 
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(barX, barY, barWidth, barHeight, 4);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.roundRect(barX, barY, barWidth, barHeight, 5);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.restore();
 
     const energyGradient = ctx.createLinearGradient(barX, barY, barX + barWidth * energyPercent, barY);
     if (energyPercent > 0.5) {
-      energyGradient.addColorStop(0, '#00ffff');
-      energyGradient.addColorStop(1, '#00ccaa');
+      energyGradient.addColorStop(0, '#00ffcc');
+      energyGradient.addColorStop(1, '#00ddaa');
     } else if (energyPercent > 0.25) {
       energyGradient.addColorStop(0, '#ffcc00');
-      energyGradient.addColorStop(1, '#ff9900');
+      energyGradient.addColorStop(1, '#ff9933');
     } else {
-      energyGradient.addColorStop(0, '#ff4444');
-      energyGradient.addColorStop(1, '#ff0000');
+      energyGradient.addColorStop(0, '#ff6666');
+      energyGradient.addColorStop(1, '#ff3333');
     }
 
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(barX + 2, barY + 2, Math.max(0, (barWidth - 4) * energyPercent), barHeight - 4, 2);
+    ctx.roundRect(barX + 2, barY + 2, Math.max(0, (barWidth - 4) * energyPercent), barHeight - 4, 3);
     ctx.fillStyle = energyGradient;
-    ctx.shadowColor = energyPercent > 0.5 ? 'rgba(0, 255, 255, 0.5)' : 'rgba(255, 100, 100, 0.5)';
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = energyPercent > 0.5 ? 'rgba(0, 255, 204, 0.6)' : 'rgba(255, 100, 100, 0.6)';
+    ctx.shadowBlur = 10;
     ctx.fill();
     ctx.restore();
 
-    contentY += 32;
+    ctx.save();
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillStyle = energyPercent > 0.5 ? '#00ffcc' : (energyPercent > 0.25 ? '#ffcc00' : '#ff6666');
+    ctx.textAlign = 'right';
+    ctx.fillText(`${Math.ceil(gameState.energy)}/${gameState.maxEnergy}`, barX + barWidth, barY + barHeight + 18);
+    ctx.restore();
+
+    contentY += 40;
 
     ctx.save();
-    ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#00ffff';
-    ctx.fillText('连击', contentX, contentY + 14);
+    ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillStyle = '#00ffcc';
+    ctx.shadowColor = 'rgba(0, 255, 204, 0.4)';
+    ctx.shadowBlur = 6;
+    ctx.fillText('连击', contentX, contentY + 16);
     ctx.restore();
 
     if (gameState.combo > 1) {
       ctx.save();
       const scale = this.comboAnimScale;
-      ctx.translate(contentX + 45 + 15, contentY + 8);
+      ctx.translate(contentX + 55 + 20, contentY + 8);
       ctx.scale(scale, scale);
-      ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
       ctx.fillStyle = '#ffff00';
       ctx.shadowColor = 'rgba(255, 255, 0, 0.8)';
-      ctx.shadowBlur = 12;
-      ctx.fillText(`${gameState.combo}x`, 0, 10);
+      ctx.shadowBlur = 15;
+      ctx.fillText(`${gameState.combo}x`, 0, 12);
       ctx.restore();
     } else {
       ctx.save();
-      ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
-      ctx.fillText('-', contentX + 45, contentY + 14);
+      ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+      ctx.fillStyle = 'rgba(0, 255, 204, 0.4)';
+      ctx.fillText('-', contentX + 55, contentY + 16);
       ctx.restore();
     }
 
@@ -251,73 +277,91 @@ export class Renderer {
     }
 
     ctx.save();
-    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+    ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillStyle = 'rgba(0, 255, 204, 0.5)';
     ctx.textAlign = 'right';
-    ctx.fillText('空格 / 点击 释放引力波', this.width - 20, this.height - 20);
-    ctx.fillText('R 重新开始', this.width - 20, this.height - 40);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 4;
+    ctx.fillText('空格 / 按住鼠标 释放引力波', this.width - 20, this.height - 20);
+    ctx.fillText('R 键重新开始', this.width - 20, this.height - 42);
     ctx.restore();
   }
 
   private drawGameOver(ctx: CanvasRenderingContext2D, score: number): void {
     const centerX = this.width / 2;
     const centerY = this.height / 2;
-    const panelWidth = 360;
-    const panelHeight = 220;
+    const panelWidth = 380;
+    const panelHeight = 240;
+    const cornerRadius = 18;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.fillRect(0, 0, this.width, this.height);
     ctx.restore();
 
     ctx.save();
+    
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 30;
+    ctx.shadowOffsetY = 8;
+    
     ctx.beginPath();
-    ctx.roundRect(centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, 16);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.roundRect(centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, cornerRadius);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+    
+    ctx.shadowBlur = 0;
+    
+    ctx.beginPath();
+    ctx.roundRect(centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, cornerRadius);
+    ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
     ctx.lineWidth = 2;
     ctx.stroke();
+    
     ctx.restore();
 
     ctx.save();
-    ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ff6666';
-    ctx.shadowColor = 'rgba(255, 100, 100, 0.6)';
-    ctx.shadowBlur = 15;
-    ctx.fillText('游戏结束', centerX, centerY - 60);
+    ctx.shadowColor = 'rgba(255, 100, 100, 0.7)';
+    ctx.shadowBlur = 20;
+    ctx.fillText('游戏结束', centerX, centerY - 70);
     ctx.restore();
 
     ctx.save();
-    ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#00ffff';
-    ctx.shadowColor = 'rgba(0, 255, 255, 0.5)';
-    ctx.shadowBlur = 10;
-    ctx.fillText(`最终得分: ${score}`, centerX, centerY);
+    ctx.fillStyle = '#00ffcc';
+    ctx.shadowColor = 'rgba(0, 255, 204, 0.6)';
+    ctx.shadowBlur = 12;
+    ctx.fillText(`最终得分: ${score}`, centerX, centerY - 10);
     ctx.restore();
 
-    const btnX = centerX - 80;
+    const btnX = centerX - 90;
     const btnY = centerY + 40;
-    const btnWidth = 160;
-    const btnHeight = 44;
+    const btnWidth = 180;
+    const btnHeight = 50;
 
     ctx.save();
+    
+    ctx.shadowColor = 'rgba(0, 255, 204, 0.4)';
+    ctx.shadowBlur = 15;
+    
     ctx.beginPath();
-    ctx.roundRect(btnX, btnY, btnWidth, btnHeight, 8);
-    ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+    ctx.roundRect(btnX, btnY, btnWidth, btnHeight, 10);
+    ctx.fillStyle = 'rgba(0, 255, 204, 0.15)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.6)';
+    ctx.strokeStyle = 'rgba(0, 255, 204, 0.7)';
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
 
     ctx.save();
-    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#00ffff';
-    ctx.shadowColor = 'rgba(0, 255, 255, 0.6)';
+    ctx.fillStyle = '#00ffcc';
+    ctx.shadowColor = 'rgba(0, 255, 204, 0.6)';
     ctx.shadowBlur = 10;
     ctx.fillText('重新开始', centerX, btnY + 30);
     ctx.restore();

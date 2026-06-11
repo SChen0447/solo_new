@@ -11,6 +11,8 @@ export class InputManager {
   private canvas: HTMLCanvasElement;
   private state: InputState;
   private actionListeners: Map<InputAction, () => void>;
+  private dragWaveTimer: number | null;
+  private dragWaveInterval: number;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -21,6 +23,8 @@ export class InputManager {
       keys: new Set()
     };
     this.actionListeners = new Map();
+    this.dragWaveTimer = null;
+    this.dragWaveInterval = 350;
     this.bindEvents();
   }
 
@@ -36,10 +40,17 @@ export class InputManager {
       e.preventDefault();
       this.state.isMouseDown = true;
       this.triggerAction('gravityWave');
+      this.startDragWave();
     });
 
     this.canvas.addEventListener('mouseup', () => {
       this.state.isMouseDown = false;
+      this.stopDragWave();
+    });
+
+    this.canvas.addEventListener('mouseleave', () => {
+      this.state.isMouseDown = false;
+      this.stopDragWave();
     });
 
     this.canvas.addEventListener('click', (e) => {
@@ -82,6 +93,28 @@ export class InputManager {
     if (callback) {
       callback();
     }
+  }
+
+  private startDragWave(): void {
+    if (this.dragWaveTimer !== null) return;
+    this.dragWaveTimer = window.setInterval(() => {
+      if (this.state.isMouseDown) {
+        this.triggerAction('gravityWave');
+      } else {
+        this.stopDragWave();
+      }
+    }, this.dragWaveInterval);
+  }
+
+  private stopDragWave(): void {
+    if (this.dragWaveTimer !== null) {
+      clearInterval(this.dragWaveTimer);
+      this.dragWaveTimer = null;
+    }
+  }
+
+  destroy(): void {
+    this.stopDragWave();
   }
 
   getMousePosition(): { x: number; y: number } {

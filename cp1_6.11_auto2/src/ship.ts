@@ -45,6 +45,11 @@ export class Ship {
     this.angle = -Math.PI / 2;
   }
 
+  consumeEnergy(dt: number): void {
+    this.energy -= GAME_CONFIG.ENERGY_DRAIN_RATE * dt;
+    this.energy = Math.max(0, this.energy);
+  }
+
   update(dt: number, mouseX: number, mouseY: number, width: number, height: number): void {
     this.targetX = Math.max(GAME_CONFIG.SHIP_RADIUS, Math.min(width - GAME_CONFIG.SHIP_RADIUS, mouseX));
     this.targetY = Math.max(GAME_CONFIG.SHIP_RADIUS, Math.min(height - GAME_CONFIG.SHIP_RADIUS, mouseY));
@@ -68,9 +73,6 @@ export class Ship {
     for (let i = 0; i < this.trail.length; i++) {
       this.trail[i].alpha = Math.max(0, 1 - i / 20);
     }
-
-    this.energy -= GAME_CONFIG.ENERGY_DRAIN_RATE * dt;
-    this.energy = Math.max(0, this.energy);
 
     if (this.gravityWaveActive) {
       this.gravityWaveRadius += GAME_CONFIG.GRAVITY_WAVE_SPEED * dt;
