@@ -11,10 +11,12 @@ interface AppStore {
   cumulative: CumulativePoint[];
   zoomLevel: ZoomLevel;
   selectedTaskId: string | null;
+  selectedDependencyId: string | null;
   loading: boolean;
 
   setZoomLevel: (level: ZoomLevel) => void;
   setSelectedTaskId: (id: string | null) => void;
+  setSelectedDependencyId: (id: string | null) => void;
   loadTasks: () => Promise<void>;
   loadDependencies: () => Promise<void>;
   loadTimeEntries: (params?: { taskId?: string; date?: string }) => Promise<void>;
@@ -24,6 +26,7 @@ interface AppStore {
 
   addTask: (task: Partial<Task>) => Promise<void>;
   editTask: (id: string, task: Partial<Task>) => Promise<void>;
+  editTasks: (tasks: Task[]) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
   addDependency: (dep: Partial<Dependency>) => Promise<void>;
   removeDependency: (id: string) => Promise<void>;
@@ -39,10 +42,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   cumulative: [],
   zoomLevel: 'week',
   selectedTaskId: null,
+  selectedDependencyId: null,
   loading: false,
 
   setZoomLevel: (level) => set({ zoomLevel: level }),
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
+  setSelectedDependencyId: (id) => set({ selectedDependencyId: id }),
 
   loadTasks: async () => {
     const tasks = await api.fetchTasks();
@@ -83,6 +88,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const updated = await api.updateTask(id, task);
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
+    }));
+  },
+
+  editTasks: async (tasks) => {
+    const updated = await api.batchUpdateTasks(tasks);
+    set((s) => ({
+      tasks: s.tasks.map((t) => {
+        const u = updated.find((x) => x.id === t.id);
+        return u || t;
+      }),
     }));
   },
 
