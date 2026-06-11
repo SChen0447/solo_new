@@ -13,6 +13,7 @@ export interface Work {
   liked: boolean;
   comments: Comment[];
   createdAt: string;
+  width: number;
   height: number;
 }
 
