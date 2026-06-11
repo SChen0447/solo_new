@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
-import type { Survey, Question, QuestionType, Option, QuestionResponse } from './types';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import type { Survey, Question, QuestionType } from './types';
 
 const API = '/api/surveys';
 
@@ -22,9 +22,13 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
   const [newSurveyTitle, setNewSurveyTitle] = useState('');
   const [currentSurvey, setCurrentSurvey] = useState<Survey | null>(survey);
   const [showPublishLink, setShowPublishLink] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [isDragOverPreview, setIsDragOverPreview] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const ghostRef = useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentSurvey(survey);
   }, [survey]);
 
@@ -57,15 +61,42 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
 
   const handleDragStart = useCallback((type: QuestionType) => {
     setDragType(type);
+    setIsDragging(true);
   }, []);
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      setDragPosition({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [isDragging]);
 
   const handleDragOver = useCallback(
     (e: React.DragEvent, index: number) => {
       e.preventDefault();
-      if (dragType) setDropIndex(index);
+      if (dragType) {
+        setDropIndex(index);
+        setIsDragOverPreview(true);
+      }
     },
     [dragType]
   );
+
+  const handlePreviewDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      if (dragType) {
+        setIsDragOverPreview(true);
+      }
+    },
+    [dragType]
+  );
+
+  const handlePreviewDragLeave = useCallback(() => {
+    setIsDragOverPreview(false);
+  }, []);
 
   const handleDrop = useCallback(
     async (e: React.DragEvent, index: number) => {
@@ -75,6 +106,22 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
       await apiCall('/questions', 'POST', { type, index });
       setDragType(null);
       setDropIndex(null);
+      setIsDragging(false);
+      setIsDragOverPreview(false);
+    },
+    [apiCall, currentSurvey]
+  );
+
+  const handlePreviewDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData('questionType') as QuestionType;
+      if (!type || !currentSurvey) return;
+      await apiCall('/questions', 'POST', { type, index: currentSurvey.questions.length });
+      setDragType(null);
+      setDropIndex(null);
+      setIsDragging(false);
+      setIsDragOverPreview(false);
     },
     [apiCall, currentSurvey]
   );
@@ -82,6 +129,8 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
   const handleDragEnd = useCallback(() => {
     setDragType(null);
     setDropIndex(null);
+    setIsDragging(false);
+    setIsDragOverPreview(false);
   }, []);
 
   const handleAddQuestion = useCallback(
@@ -180,6 +229,7 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
           draggable
           onDragStart={(e) => {
             e.dataTransfer.setData('questionType', qt.type);
+            e.dataTransfer.effectAllowed = 'copy';
             handleDragStart(qt.type);
           }}
           onDragEnd={handleDragEnd}
@@ -187,6 +237,7 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
           style={{
             ...styles.typeBtn,
             opacity: dragType === qt.type ? 0.5 : 1,
+            transform: dragType === qt.type ? 'scale(0.98)' : 'scale(1)',
           }}
         >
           <span style={styles.typeIcon}>{qt.icon}</span>
@@ -222,13 +273,29 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
     </div>
   );
 
+  const ghostInfo = dragType ? QUESTION_TYPES.find((qt) => qt.type === dragType) : null;
+
   return (
-    <div style={styles.editorLayout}>
-      <button style={styles.drawerToggle} onClick={() => setDrawerOpen(!drawerOpen)}>
+    <div className="editor-layout" style={styles.editorLayout}>
+      {isDragging && ghostInfo && (
+        <div
+          ref={ghostRef}
+          style={{
+            ...styles.dragGhost,
+            left: dragPosition.x + 15,
+            top: dragPosition.y + 15,
+          }}
+        >
+          <span style={styles.dragGhostIcon}>{ghostInfo.icon}</span>
+          <span>{ghostInfo.label}</span>
+        </div>
+      )}
+      <button className="drawer-toggle" style={styles.drawerToggle} onClick={() => setDrawerOpen(!drawerOpen)}>
         ☰
       </button>
-      {drawerOpen && <div style={styles.drawerOverlay} onClick={() => setDrawerOpen(false)} />}
+      {drawerOpen && <div className="drawer-overlay" style={styles.drawerOverlay} onClick={() => setDrawerOpen(false)} />}
       <div
+        className={`sidebar ${drawerOpen ? 'drawer-open' : ''}`}
         style={{
           ...styles.sidebar,
           ...(drawerOpen ? styles.drawerOpen : {}),
@@ -236,7 +303,7 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
       >
         {sidebarContent}
       </div>
-      <div style={styles.mainContent} ref={previewRef}>
+      <div className="main-content" style={styles.mainContent} ref={previewRef}>
         <div style={styles.surveyHeader}>
           <input
             style={styles.surveyTitleInput}
@@ -246,13 +313,13 @@ export default function Editor({ survey, onSurveyUpdate }: EditorProps) {
           />
         </div>
         <div
-          style={styles.dropZone}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDropIndex(currentSurvey.questions.length);
+          style={{
+            ...styles.dropZone,
+            ...(isDragOverPreview ? styles.dropZoneHighlight : {}),
           }}
-          onDrop={(e) => handleDrop(e, currentSurvey.questions.length)}
-          onDragLeave={() => setDropIndex(null)}
+          onDragOver={handlePreviewDragOver}
+          onDrop={handlePreviewDrop}
+          onDragLeave={handlePreviewDragLeave}
         >
           {currentSurvey.questions.length === 0 && (
             <div style={styles.emptyHint}>从左侧拖拽题目类型到此处</div>
@@ -430,6 +497,27 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#f5f7fa',
     position: 'relative' as const,
   },
+  dragGhost: {
+    position: 'fixed' as const,
+    zIndex: 10000,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '10px 18px',
+    background: 'rgba(74, 144, 217, 0.85)',
+    color: '#fff',
+    borderRadius: 10,
+    fontSize: 14,
+    fontWeight: 600,
+    pointerEvents: 'none' as const,
+    boxShadow: '0 4px 16px rgba(74, 144, 217, 0.4)',
+    backdropFilter: 'blur(4px)',
+    opacity: 0.8,
+    transform: 'translate(0, 0)',
+  },
+  dragGhostIcon: {
+    fontSize: 18,
+  },
   drawerToggle: {
     display: 'none',
     position: 'fixed' as const,
@@ -486,8 +574,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     color: '#3b6cb5',
     cursor: 'grab',
-    transition: 'transform 0.15s, box-shadow 0.15s',
+    transition: 'transform 0.15s cubic-bezier(0.4,0,0.2,1), box-shadow 0.15s cubic-bezier(0.4,0,0.2,1), opacity 0.15s',
     fontWeight: 500,
+    userSelect: 'none' as const,
   },
   typeIcon: {
     fontSize: 20,
@@ -546,10 +635,18 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#1a1a2e',
     padding: '8px 0',
     borderBottom: '2px solid transparent',
-    transition: 'border-color 0.2s',
+    transition: 'border-color 0.2s cubic-bezier(0.4,0,0.2,1)',
   },
   dropZone: {
     minHeight: 400,
+    transition: 'border-color 0.2s cubic-bezier(0.4,0,0.2,1), background-color 0.2s cubic-bezier(0.4,0,0.2,1)',
+    border: '2px dashed transparent',
+    borderRadius: 12,
+    padding: 4,
+  },
+  dropZoneHighlight: {
+    borderColor: '#4a90d9',
+    backgroundColor: 'rgba(74, 144, 217, 0.05)',
   },
   emptyHint: {
     textAlign: 'center' as const,
@@ -564,7 +661,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#4a90d9',
     borderRadius: 2,
     margin: '4px 0',
-    transition: 'all 0.15s',
+    transition: 'all 0.15s cubic-bezier(0.4,0,0.2,1)',
   },
   questionCard: {
     background: '#fff',
@@ -574,7 +671,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 16,
     boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
     borderLeft: '4px solid #4a90d9',
-    transition: 'box-shadow 0.2s, transform 0.2s',
+    transition: 'box-shadow 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.4,0,0.2,1)',
     cursor: 'pointer',
   },
   questionHeader: {
@@ -616,7 +713,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     padding: '4px 8px',
     borderRadius: 6,
-    transition: 'color 0.15s, background 0.15s',
+    transition: 'color 0.15s cubic-bezier(0.4,0,0.2,1), background 0.15s cubic-bezier(0.4,0,0.2,1)',
   },
   ratingPreview: {
     display: 'flex',
@@ -683,24 +780,32 @@ const styles: Record<string, React.CSSProperties> = {
 const mobileMediaQuery = '@media (max-width: 1023px)';
 const globalStyle = document.createElement('style');
 globalStyle.textContent = `
+  * {
+    box-sizing: border-box;
+  }
   ${mobileMediaQuery} {
+    .editor-layout {
+      min-width: 1024px !important;
+    }
     .editor-layout .drawer-toggle { display: block !important; }
     .editor-layout .sidebar {
-      position: fixed;
-      top: 0; left: 0; bottom: 0;
-      z-index: 1000;
-      transform: translateX(-100%);
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      bottom: 0 !important;
+      z-index: 1000 !important;
+      transform: translateX(-100%) !important;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     .editor-layout .drawer-open {
-      transform: translateX(0);
+      transform: translateX(0) !important;
     }
     .editor-layout .drawer-overlay {
       display: block !important;
     }
     .editor-layout .main-content {
-      flex: 1;
-      padding: 60px 16px 16px;
+      flex: 1 !important;
+      padding: 60px 16px 16px !important;
     }
   }
 `;

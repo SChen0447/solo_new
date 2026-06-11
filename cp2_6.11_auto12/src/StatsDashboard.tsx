@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   PieChart,
   Pie,
@@ -19,15 +19,27 @@ interface StatsDashboardProps {
   wsMessages: WSMessage[];
 }
 
+interface RecentRecord {
+  id: string;
+  text: string;
+  isNew: boolean;
+}
+
 export default function StatsDashboard({ survey, wsMessages }: StatsDashboardProps) {
   const [responses, setResponses] = useState<SurveyResponse[]>([]);
   const [showResetNotice, setShowResetNotice] = useState(false);
+  const [resetNoticeKey, setResetNoticeKey] = useState(0);
+  const prevLengthRef = useRef(0);
+  const processedMsgIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!survey) return;
     fetch(`/api/surveys/${survey.id}/responses`)
       .then((r) => r.json())
-      .then((data: SurveyResponse[]) => setResponses(data))
+      .then((data: SurveyResponse[]) => {
+        setResponses(data);
+        prevLengthRef.current = data.length;
+      })
       .catch(() => {});
   }, [survey]);
 
@@ -36,13 +48,16 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
     for (const msg of wsMessages) {
       if (msg.type === 'new_response') {
         const resp = msg.payload as SurveyResponse;
-        if (resp.surveyId === survey.id) {
+        if (resp.surveyId === survey.id && !processedMsgIds.current.has(resp.id)) {
+          processedMsgIds.current.add(resp.id);
           setResponses((prev) => [...prev, resp]);
         }
       } else if (msg.type === 'survey_reset') {
         const payload = msg.payload as { surveyId: string };
         if (payload.surveyId === survey.id) {
           setResponses([]);
+          prevLengthRef.current = 0;
+          setResetNoticeKey((k) => k + 1);
           setShowResetNotice(true);
         }
       }
@@ -53,7 +68,7 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
     if (!showResetNotice) return;
     const timer = setTimeout(() => setShowResetNotice(false), 5000);
     return () => clearTimeout(timer);
-  }, [showResetNotice]);
+  }, [showResetNotice, resetNoticeKey]);
 
   const totalCount = responses.length;
 
@@ -62,7 +77,8 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
     return survey.questions.map((q) => {
       if (q.type === 'rating') {
         const dist = [0, 0, 0, 0, 0];
-        const recentTexts: string[] = [];
+        const recentRecords: RecentRecord[] = [];
+        const recentResponses = [...responses].reverse().slice(0, 10);
         for (const resp of responses) {
           const ans = resp.answers.find((a) => a.questionId === q.id);
           if (ans && ans.ratingValue !== undefined) {
@@ -70,24 +86,28 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
             dist[idx]++;
           }
         }
-        const recentResponses = [...responses].reverse().slice(0, 10);
         for (const resp of recentResponses) {
           const ans = resp.answers.find((a) => a.questionId === q.id);
           if (ans && ans.ratingValue !== undefined) {
-            recentTexts.push(`评分为${ans.ratingValue}分`);
+            recentRecords.push({
+              id: `${resp.id}-${q.id}`,
+              text: `评分为${ans.ratingValue}分`,
+              isNew: false,
+            });
           }
         }
         const chartData = dist.map((count, i) => ({
           name: `${i + 1}分`,
           value: count,
         }));
-        return { question: q, chartType: 'bar' as const, chartData, recentTexts };
+        return { question: q, chartType: 'bar' as const, chartData, recentRecords };
       } else {
         const optionCounts: Record<string, number> = {};
         for (const opt of q.options) {
           optionCounts[opt.id] = 0;
         }
-        const recentTexts: string[] = [];
+        const recentRecords: RecentRecord[] = [];
+        const recentResponses = [...responses].reverse().slice(0, 10);
         for (const resp of responses) {
           const ans = resp.answers.find((a) => a.questionId === q.id);
           if (ans) {
@@ -96,7 +116,6 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
             }
           }
         }
-        const recentResponses = [...responses].reverse().slice(0, 10);
         for (const resp of recentResponses) {
           const ans = resp.answers.find((a) => a.questionId === q.id);
           if (ans && ans.selectedOptionIds.length > 0) {
@@ -107,7 +126,11 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
               })
               .filter(Boolean);
             if (selectedTexts.length > 0) {
-              recentTexts.push(`用户选择了${selectedTexts.join('、')}`);
+              recentRecords.push({
+                id: `${resp.id}-${q.id}`,
+                text: `用户选择了${selectedTexts.join('、')}`,
+                isNew: false,
+              });
             }
           }
         }
@@ -116,7 +139,7 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
           value: optionCounts[opt.id] || 0,
           color: COLORS[i % COLORS.length],
         }));
-        return { question: q, chartType: 'pie' as const, chartData, recentTexts };
+        return { question: q, chartType: 'pie' as const, chartData, recentRecords };
       }
     });
   }, [survey, responses]);
@@ -134,7 +157,9 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
   return (
     <div style={styles.dashboard}>
       {showResetNotice && (
-        <div style={styles.resetNotice}>问卷已重置，所有填写数据已清空</div>
+        <div key={resetNoticeKey} style={styles.resetNotice}>
+          问卷已重置，所有填写数据已清空
+        </div>
       )}
       <div style={styles.summaryBar}>
         <div style={styles.summaryItem}>
@@ -166,6 +191,7 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
                       dataKey="value"
                       animationDuration={300}
                       animationEasing="ease-out"
+                      isAnimationActive={true}
                     >
                       {stat.chartData.map((entry, i) => (
                         <Cell key={i} fill={entry.color || COLORS[i % COLORS.length]} />
@@ -186,6 +212,7 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
                       radius={[6, 6, 0, 0]}
                       animationDuration={300}
                       animationEasing="ease-out"
+                      isAnimationActive={true}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -193,18 +220,18 @@ export default function StatsDashboard({ survey, wsMessages }: StatsDashboardPro
             </div>
             <div style={styles.recentList}>
               <div style={styles.recentListTitle}>最近填写记录</div>
-              {stat.recentTexts.length === 0 && (
+              {stat.recentRecords.length === 0 && (
                 <div style={styles.noRecords}>暂无填写记录</div>
               )}
-              {stat.recentTexts.map((text, i) => (
+              {stat.recentRecords.map((record, i) => (
                 <div
-                  key={i}
+                  key={record.id}
                   style={{
                     ...styles.recentItem,
                     animation: i === 0 ? 'fadeSlideIn 0.3s cubic-bezier(0.4,0,0.2,1)' : undefined,
                   }}
                 >
-                  {text}
+                  {record.text}
                 </div>
               ))}
             </div>
@@ -349,5 +376,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#374151',
     padding: '4px 0',
     borderBottom: '1px solid #f9fafb',
+    transition: 'opacity 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)',
   },
 };

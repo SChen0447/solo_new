@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { atom, useAtom } from 'jotai';
-import type { Survey, WSMessage, QuestionResponse } from './types';
+import type { Survey, WSMessage } from './types';
 import Editor from './Editor';
 import StatsDashboard from './StatsDashboard';
 import FillSurvey from './FillSurvey';
@@ -8,7 +8,6 @@ import FillSurvey from './FillSurvey';
 const surveyAtom = atom<Survey | null>(null);
 const wsMessagesAtom = atom<WSMessage[]>([]);
 const currentViewAtom = atom<'editor' | 'dashboard'>('editor');
-const currentSurveyIdAtom = atom<string | null>(null);
 
 function useHashRouter() {
   const [hash, setHash] = useState(window.location.hash || '#/');
@@ -25,6 +24,7 @@ export default function App() {
   const [survey, setSurvey] = useAtom(surveyAtom);
   const [wsMessages, setWsMessages] = useAtom(wsMessagesAtom);
   const [currentView, setCurrentView] = useAtom(currentViewAtom);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -76,12 +76,20 @@ export default function App() {
   }
 
   return (
-    <div style={styles.appContainer}>
-      <nav style={styles.navbar}>
-        <div style={styles.navBrand}>📋 问卷系统</div>
-        <div style={styles.navLinks}>
+    <div className="app-container" style={styles.appContainer}>
+      <nav className="navbar" style={styles.navbar}>
+        <button className="mobile-drawer-toggle" style={styles.mobileDrawerToggle} onClick={() => setDrawerOpen(!drawerOpen)}>
+          ☰
+        </button>
+        {drawerOpen && <div className="mobile-drawer-overlay" style={styles.mobileDrawerOverlay} onClick={() => setDrawerOpen(false)} />}
+        <div className="nav-brand" style={styles.navBrand}>📋 问卷系统</div>
+        <div className={`nav-links ${drawerOpen ? 'nav-drawer-open' : ''}`} style={{
+          ...styles.navLinks,
+          ...(drawerOpen ? styles.navDrawerOpen : {}),
+        }}>
           <a
             href="#/editor"
+            onClick={() => setDrawerOpen(false)}
             style={{
               ...styles.navLink,
               ...(currentView === 'editor' ? styles.navLinkActive : {}),
@@ -91,6 +99,7 @@ export default function App() {
           </a>
           <a
             href="#/dashboard"
+            onClick={() => setDrawerOpen(false)}
             style={{
               ...styles.navLink,
               ...(currentView === 'dashboard' ? styles.navLinkActive : {}),
@@ -117,6 +126,29 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: '100vh',
     background: '#f5f7fa',
     minWidth: 1024,
+    position: 'relative' as const,
+  },
+  mobileDrawerToggle: {
+    display: 'none',
+    position: 'fixed' as const,
+    top: 10,
+    left: 12,
+    zIndex: 1002,
+    background: '#4a90d9',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    width: 36,
+    height: 36,
+    fontSize: 18,
+    cursor: 'pointer',
+  },
+  mobileDrawerOverlay: {
+    display: 'none',
+    position: 'fixed' as const,
+    inset: 0,
+    background: 'rgba(0,0,0,0.3)',
+    zIndex: 998,
   },
   navbar: {
     display: 'flex',
@@ -138,7 +170,9 @@ const styles: Record<string, React.CSSProperties> = {
   navLinks: {
     display: 'flex',
     gap: 8,
+    transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
   },
+  navDrawerOpen: {},
   navLink: {
     padding: '8px 20px',
     borderRadius: 8,
@@ -156,3 +190,56 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
   },
 };
+
+const mobileMediaQuery = '@media (max-width: 1023px)';
+const globalStyle = document.createElement('style');
+globalStyle.textContent = `
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  ${mobileMediaQuery} {
+    .app-container {
+      min-width: 1024px !important;
+      overflow-x: auto;
+    }
+    .app-container .mobile-drawer-toggle {
+      display: block !important;
+    }
+    .app-container .mobile-drawer-overlay {
+      display: block !important;
+    }
+    .app-container .navbar {
+      padding-left: 60px !important;
+      padding-right: 16px !important;
+    }
+    .app-container .nav-links {
+      position: fixed !important;
+      top: 0 !important;
+      right: 0 !important;
+      width: 260px !important;
+      height: 100vh !important;
+      background: #fff !important;
+      flex-direction: column !important;
+      padding: 70px 20px 20px !important;
+      gap: 4px !important;
+      z-index: 1001 !important;
+      box-shadow: -4px 0 16px rgba(0,0,0,0.1) !important;
+      transform: translateX(100%) !important;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .app-container .nav-drawer-open {
+      transform: translateX(0) !important;
+    }
+    .app-container .nav-link {
+      display: block !important;
+      padding: 14px 16px !important;
+      border-radius: 8px !important;
+    }
+  }
+`;
+document.head.appendChild(globalStyle);
