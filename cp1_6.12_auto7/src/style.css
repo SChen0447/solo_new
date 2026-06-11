@@ -349,6 +349,10 @@ html, body, #root {
   position: relative;
   overflow: hidden;
   background: #0a0a0a;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .annotator-container {
@@ -356,6 +360,8 @@ html, body, #root {
   height: 100%;
   position: relative;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .annotator-canvas {
@@ -366,6 +372,7 @@ html, body, #root {
   image-rendering: auto;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: none;
 }
 
 .note-badge {
@@ -573,11 +580,14 @@ html, body, #root {
 @media (max-width: 768px) {
   .main-layout {
     flex-direction: column;
+    height: 100%;
+    min-height: 0;
   }
 
   .toolbar {
     width: 100%;
     height: auto;
+    max-height: 96px;
     flex-direction: row;
     border-right: none;
     border-top: 1px solid var(--border);
@@ -586,6 +596,22 @@ html, body, #root {
     overflow-x: auto;
     overflow-y: hidden;
     order: 2;
+    flex-shrink: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .toolbar::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .toolbar::-webkit-scrollbar-track {
+    background: var(--bg-light);
+  }
+
+  .toolbar::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 2px;
   }
 
   .toolbar-group {
@@ -595,6 +621,8 @@ html, body, #root {
     padding-right: 12px;
     border-bottom: none;
     border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    align-items: center;
   }
 
   .toolbar-group:last-child {
@@ -616,6 +644,9 @@ html, body, #root {
 
   .canvas-wrap {
     order: 1;
+    flex: 1;
+    min-height: 0;
+    height: auto;
   }
 
   .image-list {
@@ -630,5 +661,10 @@ html, body, #root {
 
   .app-title {
     font-size: 15px;
+  }
+
+  .annotate-view {
+    height: 100vh;
+    height: 100dvh;
   }
 }

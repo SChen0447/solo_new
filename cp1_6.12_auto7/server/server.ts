@@ -41,10 +41,58 @@ export interface ShareData {
   createdAt: number;
 }
 
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+export interface PersistedData {
+  images: [string, ImageData][];
+  annotations: [string, AnnotationData[]][];
+  shares: [string, ShareData][];
+  shortIdMap: [string, string][];
 }
+
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+const dataDir = path.join(__dirname, '..', 'data');
+const persistFile = path.join(dataDir, 'store.json');
+
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+export const imagesStore: Map<string, ImageData> = new Map();
+export const annotationsStore: Map<string, AnnotationData[]> = new Map();
+export const sharesStore: Map<string, ShareData> = new Map();
+export const shortIdToShareId: Map<string, string> = new Map();
+
+let saveTimer: NodeJS.Timeout | null = null;
+export function persist() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      const data: PersistedData = {
+        images: Array.from(imagesStore.entries()),
+        annotations: Array.from(annotationsStore.entries()),
+        shares: Array.from(sharesStore.entries()),
+        shortIdMap: Array.from(shortIdToShareId.entries()),
+      };
+      fs.writeFileSync(persistFile, JSON.stringify(data), 'utf8');
+    } catch (e) {
+      console.error('Persist failed:', e);
+    }
+  }, 200);
+}
+
+export function loadPersisted() {
+  try {
+    if (!fs.existsSync(persistFile)) return;
+    const raw = fs.readFileSync(persistFile, 'utf8');
+    const data: PersistedData = JSON.parse(raw);
+    data.images.forEach(([k, v]) => imagesStore.set(k, v));
+    data.annotations.forEach(([k, v]) => annotationsStore.set(k, v));
+    data.shares.forEach(([k, v]) => sharesStore.set(k, v));
+    data.shortIdMap.forEach(([k, v]) => shortIdToShareId.set(k, v));
+  } catch (e) {
+    console.error('Load persisted failed:', e);
+  }
+}
+
+loadPersisted();
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -70,21 +118,24 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-export const imagesStore: Map<string, ImageData> = new Map();
-export const annotationsStore: Map<string, AnnotationData[]> = new Map();
-export const sharesStore: Map<string, ShareData> = new Map();
-export const shortIdToShareId: Map<string, string> = new Map();
-
 const SHORT_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const SHORT_LENGTH = 7;
+const MAX_SHORT_ATTEMPTS = 50;
 
 export function generateShortId(): string {
-  let id = '';
-  for (let i = 0; i < SHORT_LENGTH; i++) {
-    id += SHORT_CHARS[Math.floor(Math.random() * SHORT_CHARS.length)];
+  for (let i = 0; i < MAX_SHORT_ATTEMPTS; i++) {
+    let id = '';
+    for (let j = 0; j < SHORT_LENGTH; j++) {
+      id += SHORT_CHARS[Math.floor(Math.random() * SHORT_CHARS.length)];
+    }
+    if (!shortIdToShareId.has(id)) return id;
   }
-  if (shortIdToShareId.has(id)) return generateShortId();
-  return id;
+  let fallback = uuidv4().slice(0, SHORT_LENGTH);
+  let n = 0;
+  while (shortIdToShareId.has(fallback)) {
+    fallback = `${uuidv4().slice(0, SHORT_LENGTH - 2)}${n++}`;
+  }
+  return fallback;
 }
 
 export function compressAnnotations(annotations: AnnotationData[]): any[] {
@@ -112,10 +163,7 @@ export function compressAnnotations(annotations: AnnotationData[]): any[] {
 
 export function decompressAnnotations(compressed: any[]): AnnotationData[] {
   const typeMap: Record<string, AnnotationData['type']> = {
-    r: 'rectangle',
-    c: 'circle',
-    a: 'arrow',
-    b: 'brush',
+    r: 'rectangle', c: 'circle', a: 'arrow', b: 'brush',
   };
   return compressed.map((c) => ({
     id: c._id,
@@ -147,6 +195,7 @@ app.post('/api/images', upload.single('image'), (req: Request, res: Response) =>
     };
     imagesStore.set(id, imageData);
     annotationsStore.set(id, []);
+    persist();
     res.json(imageData);
   } catch (err) {
     res.status(500).json({ error: '上传失败' });
@@ -179,6 +228,7 @@ app.put('/api/images/:id/annotations', (req: Request, res: Response) => {
   }
   const annotations: AnnotationData[] = req.body.annotations || [];
   annotationsStore.set(req.params.id, annotations);
+  persist();
   res.json({ success: true });
 });
 
@@ -199,6 +249,7 @@ app.post('/api/share', (req: Request, res: Response) => {
   };
   sharesStore.set(shareId, shareData);
   shortIdToShareId.set(shortId, shareId);
+  persist();
   res.json({ shareId, shortId, shareUrl: `/s/${shortId}` });
 });
 
@@ -222,7 +273,7 @@ app.get('/api/share/:id', (req: Request, res: Response) => {
   res.json({ image, annotations: share.annotations });
 });
 
-app.get(['/s/:shortId', '/share/:id'], (req, res) => {
+app.get(['/s/:shortId', '/share/:id', '/annotate/:id'], (req, res) => {
   const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);

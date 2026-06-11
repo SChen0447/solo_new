@@ -24,24 +24,26 @@ type DragMode =
   | { type: 'none' }
   | { type: 'create'; startX: number; startY: number }
   | { type: 'move'; id: string; offsetX: number; offsetY: number }
-  | { type: 'resize'; id: string; handle: HandleType }
+  | { type: 'resize'; id: string; handle: HandleType; origX1: number; origY1: number; origX2: number; origY2: number }
   | { type: 'brush-draw'; id: string };
 
 const HANDLE_SIZE = 8;
 const HIT_TOLERANCE = 6;
 
-const cloneAnnotations = (anns: Annotation[]): Annotation[] =>
-  anns.map((a) => ({
-    ...a,
-    points: a.points ? a.points.map((p) => ({ ...p })) : undefined,
-  }));
+const cloneAnnotation = (a: Annotation): Annotation => ({
+  ...a,
+  points: a.points ? a.points.map((p) => ({ x: p.x, y: p.y })) : undefined,
+});
+
+const cloneAnnotations = (anns: Annotation[]): Annotation[] => anns.map(cloneAnnotation);
 
 const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps>(
   ({ imageUrl, initialAnnotations, tool, onAnnotationsChange, readOnly = false }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement | null>(null);
-    const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const offscreenCanvasRef = useRef<HTMLCanvasElement | OffscreenCanvas | null>(null);
+    const staticLayerRef = useRef<HTMLCanvasElement | OffscreenCanvas | null>(null);
 
     const [imageLoaded, setImageLoaded] = useState(false);
     const [scale, setScale] = useState(1);
@@ -52,6 +54,7 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [noteInput, setNoteInput] = useState('');
     const [notePosition, setNotePosition] = useState({ x: 0, y: 0 });
+    const [, forceTick] = useState(0);
 
     const annotationsRef = useRef<Annotation[]>(cloneAnnotations(initialAnnotations));
     const tempAnnotationRef = useRef<Annotation | null>(null);
@@ -60,6 +63,8 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
     const historyIndexRef = useRef(0);
     const rafRef = useRef<number | null>(null);
     const dirtyRef = useRef(true);
+    const staticDirtyRef = useRef(true);
+    const prevSelectedRef = useRef<string | null>(null);
 
     const lastClickRef = useRef<{ id: string; time: number } | null>(null);
 
@@ -67,31 +72,25 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
       annotationsRef.current = cloneAnnotations(initialAnnotations);
       historyRef.current = [cloneAnnotations(initialAnnotations)];
       historyIndexRef.current = 0;
+      staticDirtyRef.current = true;
       dirtyRef.current = true;
     }, [initialAnnotations]);
 
     const pushHistory = useCallback(() => {
+      const snapshot = cloneAnnotations(annotationsRef.current);
       const nextIndex = historyIndexRef.current + 1;
       historyRef.current = historyRef.current.slice(0, nextIndex);
-      historyRef.current.push(cloneAnnotations(annotationsRef.current));
+      historyRef.current.push(snapshot);
       if (historyRef.current.length > MAX_HISTORY + 1) {
         historyRef.current.shift();
       } else {
         historyIndexRef.current = nextIndex;
       }
       onAnnotationsChange(cloneAnnotations(annotationsRef.current));
+      staticDirtyRef.current = true;
       dirtyRef.current = true;
+      forceTick((t) => t + 1);
     }, [onAnnotationsChange]);
-
-    const setAnnotations = useCallback((anns: Annotation[], pushToHistory = false) => {
-      annotationsRef.current = anns;
-      if (pushToHistory) {
-        pushHistory();
-      } else {
-        onAnnotationsChange(cloneAnnotations(anns));
-        dirtyRef.current = true;
-      }
-    }, [onAnnotationsChange, pushHistory]);
 
     const canUndo = useCallback(() => historyIndexRef.current > 0, []);
     const canRedo = useCallback(() => historyIndexRef.current < historyRef.current.length - 1, []);
@@ -102,7 +101,9 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
       annotationsRef.current = cloneAnnotations(historyRef.current[historyIndexRef.current]);
       onAnnotationsChange(cloneAnnotations(annotationsRef.current));
       setSelectedId(null);
+      staticDirtyRef.current = true;
       dirtyRef.current = true;
+      forceTick((t) => t + 1);
     }, [onAnnotationsChange]);
 
     const redo = useCallback(() => {
@@ -111,7 +112,9 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
       annotationsRef.current = cloneAnnotations(historyRef.current[historyIndexRef.current]);
       onAnnotationsChange(cloneAnnotations(annotationsRef.current));
       setSelectedId(null);
+      staticDirtyRef.current = true;
       dirtyRef.current = true;
+      forceTick((t) => t + 1);
     }, [onAnnotationsChange]);
 
     useImperativeHandle(ref, () => ({
@@ -134,27 +137,38 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
         } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
           if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
           e.preventDefault();
-          const filtered = annotationsRef.current.filter((a) => a.id !== selectedId);
-          setAnnotations(filtered, true);
+          annotationsRef.current = annotationsRef.current.filter((a) => a.id !== selectedId);
+          pushHistory();
           setSelectedId(null);
         }
       };
       window.addEventListener('keydown', handleKey);
       return () => window.removeEventListener('keydown', handleKey);
-    }, [undo, redo, selectedId, setAnnotations, readOnly]);
+    }, [undo, redo, selectedId, pushHistory, readOnly]);
 
     useEffect(() => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         imageRef.current = img;
-        if (!offscreenCanvasRef.current) {
-          offscreenCanvasRef.current = document.createElement('canvas');
+
+        if (typeof (window as any).OffscreenCanvas !== 'undefined') {
+          staticLayerRef.current = new (window as any).OffscreenCanvas(img.width, img.height);
+          offscreenCanvasRef.current = new (window as any).OffscreenCanvas(img.width, img.height);
+        } else {
+          const s = document.createElement('canvas');
+          s.width = img.width;
+          s.height = img.height;
+          staticLayerRef.current = s;
+          const o = document.createElement('canvas');
+          o.width = img.width;
+          o.height = img.height;
+          offscreenCanvasRef.current = o;
         }
-        offscreenCanvasRef.current.width = img.width;
-        offscreenCanvasRef.current.height = img.height;
-        const octx = offscreenCanvasRef.current.getContext('2d');
-        if (octx) octx.drawImage(img, 0, 0);
+
+        const sctx = (staticLayerRef.current as any).getContext('2d');
+        if (sctx) sctx.drawImage(img, 0, 0);
+        staticDirtyRef.current = true;
         setImageLoaded(true);
       };
       img.src = imageUrl;
@@ -182,7 +196,11 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
       updateLayout();
       const ro = new ResizeObserver(updateLayout);
       ro.observe(container);
-      return () => ro.disconnect();
+      window.addEventListener('resize', updateLayout);
+      return () => {
+        ro.disconnect();
+        window.removeEventListener('resize', updateLayout);
+      };
     }, [imageLoaded]);
 
     const getImageCoords = useCallback(
@@ -234,16 +252,50 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
       return null;
     }, []);
 
-    const drawArrowHead = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) => {
-      const angle = Math.atan2(y2 - y1, x2 - x1);
-      const headLen = 12 + ctx.lineWidth * 2;
-      ctx.beginPath();
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
-      ctx.stroke();
-    };
+    const drawAnnotationOnCtx = useCallback((ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, a: Annotation) => {
+      ctx.save();
+      ctx.strokeStyle = a.color;
+      ctx.lineWidth = a.strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (a.type === 'rectangle') {
+        ctx.strokeRect(a.x, a.y, a.width, a.height);
+      } else if (a.type === 'circle') {
+        const cx = a.x + a.width / 2;
+        const cy = a.y + a.height / 2;
+        const rx = Math.abs(a.width) / 2;
+        const ry = Math.abs(a.height) / 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (a.type === 'arrow') {
+        const x1 = a.x;
+        const y1 = a.y;
+        const x2 = a.x + a.width;
+        const y2 = a.y + a.height;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const headLen = 12 + ctx.lineWidth * 2;
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.stroke();
+      } else if (a.type === 'brush' && a.points && a.points.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(a.points[0].x, a.points[0].y);
+        for (let j = 1; j < a.points.length; j++) {
+          ctx.lineTo(a.points[j].x, a.points[j].y);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }, []);
 
     const render = useCallback(() => {
       if (!canvasRef.current || !imageRef.current) return;
@@ -255,113 +307,102 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
       if (canvas.width !== img.width) canvas.width = img.width;
       if (canvas.height !== img.height) canvas.height = img.height;
 
-      if (offscreenCanvasRef.current) {
-        ctx.drawImage(offscreenCanvasRef.current, 0, 0);
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-      }
+      const staticCtx = staticLayerRef.current?.getContext('2d');
+      const offCtx = offscreenCanvasRef.current?.getContext('2d');
 
       const anns = annotationsRef.current;
-      for (let i = 0; i < anns.length; i++) {
-        const a = anns[i];
-        const isSelected = a.id === selectedId;
-        ctx.save();
-        ctx.strokeStyle = a.color;
-        ctx.lineWidth = a.strokeWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+      const selected = selectedId;
 
-        if (a.type === 'rectangle') {
-          ctx.strokeRect(a.x, a.y, a.width, a.height);
-        } else if (a.type === 'circle') {
-          const cx = a.x + a.width / 2;
-          const cy = a.y + a.height / 2;
-          const rx = Math.abs(a.width) / 2;
-          const ry = Math.abs(a.height) / 2;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        } else if (a.type === 'arrow') {
-          const x1 = a.x;
-          const y1 = a.y;
-          const x2 = a.x + a.width;
-          const y2 = a.y + a.height;
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
-          drawArrowHead(ctx, x1, y1, x2, y2);
-        } else if (a.type === 'brush' && a.points && a.points.length > 0) {
-          ctx.beginPath();
-          ctx.moveTo(a.points[0].x, a.points[0].y);
-          for (let j = 1; j < a.points.length; j++) {
-            ctx.lineTo(a.points[j].x, a.points[j].y);
-          }
-          ctx.stroke();
+      if (staticDirtyRef.current && staticCtx) {
+        (staticLayerRef.current as any).width = img.width;
+        (staticLayerRef.current as any).height = img.height;
+        if (staticLayerRef.current instanceof HTMLCanvasElement || typeof OffscreenCanvas !== 'undefined') {
+          staticCtx.drawImage(img, 0, 0);
         }
-
-        if (isSelected && !readOnly) {
-          ctx.setLineDash([4, 4]);
-          ctx.strokeStyle = '#4a90d9';
-          ctx.lineWidth = 1.5;
-          const x1 = Math.min(a.x, a.x + a.width);
-          const y1 = Math.min(a.y, a.y + a.height);
-          const w = Math.abs(a.width);
-          const h = Math.abs(a.height);
-          ctx.strokeRect(x1 - 4, y1 - 4, w + 8, h + 8);
-
-          ctx.setLineDash([]);
-          ctx.fillStyle = '#4a90d9';
-          const corners: [number, number][] = [
-            [x1, y1], [x1 + w, y1], [x1, y1 + h], [x1 + w, y1 + h],
-          ];
-          for (const [hx, hy] of corners) {
-            ctx.fillRect(hx - HANDLE_SIZE / 2, hy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+        for (let i = 0; i < anns.length; i++) {
+          if (anns[i].id !== selected) {
+            drawAnnotationOnCtx(staticCtx, anns[i]);
           }
         }
-        ctx.restore();
+        staticDirtyRef.current = false;
       }
 
-      const temp = tempAnnotationRef.current;
-      if (temp) {
-        ctx.save();
-        ctx.strokeStyle = temp.color;
-        ctx.lineWidth = temp.strokeWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        if (temp.type === 'rectangle') {
-          ctx.strokeRect(temp.x, temp.y, temp.width, temp.height);
-        } else if (temp.type === 'circle') {
-          const cx = temp.x + temp.width / 2;
-          const cy = temp.y + temp.height / 2;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, Math.abs(temp.width) / 2, Math.abs(temp.height) / 2, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        } else if (temp.type === 'arrow') {
-          ctx.beginPath();
-          ctx.moveTo(temp.x, temp.y);
-          ctx.lineTo(temp.x + temp.width, temp.y + temp.height);
-          ctx.stroke();
-          drawArrowHead(ctx, temp.x, temp.y, temp.x + temp.width, temp.y + temp.height);
-        } else if (temp.type === 'brush' && temp.points && temp.points.length > 0) {
-          ctx.beginPath();
-          ctx.moveTo(temp.points[0].x, temp.points[0].y);
-          for (let j = 1; j < temp.points.length; j++) {
-            ctx.lineTo(temp.points[j].x, temp.points[j].y);
+      if (offCtx && staticLayerRef.current) {
+        (offscreenCanvasRef.current as any).width = img.width;
+        (offscreenCanvasRef.current as any).height = img.height;
+        offCtx.drawImage(staticLayerRef.current as any, 0, 0);
+        const selAnn = anns.find((a) => a.id === selected);
+        if (selAnn) {
+          drawAnnotationOnCtx(offCtx, selAnn);
+
+          if (!readOnly) {
+            offCtx.save();
+            offCtx.setLineDash([4, 4]);
+            offCtx.strokeStyle = '#4a90d9';
+            offCtx.lineWidth = 1.5;
+            const x1 = Math.min(selAnn.x, selAnn.x + selAnn.width);
+            const y1 = Math.min(selAnn.y, selAnn.y + selAnn.height);
+            const w = Math.abs(selAnn.width);
+            const h = Math.abs(selAnn.height);
+            offCtx.strokeRect(x1 - 4, y1 - 4, w + 8, h + 8);
+
+            offCtx.setLineDash([]);
+            offCtx.fillStyle = '#4a90d9';
+            const corners: [number, number][] = [
+              [x1, y1], [x1 + w, y1], [x1, y1 + h], [x1 + w, y1 + h],
+            ];
+            for (const [hx, hy] of corners) {
+              offCtx.fillRect(hx - HANDLE_SIZE / 2, hy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+            }
+            offCtx.restore();
           }
-          ctx.stroke();
         }
-        ctx.restore();
+        const temp = tempAnnotationRef.current;
+        if (temp) drawAnnotationOnCtx(offCtx, temp);
+
+        ctx.drawImage(offscreenCanvasRef.current as any, 0, 0);
+      } else {
+        ctx.drawImage(img, 0, 0);
+        for (let i = 0; i < anns.length; i++) {
+          const a = anns[i];
+          const isSelected = a.id === selected;
+          drawAnnotationOnCtx(ctx, a);
+          if (isSelected && !readOnly) {
+            ctx.save();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = '#4a90d9';
+            ctx.lineWidth = 1.5;
+            const x1 = Math.min(a.x, a.x + a.width);
+            const y1 = Math.min(a.y, a.y + a.height);
+            const w = Math.abs(a.width);
+            const h = Math.abs(a.height);
+            ctx.strokeRect(x1 - 4, y1 - 4, w + 8, h + 8);
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#4a90d9';
+            const corners: [number, number][] = [
+              [x1, y1], [x1 + w, y1], [x1, y1 + h], [x1 + w, y1 + h],
+            ];
+            for (const [hx, hy] of corners) {
+              ctx.fillRect(hx - HANDLE_SIZE / 2, hy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+            }
+            ctx.restore();
+          }
+        }
+        const temp = tempAnnotationRef.current;
+        if (temp) drawAnnotationOnCtx(ctx, temp);
       }
 
+      if (prevSelectedRef.current !== selected) {
+        staticDirtyRef.current = true;
+        prevSelectedRef.current = selected;
+      }
       dirtyRef.current = false;
-    }, [selectedId, readOnly]);
+    }, [selectedId, readOnly, drawAnnotationOnCtx]);
 
     useEffect(() => {
       if (!imageLoaded) return;
       const tick = () => {
-        if (dirtyRef.current) render();
+        if (dirtyRef.current || staticDirtyRef.current) render();
         rafRef.current = requestAnimationFrame(tick);
       };
       rafRef.current = requestAnimationFrame(tick);
@@ -369,10 +410,6 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
         if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       };
     }, [imageLoaded, render]);
-
-    useEffect(() => {
-      dirtyRef.current = true;
-    }, [selectedId]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
       if (readOnly) return;
@@ -383,7 +420,15 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
         if (selected) {
           const handle = getResizeHandle(pt, selected);
           if (handle) {
-            dragModeRef.current = { type: 'resize', id: selectedId!, handle };
+            dragModeRef.current = {
+              type: 'resize',
+              id: selectedId!,
+              handle,
+              origX1: Math.min(selected.x, selected.x + selected.width),
+              origY1: Math.min(selected.y, selected.y + selected.height),
+              origX2: Math.max(selected.x, selected.x + selected.width),
+              origY2: Math.max(selected.y, selected.y + selected.height),
+            };
             return;
           }
         }
@@ -452,22 +497,48 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
         dirtyRef.current = true;
       } else if (dm.type === 'move') {
         annotationsRef.current = annotationsRef.current.map((a) =>
-          a.id === dm.id ? { ...a, x: pt.x - dm.offsetX, y: pt.y - dm.offsetY } : a
+          a.id === dm.id
+            ? {
+                ...a,
+                x: pt.x - dm.offsetX,
+                y: pt.y - dm.offsetY,
+                points: a.points
+                  ? a.points.map((p) => ({
+                      x: p.x + (pt.x - dm.offsetX - a.x),
+                      y: p.y + (pt.y - dm.offsetY - a.y),
+                    }))
+                  : undefined,
+              }
+            : a
         );
         dirtyRef.current = true;
       } else if (dm.type === 'resize') {
+        const { origX1, origY1, origX2, origY2, handle, id } = dm;
+        let nx1 = origX1, ny1 = origY1, nx2 = origX2, ny2 = origY2;
+        if (handle === 'nw') { nx1 = pt.x; ny1 = pt.y; }
+        if (handle === 'ne') { nx2 = pt.x; ny1 = pt.y; }
+        if (handle === 'sw') { nx1 = pt.x; ny2 = pt.y; }
+        if (handle === 'se') { nx2 = pt.x; ny2 = pt.y; }
+
+        const scaleX = origX2 !== origX1 ? (nx2 - nx1) / (origX2 - origX1) : 1;
+        const scaleY = origY2 !== origY1 ? (ny2 - ny1) / (origY2 - origY1) : 1;
+
         annotationsRef.current = annotationsRef.current.map((a) => {
-          if (a.id !== dm.id) return a;
-          const origX1 = a.x;
-          const origY1 = a.y;
-          const origX2 = a.x + a.width;
-          const origY2 = a.y + a.height;
-          let nx1 = origX1, ny1 = origY1, nx2 = origX2, ny2 = origY2;
-          if (dm.handle === 'nw') { nx1 = pt.x; ny1 = pt.y; }
-          if (dm.handle === 'ne') { nx2 = pt.x; ny1 = pt.y; }
-          if (dm.handle === 'sw') { nx1 = pt.x; ny2 = pt.y; }
-          if (dm.handle === 'se') { nx2 = pt.x; ny2 = pt.y; }
-          return { ...a, x: nx1, y: ny1, width: nx2 - nx1, height: ny2 - ny1 };
+          if (a.id !== id) return a;
+          const newAnn: Annotation = {
+            ...a,
+            x: nx1,
+            y: ny1,
+            width: nx2 - nx1,
+            height: ny2 - ny1,
+          };
+          if (a.points) {
+            newAnn.points = a.points.map((p) => ({
+              x: nx1 + (p.x - origX1) * scaleX,
+              y: ny1 + (p.y - origY1) * scaleY,
+            }));
+          }
+          return newAnn;
         });
         dirtyRef.current = true;
       }
@@ -499,7 +570,7 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
               ? (temp.points?.length || 0) > 1
               : Math.abs(temp.width) > 2 || Math.abs(temp.height) > 2;
           if (isValid) {
-            annotationsRef.current.push({ ...temp });
+            annotationsRef.current.push(cloneAnnotation(temp));
             pushHistory();
             setSelectedId(temp.id);
           }
@@ -568,7 +639,7 @@ const ImageAnnotatorInner = forwardRef<ImageAnnotatorHandle, ImageAnnotatorProps
             style={{
               transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
               transformOrigin: '0 0',
-              cursor: readOnly ? 'default' : tool.type === 'select' ? 'crosshair' : 'crosshair',
+              cursor: readOnly ? 'default' : 'crosshair',
             }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
