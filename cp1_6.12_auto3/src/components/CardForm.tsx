@@ -15,6 +15,7 @@ const CardForm: React.FC<CardFormProps> = ({ onSave, tags }) => {
   const [errors, setErrors] = useState<{ front?: string; back?: string; tags?: string }>({});
 
   const availableTags = tags.length > 0 ? tags : TAG_PRESETS;
+  const hasSelected = selectedTags.length > 0;
 
   const toggleTag = (tagName: string) => {
     setSelectedTags((prev) =>
@@ -90,6 +91,23 @@ const CardForm: React.FC<CardFormProps> = ({ onSave, tags }) => {
       <div className="form-group">
         <label className="form-label">标签分类</label>
         <div className="tag-selector">
+          <button
+            type="button"
+            className={`tag-btn tag-placeholder ${!hasSelected ? 'tag-btn-placeholder-active' : ''}`}
+            disabled={!hasSelected}
+            style={{
+              color: hasSelected ? undefined : errors.tags ? 'var(--wrong)' : '#95A5A6',
+              borderStyle: 'dashed',
+              borderColor: errors.tags ? 'var(--wrong)' : '#BFC5CC',
+              backgroundColor: 'transparent',
+              cursor: hasSelected ? 'pointer' : 'default',
+            } as React.CSSProperties}
+            onClick={() => {
+              if (hasSelected) setSelectedTags([]);
+            }}
+          >
+            {hasSelected ? '已选' : '选择标签'}
+          </button>
           {availableTags.map((tag) => (
             <button
               type="button"

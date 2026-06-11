@@ -38,14 +38,28 @@ const StatsDashboard: React.FC<StatsDashboardProps> = ({ cards, sessions, tags }
   );
 
   const accuracyTrend = useMemo(() => {
-    return sessions.map((session, index) => {
-      const correct = session.records.filter((r) => r.correct).length;
-      const total = session.records.length;
-      return {
-        name: `第${index + 1}次`,
-        正确率: total > 0 ? Math.round((correct / total) * 100) : 0,
-      };
+    const dailyMap = new Map<string, { correct: number; total: number }>();
+
+    sessions.forEach((session) => {
+      session.records.forEach((record) => {
+        const date = new Date(record.timestamp);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const entry = dailyMap.get(key);
+        if (entry) {
+          entry.total += 1;
+          if (record.correct) entry.correct += 1;
+        } else {
+          dailyMap.set(key, { correct: record.correct ? 1 : 0, total: 1 });
+        }
+      });
     });
+
+    return Array.from(dailyMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, stat]) => ({
+        name: date.slice(5),
+        正确率: stat.total > 0 ? Math.round((stat.correct / stat.total) * 100) : 0,
+      }));
   }, [sessions]);
 
   const tagStats = useMemo(() => {

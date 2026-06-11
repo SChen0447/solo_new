@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import type { Card } from '../types';
 
 interface FlashCardProps {
@@ -8,15 +8,29 @@ interface FlashCardProps {
   tagColors: Record<string, string>;
 }
 
+const FlipBackDelay = 350;
+
 const FlashCard: React.FC<FlashCardProps> = ({ card, onReview, showActions = false, tagColors }) => {
   const [flipped, setFlipped] = useState(false);
+  const [answering, setAnswering] = useState(false);
 
-  const handleFlip = () => setFlipped((f) => !f);
+  const handleFlip = useCallback(() => {
+    if (answering) return;
+    setFlipped((f) => !f);
+  }, [answering]);
 
-  const handleAnswer = (correct: boolean) => {
-    onReview?.(card.id, correct);
-    setFlipped(false);
-  };
+  const handleAnswer = useCallback(
+    (correct: boolean) => {
+      if (answering) return;
+      setAnswering(true);
+      setFlipped(false);
+      window.setTimeout(() => {
+        onReview?.(card.id, correct);
+        setAnswering(false);
+      }, FlipBackDelay);
+    },
+    [answering, card.id, onReview]
+  );
 
   return (
     <div className="flashcard-container">
@@ -52,12 +66,24 @@ const FlashCard: React.FC<FlashCardProps> = ({ card, onReview, showActions = fal
           <span className="flashcard-hint">点击翻回正面</span>
         </div>
       </div>
-      {showActions && flipped && (
+      {showActions && flipped && !answering && (
         <div className="flashcard-actions">
-          <button className="btn btn-wrong" onClick={() => handleAnswer(false)}>
+          <button
+            className="btn btn-wrong"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAnswer(false);
+            }}
+          >
             不记得
           </button>
-          <button className="btn btn-correct" onClick={() => handleAnswer(true)}>
+          <button
+            className="btn btn-correct"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAnswer(true);
+            }}
+          >
             记住了
           </button>
         </div>

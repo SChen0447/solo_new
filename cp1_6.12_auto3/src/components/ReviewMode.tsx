@@ -99,6 +99,7 @@ const ReviewMode: React.FC<ReviewModeProps> = ({ cards, onComplete, tagColors })
         <div className="progress-fill" style={{ width: `${progress}%` }} />
       </div>
       <FlashCard
+        key={currentCard.id}
         card={currentCard}
         onReview={handleReview}
         showActions={true}
