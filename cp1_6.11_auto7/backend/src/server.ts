@@ -33,12 +33,18 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
+function withTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+  operation: string
+): Promise<T> {
+  const controller = new AbortController();
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
+      controller.abort();
       reject(new Error(`${operation} 超时 (${ms}ms)`));
     }, ms);
-    promise
+    fn(controller.signal)
       .then((result) => {
         clearTimeout(timeout);
         resolve(result);
@@ -64,7 +70,7 @@ app.get('/api/surveys', (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/surveys', (req: Request, res: Response) => {
+app.post('/api/surveys', async (req: Request, res: Response) => {
   const { title, questions } = req.body;
 
   if (!title || typeof title !== 'string' || title.trim().length === 0) {
@@ -91,15 +97,23 @@ app.post('/api/surveys', (req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
-    const result = createSurvey({
-      title: title.trim(),
-      questions: questions.map((q: Omit<Question, 'id'>) => ({
-        type: q.type,
-        title: q.title.trim(),
-        options: q.options,
-        required: q.required,
-      })),
-    });
+    const result = await withTimeout(
+      (signal) =>
+        createSurvey(
+          {
+            title: title.trim(),
+            questions: questions.map((q: Omit<Question, 'id'>) => ({
+              type: q.type,
+              title: q.title.trim(),
+              options: q.options,
+              required: q.required,
+            })),
+          },
+          signal
+        ),
+      SHARE_LINK_SLA_MS,
+      '创建问卷'
+    );
 
     const elapsed = Date.now() - startTime;
 
@@ -111,11 +125,15 @@ app.post('/api/surveys', (req: Request, res: Response) => {
       ...result.survey,
       shareLinkGeneratedMs: elapsed,
       tokenGenerateMs: result.perf.generateTokenMs,
+      lockWaitMs: result.perf.lockWaitMs,
       meetsSla: elapsed <= SHARE_LINK_SLA_MS,
       slaTarget: SHARE_LINK_SLA_MS,
     });
-  } catch (error) {
-    res.status(500).json({ error: '创建问卷失败' });
+  } catch (error: any) {
+    if (error.message && error.message.includes('超时')) {
+      return res.status(504).json({ error: error.message, slaTarget: SHARE_LINK_SLA_MS });
+    }
+    res.status(500).json({ error: error.message || '创建问卷失败' });
   }
 });
 
@@ -128,7 +146,7 @@ app.get('/api/surveys/:id', (req: Request, res: Response) => {
   res.json(survey);
 });
 
-app.put('/api/surveys/:id', (req: Request, res: Response) => {
+app.put('/api/surveys/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { title, questions } = req.body;
 
@@ -171,20 +189,42 @@ app.put('/api/surveys/:id', (req: Request, res: Response) => {
     }));
   }
 
-  const updated = updateSurvey(id, updates);
-  if (!updated) {
-    return res.status(500).json({ error: '更新问卷失败' });
+  try {
+    const updated = await withTimeout(
+      (signal) => updateSurvey(id, updates, signal),
+      300,
+      '更新问卷'
+    );
+    if (!updated) {
+      return res.status(404).json({ error: '问卷不存在或已被删除' });
+    }
+    res.json(updated);
+  } catch (error: any) {
+    if (error.message && error.message.includes('超时')) {
+      return res.status(504).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || '更新问卷失败' });
   }
-  res.json(updated);
 });
 
-app.delete('/api/surveys/:id', (req: Request, res: Response) => {
+app.delete('/api/surveys/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const deleted = deleteSurvey(id);
-  if (!deleted) {
-    return res.status(404).json({ error: '问卷不存在' });
+  try {
+    const deleted = await withTimeout(
+      (signal) => deleteSurvey(id, signal),
+      300,
+      '删除问卷'
+    );
+    if (!deleted) {
+      return res.status(404).json({ error: '问卷不存在' });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    if (error.message && error.message.includes('超时')) {
+      return res.status(504).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || '删除失败' });
   }
-  res.json({ success: true });
 });
 
 app.get('/api/share/:token', (req: Request, res: Response) => {
@@ -203,7 +243,7 @@ app.get('/api/share/:token', (req: Request, res: Response) => {
   res.json(survey);
 });
 
-app.post('/api/surveys/:id/responses', (req: Request, res: Response) => {
+app.post('/api/surveys/:id/responses', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { answers } = req.body;
 
@@ -235,11 +275,22 @@ app.post('/api/surveys/:id/responses', (req: Request, res: Response) => {
     }
   }
 
-  const response = submitResponse(id, answers);
-  if (!response) {
-    return res.status(500).json({ error: '提交回复失败，可能已达到回复上限' });
+  try {
+    const response = await withTimeout(
+      (signal) => submitResponse(id, answers, signal),
+      300,
+      '提交回复'
+    );
+    if (!response) {
+      return res.status(500).json({ error: '提交回复失败，可能已达到回复上限' });
+    }
+    res.json({ success: true, responseId: response.id });
+  } catch (error: any) {
+    if (error.message && error.message.includes('超时')) {
+      return res.status(504).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || '提交失败' });
   }
-  res.json({ success: true, responseId: response.id });
 });
 
 app.get('/api/surveys/:id/responses', (req: Request, res: Response) => {

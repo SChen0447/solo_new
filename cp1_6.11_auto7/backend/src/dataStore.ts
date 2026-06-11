@@ -29,25 +29,31 @@ export interface SurveyResponse {
 const MAX_SURVEYS = 100;
 const MAX_RESPONSES_PER_SURVEY = 1000;
 const DEMO_COUNT = 15;
+const CLEANUP_RATIO = 0.1;
 
 interface DataStore {
   surveys: Map<string, Survey>;
   responses: Map<string, SurveyResponse[]>;
   tokenIndex: Map<string, string>;
+  pendingDeletes: Set<string>;
 }
 
 const store: DataStore = {
   surveys: new Map(),
   responses: new Map(),
   tokenIndex: new Map(),
+  pendingDeletes: new Set(),
 };
 
+let writeLock = Promise.resolve();
 let idCounter = 0;
 let perfStats = {
   totalCreates: 0,
   totalShareTokenLookups: 0,
   slowCreates: 0,
   slowTokenLookups: 0,
+  lockWaits: 0,
+  totalLockWaitMs: 0,
 };
 
 export function generateId(): string {
@@ -59,68 +65,107 @@ export function generateShareToken(): string {
   return uuidv4().replace(/-/g, '').substring(0, 12);
 }
 
-function enforceSurveyLimit() {
+async function acquireWriteLock(): Promise<() => void> {
+  const t0 = Date.now();
+  let release: () => void = () => {};
+  const myLock = new Promise<void>((r) => { release = r; });
+  const prevLock = writeLock;
+  writeLock = writeLock.then(() => myLock);
+  await prevLock;
+  const waited = Date.now() - t0;
+  if (waited > 0) {
+    perfStats.lockWaits++;
+    perfStats.totalLockWaitMs += waited;
+  }
+  return release;
+}
+
+function enforceSurveyLimitLocked() {
   if (store.surveys.size < MAX_SURVEYS) return;
-  const sorted = Array.from(store.surveys.values()).sort((a, b) => a.createdAt - b.createdAt);
-  const toRemove = sorted.slice(0, Math.ceil(MAX_SURVEYS * 0.1));
+  const sorted = Array.from(store.surveys.values())
+    .filter((s) => !store.pendingDeletes.has(s.id))
+    .sort((a, b) => a.createdAt - b.createdAt);
+  const toRemove = sorted.slice(0, Math.ceil(MAX_SURVEYS * CLEANUP_RATIO));
   for (const s of toRemove) {
+    store.pendingDeletes.add(s.id);
     store.surveys.delete(s.id);
     store.responses.delete(s.id);
     store.tokenIndex.delete(s.shareToken);
+    store.pendingDeletes.delete(s.id);
   }
 }
 
 export interface CreatePerfInfo {
   generateTokenMs: number;
   totalMs: number;
+  lockWaitMs: number;
 }
 
-export function createSurvey(surveyData: { title: string; questions: Omit<Question, 'id'>[] }): { survey: Survey; perf: CreatePerfInfo } {
+export async function createSurvey(
+  surveyData: { title: string; questions: Omit<Question, 'id'>[] },
+  signal?: AbortSignal
+): Promise<{ survey: Survey; perf: CreatePerfInfo }> {
   const totalStart = Date.now();
   const t0 = process.hrtime.bigint();
 
-  enforceSurveyLimit();
+  const release = await acquireWriteLock();
+  const lockWaitMs = Date.now() - totalStart;
 
-  const id = generateId();
+  try {
+    if (signal?.aborted) {
+      throw new Error('创建已取消');
+    }
 
-  const tokenStart = Date.now();
-  let shareToken = generateShareToken();
-  let retries = 0;
-  while (store.tokenIndex.has(shareToken) && retries < 5) {
-    shareToken = generateShareToken();
-    retries++;
+    enforceSurveyLimitLocked();
+
+    const id = generateId();
+    store.pendingDeletes.delete(id);
+
+    const tokenStart = Date.now();
+    let shareToken = generateShareToken();
+    let retries = 0;
+    while (store.tokenIndex.has(shareToken) && retries < 5) {
+      if (signal?.aborted) throw new Error('创建已取消');
+      shareToken = generateShareToken();
+      retries++;
+    }
+    const generateTokenMs = Date.now() - tokenStart;
+
+    const questions: Question[] = surveyData.questions.map((q) => ({
+      ...q,
+      id: generateId(),
+    }));
+
+    const survey: Survey = {
+      id,
+      title: surveyData.title,
+      shareToken,
+      questions,
+      createdAt: Date.now(),
+      responseCount: 0,
+    };
+
+    if (signal?.aborted) throw new Error('创建已取消');
+
+    store.surveys.set(id, survey);
+    store.responses.set(id, []);
+    store.tokenIndex.set(shareToken, id);
+
+    const totalMs = Date.now() - totalStart;
+    perfStats.totalCreates++;
+    if (totalMs > 20) perfStats.slowCreates++;
+
+    return {
+      survey,
+      perf: { generateTokenMs, totalMs, lockWaitMs },
+    };
+  } finally {
+    release();
   }
-  const generateTokenMs = Date.now() - tokenStart;
-
-  const questions: Question[] = surveyData.questions.map((q) => ({
-    ...q,
-    id: generateId(),
-  }));
-
-  const survey: Survey = {
-    id,
-    title: surveyData.title,
-    shareToken,
-    questions,
-    createdAt: Date.now(),
-    responseCount: 0,
-  };
-
-  store.surveys.set(id, survey);
-  store.responses.set(id, []);
-  store.tokenIndex.set(shareToken, id);
-
-  const totalMs = Date.now() - totalStart;
-  perfStats.totalCreates++;
-  if (totalMs > 20) perfStats.slowCreates++;
-
-  return {
-    survey,
-    perf: { generateTokenMs, totalMs },
-  };
 }
 
 export function getSurveyById(id: string): Survey | undefined {
+  if (store.pendingDeletes.has(id)) return undefined;
   return store.surveys.get(id);
 }
 
@@ -130,56 +175,89 @@ export function getSurveyByShareToken(token: string): Survey | undefined {
   perfStats.totalShareTokenLookups++;
   if (Date.now() - t0 > 5) perfStats.slowTokenLookups++;
   if (!surveyId) return undefined;
+  if (store.pendingDeletes.has(surveyId)) return undefined;
   return store.surveys.get(surveyId);
 }
 
 export function getAllSurveys(): Survey[] {
-  return Array.from(store.surveys.values()).sort((a, b) => b.createdAt - a.createdAt);
+  return Array.from(store.surveys.values())
+    .filter((s) => !store.pendingDeletes.has(s.id))
+    .sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function getSurveyCount(): number {
-  return store.surveys.size;
+  return store.surveys.size - store.pendingDeletes.size;
 }
 
-export function updateSurvey(id: string, updates: Partial<Omit<Survey, 'id' | 'shareToken' | 'createdAt'>>): Survey | undefined {
-  const survey = store.surveys.get(id);
-  if (!survey) return undefined;
-  const updated: Survey = { ...survey, ...updates };
-  store.surveys.set(id, updated);
-  return updated;
-}
-
-export function deleteSurvey(id: string): boolean {
-  const survey = store.surveys.get(id);
-  if (!survey) return false;
-  store.surveys.delete(id);
-  store.responses.delete(id);
-  store.tokenIndex.delete(survey.shareToken);
-  return true;
-}
-
-export function submitResponse(surveyId: string, answers: { questionId: string; value: string | string[] }[]): SurveyResponse | null {
-  const survey = store.surveys.get(surveyId);
-  if (!survey) return null;
-
-  const responses = store.responses.get(surveyId) || [];
-  if (responses.length >= MAX_RESPONSES_PER_SURVEY) {
-    return null;
+export async function updateSurvey(
+  id: string,
+  updates: Partial<Omit<Survey, 'id' | 'shareToken' | 'createdAt'>>,
+  signal?: AbortSignal
+): Promise<Survey | undefined> {
+  const release = await acquireWriteLock();
+  try {
+    if (signal?.aborted) throw new Error('更新已取消');
+    const survey = store.surveys.get(id);
+    if (!survey || store.pendingDeletes.has(id)) return undefined;
+    const updated: Survey = { ...survey, ...updates };
+    store.surveys.set(id, updated);
+    return updated;
+  } finally {
+    release();
   }
+}
 
-  const response: SurveyResponse = {
-    id: generateId(),
-    surveyId,
-    answers,
-    submittedAt: Date.now(),
-  };
-  responses.push(response);
-  store.responses.set(surveyId, responses);
-  survey.responseCount = responses.length;
-  return response;
+export async function deleteSurvey(id: string, signal?: AbortSignal): Promise<boolean> {
+  const release = await acquireWriteLock();
+  try {
+    if (signal?.aborted) throw new Error('删除已取消');
+    const survey = store.surveys.get(id);
+    if (!survey || store.pendingDeletes.has(id)) return false;
+    store.pendingDeletes.add(id);
+    store.surveys.delete(id);
+    store.responses.delete(id);
+    store.tokenIndex.delete(survey.shareToken);
+    store.pendingDeletes.delete(id);
+    return true;
+  } finally {
+    release();
+  }
+}
+
+export async function submitResponse(
+  surveyId: string,
+  answers: { questionId: string; value: string | string[] }[],
+  signal?: AbortSignal
+): Promise<SurveyResponse | null> {
+  const release = await acquireWriteLock();
+  try {
+    if (signal?.aborted) throw new Error('提交已取消');
+    if (store.pendingDeletes.has(surveyId)) return null;
+    const survey = store.surveys.get(surveyId);
+    if (!survey) return null;
+
+    const responses = store.responses.get(surveyId) || [];
+    if (responses.length >= MAX_RESPONSES_PER_SURVEY) {
+      return null;
+    }
+
+    const response: SurveyResponse = {
+      id: generateId(),
+      surveyId,
+      answers,
+      submittedAt: Date.now(),
+    };
+    responses.push(response);
+    store.responses.set(surveyId, responses);
+    survey.responseCount = responses.length;
+    return response;
+  } finally {
+    release();
+  }
 }
 
 export function getResponsesBySurveyId(surveyId: string): SurveyResponse[] {
+  if (store.pendingDeletes.has(surveyId)) return [];
   return store.responses.get(surveyId) || [];
 }
 
@@ -192,6 +270,7 @@ export interface StatisticsResult {
 }
 
 export function getSurveyStatistics(surveyId: string): StatisticsResult[] {
+  if (store.pendingDeletes.has(surveyId)) return [];
   const survey = store.surveys.get(surveyId);
   const responses = store.responses.get(surveyId) || [];
   if (!survey) return [];
@@ -239,8 +318,10 @@ export function getPerfStats() {
   return {
     ...perfStats,
     surveyCount: store.surveys.size,
+    pendingDeletes: store.pendingDeletes.size,
     maxSurveys: MAX_SURVEYS,
     maxResponsesPerSurvey: MAX_RESPONSES_PER_SURVEY,
+    avgLockWaitMs: perfStats.lockWaits > 0 ? Math.round(perfStats.totalLockWaitMs / perfStats.lockWaits) : 0,
   };
 }
 
@@ -254,9 +335,11 @@ const demoQuestions: Omit<Question, 'id'>[] = [
   { type: 'text', title: '您最喜欢的编程语言是什么？为什么？', required: false },
 ];
 
-for (let i = 1; i <= DEMO_COUNT; i++) {
-  createSurvey({
-    title: `示例问卷 ${i} - 关于开发工具使用习惯调查`,
-    questions: demoQuestions,
-  });
-}
+(async () => {
+  for (let i = 1; i <= DEMO_COUNT; i++) {
+    await createSurvey({
+      title: `示例问卷 ${i} - 关于开发工具使用习惯调查`,
+      questions: demoQuestions,
+    });
+  }
+})();

@@ -18,7 +18,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FixedSizeList as List, areEqual } from 'react-window';
+import { List } from 'react-window';
 import {
   Survey,
   Question,
@@ -230,7 +230,7 @@ const cssAnimations = `
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 `;
 
-interface SurveyItemData {
+interface SurveyRowProps {
   surveys: Survey[];
   selectedId: string | null;
   onSelect: (s: Survey) => void;
@@ -238,15 +238,13 @@ interface SurveyItemData {
   onDelete: (id: string) => void;
 }
 
-const SurveyListItem = React.memo(function SurveyListItem({
-  index, style, data,
-}: {
-  index: number;
-  style: React.CSSProperties;
-  data: SurveyItemData;
-}) {
-  const s = data.surveys[index];
-  const selected = data.selectedId === s.id;
+function SurveyListItem(props: any) {
+  const { index, style, surveys, selectedId, onSelect, onCopyShare, onDelete } = props as {
+    index: number;
+    style: React.CSSProperties;
+  } & SurveyRowProps;
+  const s = surveys[index];
+  const selected = selectedId === s.id;
   return (
     <div
       style={{
@@ -256,7 +254,7 @@ const SurveyListItem = React.memo(function SurveyListItem({
       }}
     >
       <div
-        onClick={() => data.onSelect(s)}
+        onClick={() => onSelect(s)}
         style={{
           height: '100%',
           padding: '10px 12px',
@@ -289,7 +287,7 @@ const SurveyListItem = React.memo(function SurveyListItem({
         </div>
         <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
           <RippleButton
-            onClick={(e) => { e.stopPropagation(); data.onCopyShare(s); }}
+            onClick={(e) => { e.stopPropagation(); onCopyShare(s); }}
             style={{
               padding: '3px 8px',
               fontSize: 11,
@@ -303,7 +301,7 @@ const SurveyListItem = React.memo(function SurveyListItem({
             🔗 分享
           </RippleButton>
           <RippleButton
-            onClick={(e) => { e.stopPropagation(); data.onDelete(s.id); }}
+            onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
             style={{
               padding: '3px 8px',
               fontSize: 11,
@@ -320,7 +318,7 @@ const SurveyListItem = React.memo(function SurveyListItem({
       </div>
     </div>
   );
-}, areEqual);
+}
 
 function MobileTopBar({ onToggle, total }: { onToggle: () => void; total: number }) {
   return (
@@ -373,8 +371,7 @@ function Sidebar({
   onDelete: (id: string) => void;
   onCopyShare: (s: Survey) => void;
 }) {
-  const listRef = useRef<List>(null);
-  const itemData = useMemo<SurveyItemData>(() => ({
+  const rowProps = useMemo<any>(() => ({
     surveys,
     selectedId,
     onSelect,
@@ -469,16 +466,15 @@ function Sidebar({
           </div>
         ) : (
           <List
-            ref={listRef}
             height={typeof window !== 'undefined' ? Math.min(surveys.length * SURVEY_ITEM_HEIGHT, 600) : 400}
-            itemCount={surveys.length}
-            itemSize={SURVEY_ITEM_HEIGHT}
+            rowCount={surveys.length}
+            rowHeight={SURVEY_ITEM_HEIGHT}
             width="100%"
-            itemData={itemData}
-            itemKey={(index, data) => data.surveys[index].id}
-          >
-            {SurveyListItem}
-          </List>
+            rowComponent={SurveyListItem}
+            rowProps={rowProps}
+            overscanCount={5}
+            style={{ width: '100%' }}
+          />
         )}
       </div>
     </aside>
