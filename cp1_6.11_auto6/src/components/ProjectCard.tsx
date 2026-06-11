@@ -32,6 +32,7 @@ function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()
   const diff = now.getTime() - date.getTime()
+  if (diff <= 0) return '今天'
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   if (days === 0) return '今天'
   if (days === 1) return '昨天'
