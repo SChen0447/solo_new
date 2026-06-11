@@ -1,27 +1,58 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import {
   createSurvey,
   getSurveyById,
   getSurveyByShareToken,
   getAllSurveys,
+  getSurveyCount,
   updateSurvey,
   deleteSurvey,
   submitResponse,
   getResponsesBySurveyId,
   getSurveyStatistics,
+  getPerfStats,
   Question,
 } from './dataStore';
 
 const app = express();
 const PORT = 3002;
+const SHARE_LINK_SLA_MS = 200;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
-app.get('/api/surveys', (_req: Request, res: Response) => {
-  const page = parseInt(_req.query.page as string) || 1;
-  const pageSize = parseInt(_req.query.pageSize as string) || 50;
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (duration > 200) {
+      console.warn(`[SLOW] ${req.method} ${req.path} - ${duration}ms`);
+    }
+  });
+  next();
+});
+
+function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`${operation} 超时 (${ms}ms)`));
+    }, ms);
+    promise
+      .then((result) => {
+        clearTimeout(timeout);
+        resolve(result);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
+
+app.get('/api/surveys', (req: Request, res: Response) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = parseInt(req.query.pageSize as string) || 50;
   const all = getAllSurveys();
   const start = (page - 1) * pageSize;
   const paged = all.slice(start, start + pageSize);
@@ -57,9 +88,10 @@ app.post('/api/surveys', (req: Request, res: Response) => {
     }
   }
 
+  const startTime = Date.now();
+
   try {
-    const startTime = Date.now();
-    const survey = createSurvey({
+    const result = createSurvey({
       title: title.trim(),
       questions: questions.map((q: Omit<Question, 'id'>) => ({
         type: q.type,
@@ -68,10 +100,19 @@ app.post('/api/surveys', (req: Request, res: Response) => {
         required: q.required,
       })),
     });
+
     const elapsed = Date.now() - startTime;
+
+    if (elapsed > SHARE_LINK_SLA_MS) {
+      console.warn(`[PERF] 分享链接生成超出 SLA: ${elapsed}ms (目标: ${SHARE_LINK_SLA_MS}ms)`);
+    }
+
     res.json({
-      ...survey,
+      ...result.survey,
       shareLinkGeneratedMs: elapsed,
+      tokenGenerateMs: result.perf.generateTokenMs,
+      meetsSla: elapsed <= SHARE_LINK_SLA_MS,
+      slaTarget: SHARE_LINK_SLA_MS,
     });
   } catch (error) {
     res.status(500).json({ error: '创建问卷失败' });
@@ -147,8 +188,15 @@ app.delete('/api/surveys/:id', (req: Request, res: Response) => {
 });
 
 app.get('/api/share/:token', (req: Request, res: Response) => {
+  const startTime = Date.now();
   const { token } = req.params;
   const survey = getSurveyByShareToken(token);
+
+  const elapsed = Date.now() - startTime;
+  if (elapsed > 50) {
+    console.warn(`[PERF] 分享 token 查找较慢: ${elapsed}ms`);
+  }
+
   if (!survey) {
     return res.status(404).json({ error: '问卷不存在或已被删除' });
   }
@@ -189,7 +237,7 @@ app.post('/api/surveys/:id/responses', (req: Request, res: Response) => {
 
   const response = submitResponse(id, answers);
   if (!response) {
-    return res.status(500).json({ error: '提交回复失败' });
+    return res.status(500).json({ error: '提交回复失败，可能已达到回复上限' });
   }
   res.json({ success: true, responseId: response.id });
 });
@@ -221,7 +269,21 @@ app.get('/api/surveys/:id/statistics', (req: Request, res: Response) => {
   });
 });
 
+app.get('/api/perf/stats', (_req: Request, res: Response) => {
+  res.json(getPerfStats());
+});
+
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    timestamp: Date.now(),
+    surveyCount: getSurveyCount(),
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server is running on http://localhost:${PORT}`);
   console.log(`API base: http://localhost:${PORT}/api`);
+  console.log(`Share link SLA: ${SHARE_LINK_SLA_MS}ms`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
 });

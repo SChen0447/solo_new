@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3002/api';
+const BASE_URL = '/api';
 
 export type QuestionType = 'single' | 'multiple' | 'text';
 
