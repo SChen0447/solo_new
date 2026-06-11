@@ -65,6 +65,8 @@ export interface HistoryVersion {
 }
 
 export interface CanvasState {
+  versionId?: string;
+  versionTimestamp?: number;
   drawings: DrawElement[];
   stickies: StickyNote[];
   images: CanvasImage[];
@@ -84,7 +86,8 @@ export type ServerMessage =
   | { type: 'cursor-move'; cursor: UserCursor }
   | { type: 'cursor-leave'; userId: string }
   | { type: 'version-saved'; version: HistoryVersion }
-  | { type: 'version-restore'; state: CanvasState; versionId: string }
+  | { type: 'version-restore'; state: CanvasState; versionId: string; initiatorUserId: string }
+  | { type: 'version-restore-failed'; reason: string }
   | { type: 'versions-list'; versions: HistoryVersion[] }
   | { type: 'user-joined'; userId: string; color: string; name: string }
   | { type: 'user-left'; userId: string }
@@ -101,6 +104,6 @@ export type ClientMessage =
   | { type: 'image-update'; image: CanvasImage }
   | { type: 'image-delete'; id: string }
   | { type: 'cursor-move'; cursor: UserCursor }
-  | { type: 'restore-version'; versionId: string }
+  | { type: 'restore-version'; versionId: string; expectedStateVersion?: string }
   | { type: 'get-versions' }
   | { type: 'clear-canvas' };

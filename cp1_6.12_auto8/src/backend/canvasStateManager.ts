@@ -21,8 +21,17 @@ export class CanvasStateManager {
     return this.state;
   }
 
+  getCurrentStateVersion(): string | undefined {
+    return this.state.versionId;
+  }
+
   getVersions(): HistoryVersion[] {
     return this.versions;
+  }
+
+  checkVersionConflict(expectedVersion?: string): boolean {
+    if (!expectedVersion) return false;
+    return this.state.versionId !== expectedVersion;
   }
 
   addDrawElement(element: DrawElement): void {
@@ -105,6 +114,9 @@ export class CanvasStateManager {
       this.versions = this.versions.slice(-MAX_HISTORY_VERSIONS);
     }
 
+    this.state.versionId = version.id;
+    this.state.versionTimestamp = version.timestamp;
+
     return version;
   }
 
@@ -113,6 +125,8 @@ export class CanvasStateManager {
     if (!version) return false;
 
     this.state = {
+      versionId: version.id,
+      versionTimestamp: version.timestamp,
       drawings: JSON.parse(JSON.stringify(version.drawings)),
       stickies: JSON.parse(JSON.stringify(version.stickies)),
       images: JSON.parse(JSON.stringify(version.images)),
@@ -135,4 +149,59 @@ export function validateImageFile(file: { type: string; size: number }): { valid
     return { valid: false, error: '图片大小不能超过 5MB' };
   }
   return { valid: true };
+}
+
+export async function validateImageFileWithMagic(file: File): Promise<{ valid: boolean; error?: string }> {
+  const basicCheck = validateImageFile(file);
+  if (!basicCheck.valid) return basicCheck;
+
+  const headerSize = 8;
+  const buffer = await file.slice(0, headerSize).arrayBuffer();
+  const uint8 = new Uint8Array(buffer);
+
+  const pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+  const jpegSignature = [0xFF, 0xD8, 0xFF];
+
+  let isPng = true;
+  for (let i = 0; i < pngSignature.length; i++) {
+    if (uint8[i] !== pngSignature[i]) {
+      isPng = false;
+      break;
+    }
+  }
+  if (isPng) {
+    if (file.type !== 'image/png') {
+      return { valid: false, error: '文件头与 MIME 类型不匹配，可能是伪造的文件' };
+    }
+    return { valid: true };
+  }
+
+  let isJpeg = true;
+  for (let i = 0; i < jpegSignature.length; i++) {
+    if (uint8[i] !== jpegSignature[i]) {
+      isJpeg = false;
+      break;
+    }
+  }
+  if (isJpeg) {
+    if (file.type !== 'image/jpeg' && file.type !== 'image/jpg') {
+      return { valid: false, error: '文件头与 MIME 类型不匹配，可能是伪造的文件' };
+    }
+    return { valid: true };
+  }
+
+  return { valid: false, error: '不支持的图片格式，请上传 PNG 或 JPG' };
+}
+
+export function precheckImageMemory(file: File): { safe: boolean; estimatedBytes?: number; error?: string } {
+  const maxSize = 5 * 1024 * 1024;
+  if (file.size > maxSize) {
+    return { safe: false, error: '图片大小不能超过 5MB' };
+  }
+  const estimatedBase64Size = Math.ceil(file.size * 1.37);
+  const maxMemory = 20 * 1024 * 1024;
+  if (estimatedBase64Size > maxMemory) {
+    return { safe: false, error: '图片转 base64 后预计占用内存过大' };
+  }
+  return { safe: true, estimatedBytes: estimatedBase64Size };
 }

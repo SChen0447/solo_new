@@ -13,6 +13,7 @@ import type {
   ServerMessage,
   CanvasState,
 } from '../shared/types';
+import { validateImageFileWithMagic, precheckImageMemory } from '../backend/canvasStateManager';
 
 const USER_COLORS = [
   '#ff6b35',
@@ -60,8 +61,30 @@ const App: React.FC = () => {
   const [historyOpen, setHistoryOpen] = useState(true);
   const [connected, setConnected] = useState(false);
   const [userName, setUserName] = useState('我');
+  const [currentStateVersion, setCurrentStateVersion] = useState<string | undefined>();
+  const [pendingEditsCount, setPendingEditsCount] = useState(0);
+  const [lastEditTime, setLastEditTime] = useState<number>(0);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const lastEditTimeRef = useRef(0);
+
+  const trackLocalEdit = useCallback(() => {
+    const now = Date.now();
+    lastEditTimeRef.current = now;
+    setLastEditTime(now);
+    setPendingEditsCount((c) => c + 1);
+  }, []);
+
+  const resetPendingEdits = useCallback(() => {
+    setPendingEditsCount(0);
+    lastEditTimeRef.current = 0;
+  }, []);
+
+  const hasRecentEdits = useCallback(() => {
+    const RECENT_EDIT_THRESHOLD = 30000;
+    return pendingEditsCount > 0 && (Date.now() - lastEditTimeRef.current) < RECENT_EDIT_THRESHOLD;
+  }, [pendingEditsCount]);
 
   const upsertElement = useCallback((element: DrawElement) => {
     setDrawings((prev) => {
@@ -104,20 +127,28 @@ const App: React.FC = () => {
           setStickies(msg.state.stickies || []);
           setImages(msg.state.images || []);
           setVersions(msg.versions || []);
+          setCurrentStateVersion(msg.state.versionId);
           const c = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
           setUserColor(c);
           setConnected(true);
+          resetPendingEdits();
           break;
         }
         case 'draw':
         case 'draw-update':
         case 'draw-finish': {
           upsertElement(msg.element);
+          if (msg.element.userId === userId) {
+            trackLocalEdit();
+          }
           break;
         }
         case 'sticky-add':
         case 'sticky-update': {
           upsertSticky(msg.sticky);
+          if (msg.sticky.userId === userId) {
+            trackLocalEdit();
+          }
           break;
         }
         case 'sticky-delete': {
@@ -127,6 +158,9 @@ const App: React.FC = () => {
         case 'image-add':
         case 'image-update': {
           upsertImage(msg.image);
+          if (msg.image.userId === userId) {
+            trackLocalEdit();
+          }
           break;
         }
         case 'image-delete': {
@@ -155,6 +189,10 @@ const App: React.FC = () => {
             const next = [...prev, msg.version];
             return next.slice(-50);
           });
+          setCurrentStateVersion(msg.version.id);
+          if (restoringVersionId !== msg.version.id) {
+            resetPendingEdits();
+          }
           break;
         }
         case 'versions-list': {
@@ -165,6 +203,22 @@ const App: React.FC = () => {
           setDrawings(msg.state.drawings);
           setStickies(msg.state.stickies);
           setImages(msg.state.images);
+          setCurrentStateVersion(msg.state.versionId);
+          resetPendingEdits();
+          if (msg.initiatorUserId !== userId) {
+            const user = cursors.get(msg.initiatorUserId);
+            const userName = user?.name || '其他用户';
+            setTimeout(() => {
+              alert(`画布已被 ${userName} 恢复到历史版本`);
+            }, 100);
+          } else {
+            setRestoringVersionId(null);
+          }
+          break;
+        }
+        case 'version-restore-failed': {
+          setRestoringVersionId(null);
+          alert(msg.reason || '恢复版本失败，请重试');
           break;
         }
         case 'user-joined': {
@@ -185,7 +239,7 @@ const App: React.FC = () => {
     return () => {
       unsub();
     };
-  }, [upsertElement, upsertSticky, upsertImage, userId]);
+  }, [upsertElement, upsertSticky, upsertImage, userId, resetPendingEdits, trackLocalEdit, restoringVersionId, cursors]);
 
   const handleDrawStart = (element: DrawElement) => {
     socketClient.send({ type: 'draw', element });
@@ -249,15 +303,30 @@ const App: React.FC = () => {
   const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
   const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
 
-  const uploadImageAt = (x: number, y: number, file: File) => {
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+  const uploadImageAt = async (x: number, y: number, file: File) => {
+    const memoryCheck = precheckImageMemory(file);
+    if (!memoryCheck.safe) {
+      alert(memoryCheck.error || '内存预检失败');
+      return;
+    }
+
+    const typeCheck = ALLOWED_IMAGE_TYPES.includes(file.type);
+    if (!typeCheck) {
       alert('仅支持 PNG 和 JPG 格式的图片');
       return;
     }
-    if (file.size > MAX_IMAGE_SIZE) {
-      alert('图片大小不能超过 5MB');
+
+    try {
+      const magicCheck = await validateImageFileWithMagic(file);
+      if (!magicCheck.valid) {
+        alert(magicCheck.error || '图片文件校验失败');
+        return;
+      }
+    } catch (e) {
+      alert('图片文件校验失败');
       return;
     }
+
     const reader = new FileReader();
     reader.onload = () => {
       const src = reader.result as string;
@@ -316,13 +385,44 @@ const App: React.FC = () => {
   const handleRestoreVersion = (versionId: string) => {
     const activeUsers = Array.from(cursors.keys()).filter((id) => id !== userId);
     const hasActiveEditors = activeUsers.length > 0;
-    let message = '确定恢复到此版本吗？当前画布内容会被覆盖并同步给所有人。';
+    const hasUnsavedEdits = hasRecentEdits();
+
+    let confirmMessage = '确定恢复到此版本吗？';
+    const details: string[] = [];
+
+    if (hasUnsavedEdits) {
+      details.push(`您有 ${pendingEditsCount} 个本地编辑尚未自动保存`);
+    }
     if (hasActiveEditors) {
-      message = `当前有 ${activeUsers.length} 位其他用户在线编辑，恢复版本会覆盖他们正在编辑的内容。确定继续吗？`;
+      details.push(`当前有 ${activeUsers.length} 位其他用户在线编辑`);
     }
-    if (confirm(message)) {
-      socketClient.send({ type: 'restore-version', versionId });
+    if (!currentStateVersion) {
+      details.push('未获取到当前状态版本号，无法检测冲突');
     }
+
+    if (details.length > 0) {
+      confirmMessage += '\n\n⚠️ 注意：\n' + details.map((d) => '• ' + d).join('\n');
+      confirmMessage += '\n\n恢复操作会覆盖所有人的当前内容，确定继续吗？';
+    } else {
+      confirmMessage += ' 当前画布内容会被覆盖并同步给所有人。';
+    }
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setRestoringVersionId(versionId);
+    socketClient.send({
+      type: 'restore-version',
+      versionId,
+      expectedStateVersion: currentStateVersion,
+    });
+
+    setTimeout(() => {
+      if (restoringVersionId === versionId) {
+        setRestoringVersionId(null);
+      }
+    }, 5000);
   };
 
   return (

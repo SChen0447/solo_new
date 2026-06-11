@@ -10,7 +10,7 @@ import type {
   StickyNote,
   CanvasImage,
 } from '../shared/types';
-import { CanvasStateManager } from './canvasStateManager';
+import { CanvasStateManager, validateImageFile } from './canvasStateManager';
 
 const app = express();
 const server = createServer(app);
@@ -145,6 +145,19 @@ wss.on('connection', (ws: WebSocket) => {
           break;
         }
         case 'restore-version': {
+          const hasConflict = manager.checkVersionConflict(message.expectedStateVersion);
+          if (hasConflict) {
+            const state = manager.getState();
+            ws.send(JSON.stringify({
+              type: 'version-restore-failed',
+              reason: '版本冲突：当前画布状态已被修改，请刷新后重试',
+            } as ServerMessage));
+            ws.send(JSON.stringify({
+              type: 'versions-list',
+              versions: [...manager.getVersions()],
+            } as ServerMessage));
+            break;
+          }
           const restored = manager.restoreVersion(message.versionId);
           if (restored) {
             const state = manager.getState();
@@ -152,6 +165,7 @@ wss.on('connection', (ws: WebSocket) => {
               type: 'version-restore',
               state: JSON.parse(JSON.stringify(state)),
               versionId: message.versionId,
+              initiatorUserId: userId,
             });
           }
           break;
