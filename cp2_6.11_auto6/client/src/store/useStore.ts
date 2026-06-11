@@ -2,6 +2,15 @@ import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { DrawAction, StickyNoteData, UserInfo, ToolType } from '../../../shared/types';
 
+interface TextInputState {
+  active: boolean;
+  x: number;
+  y: number;
+  color: string;
+  fontSize: number;
+  value: string;
+}
+
 interface WhiteboardState {
   socket: Socket | null;
   roomId: string | null;
@@ -15,6 +24,9 @@ interface WhiteboardState {
   strokeWidth: number;
   fontSize: number;
   isReplaying: boolean;
+  originalDrawActions: DrawAction[];
+  originalStickyNotes: StickyNoteData[];
+  textInput: TextInputState;
   remoteCursors: Map<string, { x: number; y: number; color: string; name: string }>;
   connect: (roomId: string, userName: string) => void;
   disconnect: () => void;
@@ -29,6 +41,9 @@ interface WhiteboardState {
   setIsReplaying: (replaying: boolean) => void;
   setDrawActions: (actions: DrawAction[]) => void;
   setStickyNotes: (notes: StickyNoteData[]) => void;
+  setOriginalDrawActions: (actions: DrawAction[]) => void;
+  setOriginalStickyNotes: (notes: StickyNoteData[]) => void;
+  setTextInput: (state: TextInputState) => void;
 }
 
 const useStore = create<WhiteboardState>((set, get) => ({
@@ -44,6 +59,9 @@ const useStore = create<WhiteboardState>((set, get) => ({
   strokeWidth: 2,
   fontSize: 16,
   isReplaying: false,
+  originalDrawActions: [],
+  originalStickyNotes: [],
+  textInput: { active: false, x: 0, y: 0, color: '#FFFFFF', fontSize: 16, value: '' },
   remoteCursors: new Map(),
 
   connect: (roomId: string, userName: string) => {
@@ -131,6 +149,9 @@ const useStore = create<WhiteboardState>((set, get) => ({
   setIsReplaying: (replaying) => set({ isReplaying: replaying }),
   setDrawActions: (actions) => set({ drawActions: actions }),
   setStickyNotes: (notes) => set({ stickyNotes: notes }),
+  setOriginalDrawActions: (actions) => set({ originalDrawActions: actions }),
+  setOriginalStickyNotes: (notes) => set({ originalStickyNotes: notes }),
+  setTextInput: (state) => set({ textInput: state }),
 
   addDrawAction: (action) => {
     const { socket } = get();

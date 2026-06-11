@@ -1,7 +1,7 @@
 import { Users } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import useStore from '../store/useStore';
 
-export function UserList() {
+export default function UserList() {
   const users = useStore((s) => s.users);
   const userId = useStore((s) => s.userId);
 

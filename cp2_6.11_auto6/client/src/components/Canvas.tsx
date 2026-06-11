@@ -1,7 +1,7 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import useStore from '../store/useStore';
 import { useSocket } from '../hooks/useSocket';
-import { DrawAction, ToolType } from '../../../shared/types';
+import { DrawAction } from '../../../shared/types';
 
 function generateId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -22,7 +22,12 @@ interface CanvasState {
   currentAction: DrawAction | null;
 }
 
-export default function Canvas() {
+export interface CanvasHandle {
+  getTransform: () => { zoom: number; panX: number; panY: number };
+  screenToCanvas: (sx: number, sy: number) => { x: number; y: number };
+}
+
+export default forwardRef<CanvasHandle>(function Canvas(_props, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<CanvasState>({
@@ -36,6 +41,7 @@ export default function Canvas() {
     lastPanY: 0,
     currentAction: null,
   });
+  const textInputRef = useRef<HTMLInputElement | null>(null);
   const rafRef = useRef<number>(0);
   const lastEmitRef = useRef<number>(0);
 
@@ -48,10 +54,30 @@ export default function Canvas() {
   const isReplaying = useStore((s) => s.isReplaying);
   const remoteCursors = useStore((s) => s.remoteCursors);
   const addDrawAction = useStore((s) => s.addDrawAction);
+  const textInput = useStore((s) => s.textInput);
+  const setTextInput = useStore((s) => s.setTextInput);
 
   const { emitCursorMove } = useSocket();
 
   const [zoomLevel, setZoomLevel] = useState(1);
+
+  useImperativeHandle(ref, () => ({
+    getTransform: () => ({
+      zoom: stateRef.current.zoom,
+      panX: stateRef.current.panX,
+      panY: stateRef.current.panY,
+    }),
+    screenToCanvas: (sx: number, sy: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return { x: 0, y: 0 };
+      const rect = canvas.getBoundingClientRect();
+      const st = stateRef.current;
+      return {
+        x: (sx - rect.left - st.panX) / st.zoom,
+        y: (sy - rect.top - st.panY) / st.zoom,
+      };
+    },
+  }));
 
   const screenToCanvas = useCallback((screenX: number, screenY: number) => {
     const canvas = canvasRef.current;
@@ -63,114 +89,141 @@ export default function Canvas() {
     return { x, y };
   }, []);
 
-  const drawGrid = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number, zoom: number, panX: number, panY: number) => {
-    const spacing = 20 * zoom;
-    const dotRadius = Math.max(0.5, 1 * zoom);
-    const offsetX = panX % spacing;
-    const offsetY = panY % spacing;
-
-    ctx.fillStyle = '#333344';
-    for (let x = offsetX; x < width; x += spacing) {
-      for (let y = offsetY; y < height; y += spacing) {
-        ctx.beginPath();
-        ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+  const canvasToScreen = useCallback((cx: number, cy: number) => {
+    const st = stateRef.current;
+    return {
+      x: cx * st.zoom + st.panX,
+      y: cy * st.zoom + st.panY,
+    };
   }, []);
 
-  const drawAction = useCallback((ctx: CanvasRenderingContext2D, action: DrawAction, zoom: number, panX: number, panY: number) => {
-    const points = action.points;
-    if (!points || points.length === 0) return;
+  const drawGrid = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      width: number,
+      height: number,
+      zoom: number,
+      panX: number,
+      panY: number
+    ) => {
+      const spacing = 20 * zoom;
+      const dotRadius = Math.max(0.5, 1 * zoom);
+      const offsetX = panX % spacing;
+      const offsetY = panY % spacing;
 
-    ctx.save();
-    ctx.translate(panX, panY);
-    ctx.scale(zoom, zoom);
+      ctx.fillStyle = 'rgba(200, 200, 255, 0.08)';
+      for (let x = offsetX; x < width; x += spacing) {
+        for (let y = offsetY; y < height; y += spacing) {
+          ctx.beginPath();
+          ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    },
+    []
+  );
 
-    switch (action.type) {
-      case 'pencil': {
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = action.color;
-        ctx.lineWidth = action.strokeWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-        ctx.stroke();
-        break;
-      }
-      case 'highlighter': {
-        ctx.globalAlpha = 0.4;
-        ctx.strokeStyle = action.color;
-        ctx.lineWidth = action.strokeWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        break;
-      }
-      case 'line': {
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = action.color;
-        ctx.lineWidth = action.strokeWidth;
-        ctx.lineCap = 'round';
-        const start = points[0];
-        const end = points[points.length - 1];
-        ctx.beginPath();
-        ctx.moveTo(start.x, start.y);
-        ctx.lineTo(end.x, end.y);
-        ctx.stroke();
-        break;
-      }
-      case 'rect': {
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = action.color;
-        ctx.lineWidth = action.strokeWidth;
-        const p0 = points[0];
-        const p1 = points[points.length - 1];
-        const rx = Math.min(p0.x, p1.x);
-        const ry = Math.min(p0.y, p1.y);
-        const rw = Math.abs(p1.x - p0.x);
-        const rh = Math.abs(p1.y - p0.y);
-        ctx.strokeRect(rx, ry, rw, rh);
-        break;
-      }
-      case 'circle': {
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = action.color;
-        ctx.lineWidth = action.strokeWidth;
-        const center = points[0];
-        const edge = points[points.length - 1];
-        const radius = Math.sqrt(
-          (edge.x - center.x) ** 2 + (edge.y - center.y) ** 2
-        );
-        ctx.beginPath();
-        ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-        ctx.stroke();
-        break;
-      }
-      case 'text': {
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = action.color;
-        ctx.font = `${action.fontSize || 16}px sans-serif`;
-        ctx.textBaseline = 'top';
-        if (action.text) {
-          ctx.fillText(action.text, points[0].x, points[0].y);
-        }
-        break;
-      }
-    }
+  const drawAction = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      action: DrawAction,
+      zoom: number,
+      panX: number,
+      panY: number
+    ) => {
+      const points = action.points;
+      if (!points || points.length === 0) return;
 
-    ctx.restore();
-  }, []);
+      ctx.save();
+      ctx.translate(panX, panY);
+      ctx.scale(zoom, zoom);
+
+      switch (action.type) {
+        case 'pencil': {
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = action.color;
+          ctx.lineWidth = action.strokeWidth;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          ctx.moveTo(points[0].x, points[0].y);
+          for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+          }
+          ctx.stroke();
+          break;
+        }
+        case 'highlighter': {
+          ctx.globalAlpha = 0.4;
+          ctx.strokeStyle = action.color;
+          ctx.lineWidth = action.strokeWidth;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          ctx.moveTo(points[0].x, points[0].y);
+          for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+          }
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'line': {
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = action.color;
+          ctx.lineWidth = action.strokeWidth;
+          ctx.lineCap = 'round';
+          const start = points[0];
+          const end = points[points.length - 1];
+          ctx.beginPath();
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(end.x, end.y);
+          ctx.stroke();
+          break;
+        }
+        case 'rect': {
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = action.color;
+          ctx.lineWidth = action.strokeWidth;
+          const p0 = points[0];
+          const p1 = points[points.length - 1];
+          const rx = Math.min(p0.x, p1.x);
+          const ry = Math.min(p0.y, p1.y);
+          const rw = Math.abs(p1.x - p0.x);
+          const rh = Math.abs(p1.y - p0.y);
+          ctx.strokeRect(rx, ry, rw, rh);
+          break;
+        }
+        case 'circle': {
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = action.color;
+          ctx.lineWidth = action.strokeWidth;
+          const center = points[0];
+          const edge = points[points.length - 1];
+          const radius = Math.sqrt(
+            (edge.x - center.x) ** 2 + (edge.y - center.y) ** 2
+          );
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+        }
+        case 'text': {
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = action.color;
+          ctx.font = `${action.fontSize || 16}px 'DM Sans', sans-serif`;
+          ctx.textBaseline = 'top';
+          if (action.text) {
+            ctx.fillText(action.text, points[0].x, points[0].y);
+          }
+          break;
+        }
+      }
+
+      ctx.restore();
+    },
+    []
+  );
 
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -183,7 +236,10 @@ export default function Canvas() {
     const height = canvas.height;
 
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#1a1a2e';
+    const grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, '#1e1b4b');
+    grad.addColorStop(1, '#312e81');
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
     drawGrid(ctx, width, height, st.zoom, st.panX, st.panY);
@@ -197,20 +253,24 @@ export default function Canvas() {
     }
 
     const entries = Array.from(remoteCursors.entries());
-    for (const [uid, cursor] of entries) {
+    for (const [, cursor] of entries) {
+      if (!cursor) continue;
       ctx.save();
       ctx.translate(st.panX, st.panY);
       ctx.scale(st.zoom, st.zoom);
 
       ctx.fillStyle = cursor.color;
+      ctx.shadowColor = cursor.color;
+      ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.arc(cursor.x, cursor.y, 4 / st.zoom, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
 
-      ctx.font = `${12 / st.zoom}px sans-serif`;
+      ctx.font = `${12 / st.zoom}px 'DM Sans', sans-serif`;
       ctx.fillStyle = cursor.color;
       ctx.textBaseline = 'bottom';
-      ctx.fillText(cursor.name, cursor.x + 6 / st.zoom, cursor.y - 2 / st.zoom);
+      ctx.fillText(cursor.name, cursor.x + 8 / st.zoom, cursor.y - 4 / st.zoom);
 
       ctx.restore();
     }
@@ -253,6 +313,9 @@ export default function Canvas() {
         e.preventDefault();
         stateRef.current.spaceHeld = true;
       }
+      if (e.key === 'Escape' && textInput.active) {
+        setTextInput({ ...textInput, active: false });
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
@@ -268,65 +331,103 @@ export default function Canvas() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, []);
+  }, [textInput, setTextInput]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isReplaying) return;
-    const st = stateRef.current;
-
-    if (e.button === 1 || st.spaceHeld) {
-      st.isPanning = true;
-      st.lastPanX = e.clientX;
-      st.lastPanY = e.clientY;
-      return;
+  useEffect(() => {
+    if (textInput.active && textInputRef.current) {
+      textInputRef.current.focus();
     }
+  }, [textInput.active]);
 
-    if (e.button !== 0) return;
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (isReplaying) return;
+      const st = stateRef.current;
 
-    const canvasPoint = screenToCanvas(e.clientX, e.clientY);
-    const effectiveStrokeWidth = currentTool === 'highlighter' ? strokeWidth * 3 : strokeWidth;
+      if (textInput.active) {
+        setTextInput({ ...textInput, active: false });
+      }
 
-    st.isDrawing = true;
-    st.currentAction = {
-      id: generateId(),
-      type: currentTool,
-      points: [canvasPoint],
-      color: currentColor,
-      strokeWidth: effectiveStrokeWidth,
-      fontSize: fontSize,
-      text: currentTool === 'text' ? '' : undefined,
-      userId: userId || '',
-      timestamp: Date.now(),
-    };
-  }, [isReplaying, currentTool, currentColor, strokeWidth, fontSize, userId, screenToCanvas]);
+      if (e.button === 1 || st.spaceHeld) {
+        st.isPanning = true;
+        st.lastPanX = e.clientX;
+        st.lastPanY = e.clientY;
+        return;
+      }
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const st = stateRef.current;
-    const now = Date.now();
+      if (e.button !== 0) return;
 
-    if (now - lastEmitRef.current >= 50) {
       const canvasPoint = screenToCanvas(e.clientX, e.clientY);
-      emitCursorMove(canvasPoint.x, canvasPoint.y);
-      lastEmitRef.current = now;
-    }
+      const effectiveStrokeWidth =
+        currentTool === 'highlighter' ? strokeWidth * 3 : strokeWidth;
 
-    if (st.isPanning) {
-      const dx = e.clientX - st.lastPanX;
-      const dy = e.clientY - st.lastPanY;
-      st.panX += dx;
-      st.panY += dy;
-      st.lastPanX = e.clientX;
-      st.lastPanY = e.clientY;
-      return;
-    }
+      if (currentTool === 'text') {
+        setTextInput({
+          active: true,
+          x: canvasPoint.x,
+          y: canvasPoint.y,
+          color: currentColor,
+          fontSize: fontSize,
+          value: '',
+        });
+        return;
+      }
 
-    if (st.isDrawing && st.currentAction) {
-      const canvasPoint = screenToCanvas(e.clientX, e.clientY);
-      st.currentAction.points.push(canvasPoint);
-    }
-  }, [screenToCanvas, emitCursorMove]);
+      st.isDrawing = true;
+      st.currentAction = {
+        id: generateId(),
+        type: currentTool,
+        points: [canvasPoint],
+        color: currentColor,
+        strokeWidth: effectiveStrokeWidth,
+        fontSize: fontSize,
+        userId: userId || '',
+        timestamp: Date.now(),
+      };
+    },
+    [
+      isReplaying,
+      currentTool,
+      currentColor,
+      strokeWidth,
+      fontSize,
+      userId,
+      screenToCanvas,
+      textInput,
+      setTextInput,
+    ]
+  );
 
-  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const st = stateRef.current;
+      const now = Date.now();
+
+      if (now - lastEmitRef.current >= 200) {
+        const canvasPoint = screenToCanvas(e.clientX, e.clientY);
+        emitCursorMove(canvasPoint.x, canvasPoint.y);
+        lastEmitRef.current = now;
+      }
+
+      if (st.isPanning) {
+        const dx = e.clientX - st.lastPanX;
+        const dy = e.clientY - st.lastPanY;
+        st.panX += dx;
+        st.panY += dy;
+        st.lastPanX = e.clientX;
+        st.lastPanY = e.clientY;
+        return;
+      }
+
+      if (st.isDrawing && st.currentAction && st.currentAction.type !== 'text') {
+        const canvasPoint = screenToCanvas(e.clientX, e.clientY);
+        st.currentAction.points.push(canvasPoint);
+      }
+    },
+    [screenToCanvas, emitCursorMove]
+  );
+
+  const handleMouseUp = useCallback(() => {
     const st = stateRef.current;
 
     if (st.isPanning) {
@@ -334,19 +435,9 @@ export default function Canvas() {
       return;
     }
 
-    if (st.isDrawing && st.currentAction) {
+    if (st.isDrawing && st.currentAction && st.currentAction.type !== 'text') {
       st.isDrawing = false;
-
-      if (st.currentAction.type === 'text') {
-        const textContent = window.prompt('Enter text:');
-        if (textContent) {
-          st.currentAction.text = textContent;
-          addDrawAction(st.currentAction);
-        }
-      } else {
-        addDrawAction(st.currentAction);
-      }
-
+      addDrawAction(st.currentAction);
       st.currentAction = null;
     }
   }, [addDrawAction]);
@@ -370,14 +461,68 @@ export default function Canvas() {
     setZoomLevel(newZoom);
   }, []);
 
+  const handleTextKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (textInput.value.trim()) {
+        const action: DrawAction = {
+          id: generateId(),
+          type: 'text',
+          points: [{ x: textInput.x, y: textInput.y }],
+          color: textInput.color,
+          strokeWidth: 1,
+          fontSize: textInput.fontSize,
+          text: textInput.value,
+          userId: userId || '',
+          timestamp: Date.now(),
+        };
+        addDrawAction(action);
+      }
+      setTextInput({ ...textInput, active: false });
+    } else if (e.key === 'Escape') {
+      setTextInput({ ...textInput, active: false });
+    }
+  };
+
+  const handleTextBlur = () => {
+    if (textInput.value.trim()) {
+      const action: DrawAction = {
+        id: generateId(),
+        type: 'text',
+        points: [{ x: textInput.x, y: textInput.y }],
+        color: textInput.color,
+        strokeWidth: 1,
+        fontSize: textInput.fontSize,
+        text: textInput.value,
+        userId: userId || '',
+        timestamp: Date.now(),
+      };
+      addDrawAction(action);
+    }
+    setTextInput({ ...textInput, active: false });
+  };
+
+  const textScreenPos = textInput.active ? canvasToScreen(textInput.x, textInput.y) : null;
+
   return (
     <div
       ref={containerRef}
+      className="canvas-container"
       style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}
     >
       <canvas
         ref={canvasRef}
-        style={{ display: 'block', width: '100%', height: '100%', cursor: stateRef.current.isPanning || stateRef.current.spaceHeld ? 'grab' : 'crosshair' }}
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          cursor:
+            stateRef.current.isPanning || stateRef.current.spaceHeld
+              ? 'grab'
+              : currentTool === 'text'
+              ? 'text'
+              : 'crosshair',
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -385,6 +530,34 @@ export default function Canvas() {
         onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
       />
+      {textInput.active && textScreenPos && (
+        <input
+          ref={textInputRef}
+          type="text"
+          autoFocus
+          value={textInput.value}
+          onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
+          onKeyDown={handleTextKeyDown}
+          onBlur={handleTextBlur}
+          placeholder="输入文本..."
+          style={{
+            position: 'absolute',
+            left: textScreenPos.x,
+            top: textScreenPos.y,
+            fontSize: textInput.fontSize,
+            color: textInput.color,
+            background: 'rgba(0,0,0,0.4)',
+            border: `1px solid ${textInput.color}`,
+            borderRadius: 4,
+            padding: '4px 8px',
+            outline: 'none',
+            minWidth: 120,
+            fontFamily: "'DM Sans', sans-serif",
+            boxShadow: `0 0 12px ${textInput.color}44`,
+            zIndex: 50,
+          }}
+        />
+      )}
       <div
         style={{
           position: 'absolute',
@@ -393,15 +566,16 @@ export default function Canvas() {
           background: 'rgba(0,0,0,0.6)',
           color: '#ccc',
           padding: '4px 10px',
-          borderRadius: 4,
+          borderRadius: 6,
           fontSize: 12,
           fontFamily: 'monospace',
           pointerEvents: 'none',
           userSelect: 'none',
+          backdropFilter: 'blur(4px)',
         }}
       >
         {Math.round(zoomLevel * 100)}%
       </div>
     </div>
   );
-}
+});

@@ -1,40 +1,45 @@
-const rooms = new Map();
+import { DrawAction, StickyNoteData, UserInfo, RoomStore } from '../../shared/types';
 
-function ensureRoom(roomId) {
+const rooms = new Map<string, RoomStore>();
+
+export function ensureRoom(roomId: string): RoomStore {
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
       drawActions: [],
-      stickyNotes: new Map(),
-      users: new Map(),
+      stickyNotes: new Map<string, StickyNoteData>(),
+      users: new Map<string, UserInfo>(),
       createdAt: Date.now(),
     });
   }
-  return rooms.get(roomId);
+  return rooms.get(roomId) as RoomStore;
 }
 
-function getRoom(roomId) {
+export function getRoom(roomId: string): RoomStore | null {
   return rooms.get(roomId) || null;
 }
 
-function addDrawAction(roomId, action) {
+export function addDrawAction(roomId: string, action: DrawAction): DrawAction {
   const room = ensureRoom(roomId);
   room.drawActions.push(action);
   return action;
 }
 
-function getActionsSince(roomId, timestamp) {
+export function getActionsSince(roomId: string, timestamp: number): DrawAction[] {
   const room = getRoom(roomId);
   if (!room) return [];
   return room.drawActions.filter((a) => a.timestamp > timestamp);
 }
 
-function getSnapshot(roomId, timestamp) {
+export function getSnapshot(
+  roomId: string,
+  timestamp?: number
+): { drawActions: DrawAction[]; stickyNotes: StickyNoteData[] } {
   const room = getRoom(roomId);
   if (!room) return { drawActions: [], stickyNotes: [] };
   const actions = timestamp
     ? room.drawActions.filter((a) => a.timestamp <= timestamp)
     : room.drawActions;
-  const notes = [];
+  const notes: StickyNoteData[] = [];
   room.stickyNotes.forEach((note) => {
     if (!timestamp || note.timestamp <= timestamp) {
       notes.push(note);
@@ -43,47 +48,51 @@ function getSnapshot(roomId, timestamp) {
   return { drawActions: actions, stickyNotes: notes };
 }
 
-function addStickyNote(roomId, note) {
+export function addStickyNote(roomId: string, note: StickyNoteData): StickyNoteData {
   const room = ensureRoom(roomId);
   room.stickyNotes.set(note.id, note);
   return note;
 }
 
-function updateStickyNote(roomId, note) {
+export function updateStickyNote(
+  roomId: string,
+  note: Partial<StickyNoteData> & { id: string }
+): StickyNoteData | null {
   const room = getRoom(roomId);
   if (!room) return null;
   const existing = room.stickyNotes.get(note.id);
   if (existing) {
-    room.stickyNotes.set(note.id, { ...existing, ...note });
-    return room.stickyNotes.get(note.id);
+    const merged: StickyNoteData = { ...existing, ...note };
+    room.stickyNotes.set(note.id, merged);
+    return merged;
   }
   return null;
 }
 
-function deleteStickyNote(roomId, noteId) {
+export function deleteStickyNote(roomId: string, noteId: string): boolean {
   const room = getRoom(roomId);
   if (!room) return false;
   return room.stickyNotes.delete(noteId);
 }
 
-function getStickyNotes(roomId) {
+export function getStickyNotes(roomId: string): StickyNoteData[] {
   const room = getRoom(roomId);
   if (!room) return [];
-  const notes = [];
+  const notes: StickyNoteData[] = [];
   room.stickyNotes.forEach((note) => notes.push(note));
   return notes;
 }
 
-function addUser(roomId, user) {
+export function addUser(roomId: string, user: UserInfo): UserInfo {
   const room = ensureRoom(roomId);
   room.users.set(user.id, user);
   return user;
 }
 
-function removeUser(roomId, userId) {
+export function removeUser(roomId: string, userId: string): UserInfo | null {
   const room = getRoom(roomId);
   if (!room) return null;
-  const user = room.users.get(userId);
+  const user = room.users.get(userId) || null;
   room.users.delete(userId);
   if (room.users.size === 0) {
     rooms.delete(roomId);
@@ -91,7 +100,12 @@ function removeUser(roomId, userId) {
   return user;
 }
 
-function updateUserCursor(roomId, userId, x, y) {
+export function updateUserCursor(
+  roomId: string,
+  userId: string,
+  x: number,
+  y: number
+): UserInfo | null {
   const room = getRoom(roomId);
   if (!room) return null;
   const user = room.users.get(userId);
@@ -99,18 +113,18 @@ function updateUserCursor(roomId, userId, x, y) {
     user.cursorX = x;
     user.cursorY = y;
   }
-  return user;
+  return user || null;
 }
 
-function getUsers(roomId) {
+export function getUsers(roomId: string): UserInfo[] {
   const room = getRoom(roomId);
   if (!room) return [];
-  const users = [];
+  const users: UserInfo[] = [];
   room.users.forEach((u) => users.push(u));
   return users;
 }
 
-function getTimeline(roomId) {
+export function getTimeline(roomId: string): { id: string; timestamp: number; type: string }[] {
   const room = getRoom(roomId);
   if (!room) return [];
   return room.drawActions.map((a) => ({
@@ -119,20 +133,3 @@ function getTimeline(roomId) {
     type: a.type,
   }));
 }
-
-module.exports = {
-  ensureRoom,
-  getRoom,
-  addDrawAction,
-  getActionsSince,
-  getSnapshot,
-  addStickyNote,
-  updateStickyNote,
-  deleteStickyNote,
-  getStickyNotes,
-  addUser,
-  removeUser,
-  updateUserCursor,
-  getUsers,
-  getTimeline,
-};
