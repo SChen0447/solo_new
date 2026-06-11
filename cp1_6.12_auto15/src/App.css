@@ -936,6 +936,71 @@ body {
   padding-left: 6px;
 }
 
+.diff-field-change {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.diff-old-row,
+.diff-new-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.diff-change-tag {
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 0 4px;
+  border-radius: 2px;
+  min-width: 14px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.diff-change-remove {
+  background: rgba(239, 83, 80, 0.2);
+  color: var(--danger);
+}
+
+.diff-change-add {
+  background: rgba(102, 187, 106, 0.2);
+  color: var(--success);
+}
+
+.diff-old {
+  text-decoration: line-through;
+  color: var(--danger);
+  opacity: 0.8;
+}
+
+.diff-new {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.diff-array-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+  border-top: 1px dashed rgba(66, 165, 245, 0.3);
+  margin-top: 2px;
+}
+
+.diff-array-add {
+  font-size: 0.72rem;
+  color: var(--success);
+}
+
+.diff-array-remove {
+  font-size: 0.72rem;
+  color: var(--danger);
+}
+
 .diff-empty {
   color: var(--text-muted);
   text-align: center;

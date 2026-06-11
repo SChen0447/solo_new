@@ -141,34 +141,58 @@ export function detectCircularDependencies(requirements: Requirement[]): Set<str
   const visited = new Set<string>();
   const recursionStack = new Set<string>();
   const circularIds = new Set<string>();
+  const invalidDeps = new Set<string>();
 
-  function dfs(id: string, path: string[]): boolean {
+  function dfs(id: string): boolean {
+    if (!idToReq.has(id)) {
+      invalidDeps.add(id);
+      return false;
+    }
     visited.add(id);
     recursionStack.add(id);
     const req = idToReq.get(id);
     if (!req) return false;
 
+    let hasCycle = false;
     for (const depId of req.dependencies) {
+      if (!idToReq.has(depId)) {
+        invalidDeps.add(depId);
+        continue;
+      }
       if (!visited.has(depId)) {
-        if (dfs(depId, [...path, id])) {
-          return true;
+        if (dfs(depId)) {
+          circularIds.add(id);
+          hasCycle = true;
         }
       } else if (recursionStack.has(depId)) {
         circularIds.add(id);
         circularIds.add(depId);
-        return true;
+        hasCycle = true;
       }
     }
     recursionStack.delete(id);
-    return false;
+    return hasCycle;
   }
 
   for (const req of requirements) {
     if (!visited.has(req.id)) {
-      dfs(req.id, []);
+      dfs(req.id);
     }
   }
   return circularIds;
+}
+
+export function getInvalidDependencies(requirements: Requirement[]): string[] {
+  const validIds = new Set(requirements.map(r => r.id));
+  const invalid = new Set<string>();
+  for (const req of requirements) {
+    for (const depId of req.dependencies) {
+      if (!validIds.has(depId)) {
+        invalid.add(depId);
+      }
+    }
+  }
+  return Array.from(invalid);
 }
 
 export function renumberRequirements(requirements: Requirement[]): Requirement[] {

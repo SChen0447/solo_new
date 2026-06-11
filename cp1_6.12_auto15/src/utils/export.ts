@@ -1,5 +1,24 @@
 import type { Requirement } from '../types';
 
+function slugify(text: string): string {
+  return text
+    .toString()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\u4e00-\u9fa5\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+function safeAnchor(prefix: string, num: number, title?: string): string {
+  if (title) {
+    return `${prefix}-${num}-${slugify(title)}`;
+  }
+  return `${prefix}-${num}`;
+}
+
 export function exportToMarkdown(requirements: Requirement[]): string {
   const now = new Date();
   const pad = (n: number) => n.toString().padStart(2, '0');
@@ -10,12 +29,19 @@ export function exportToMarkdown(requirements: Requirement[]): string {
   const lowList = requirements.filter(r => r.priority === '低');
 
   const idToNumber = new Map(requirements.map(r => [r.id, r.number]));
+  const numToAnchor = new Map<number, string>();
+
+  requirements.forEach(r => {
+    numToAnchor.set(r.number, safeAnchor('req', r.number, r.title));
+  });
 
   const formatDeps = (deps: string[]): string => {
     if (!deps || deps.length === 0) return '无';
-    return deps.map(d => {
-      const num = idToNumber.get(d);
-      return num ? `[REQ-${num}](#req-${num})` : '未知';
+    return deps.map(depId => {
+      const num = idToNumber.get(depId);
+      if (!num) return '未知';
+      const anchor = numToAnchor.get(num) || `req-${num}`;
+      return `[REQ-${num}](#${anchor})`;
     }).join(', ');
   };
 
@@ -29,7 +55,10 @@ export function exportToMarkdown(requirements: Requirement[]): string {
   };
 
   const renderItem = (r: Requirement) => {
-    return `### REQ-${r.number} ${r.title}
+    const anchor = numToAnchor.get(r.number) || `req-${r.number}`;
+    return `<a id="${anchor}"></a>
+
+### REQ-${r.number} ${r.title}
 
 - **类型**：${r.type}
 - **优先级**：${priorityIcon(r.priority)} ${r.priority}
@@ -37,6 +66,11 @@ export function exportToMarkdown(requirements: Requirement[]): string {
 
 ${r.description}
 `;
+  };
+
+  const tocLink = (r: Requirement) => {
+    const anchor = numToAnchor.get(r.number) || `req-${r.number}`;
+    return `  - [REQ-${r.number} ${r.title}](#${anchor})\n`;
   };
 
   let md = `# 需求规格说明书
@@ -49,19 +83,13 @@ ${r.description}
 - [1. 高优先级需求](#1-高优先级需求)
 `;
 
-  highList.forEach(r => {
-    md += `  - [REQ-${r.number} ${r.title}](#req-${r.number})\n`;
-  });
+  highList.forEach(r => { md += tocLink(r); });
 
   md += `- [2. 中优先级需求](#2-中优先级需求)\n`;
-  midList.forEach(r => {
-    md += `  - [REQ-${r.number} ${r.title}](#req-${r.number})\n`;
-  });
+  midList.forEach(r => { md += tocLink(r); });
 
   md += `- [3. 低优先级需求](#3-低优先级需求)\n`;
-  lowList.forEach(r => {
-    md += `  - [REQ-${r.number} ${r.title}](#req-${r.number})\n`;
-  });
+  lowList.forEach(r => { md += tocLink(r); });
 
   md += `
 ---

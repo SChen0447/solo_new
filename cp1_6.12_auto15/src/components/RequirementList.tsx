@@ -1,10 +1,15 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import type { Requirement, Priority } from '../types';
 import { detectCircularDependencies } from '../hooks/useParseEngine';
 import { checkCircularDependencies } from '../hooks/useLocalStorage';
 
 const ITEM_TYPE = 'REQUIREMENT';
+
+interface DragItem {
+  id: string;
+  index: number;
+}
 
 interface RequirementListProps {
   requirements: Requirement[];
@@ -27,7 +32,7 @@ function RequirementCard({
   index: number;
   allRequirements: Requirement[];
   circularIds: Set<string>;
-  moveCard: (from: number, to: number) => void;
+  moveCard: (fromId: string, toIndex: number) => void;
   onUpdate: (id: string, updates: Partial<Requirement>) => void;
   onDelete: (id: string) => void;
 }) {
@@ -58,45 +63,66 @@ function RequirementCard({
     );
   }, [req, allRequirements]);
 
-  const [{ isDragging }, drag, preview] = useDrag({
+  const [{ isDragging }, drag, preview] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: ITEM_TYPE,
-    item: { id: req.id, index },
+    item: (): DragItem => ({
+      id: req.id,
+      index
+    }),
     collect: (monitor) => ({
       isDragging: monitor.isDragging()
     })
   });
 
-  const [{ isOver, canDrop }, drop] = useDrop({
+  const [{ isOver, canDrop }, drop] = useDrop<DragItem>({
     accept: ITEM_TYPE,
-    hover: (item: { id: string; index: number }) => {
-      if (!ref.current) return;
-      const dragIndex = item.index;
+    canDrop: (item) => item.id !== req.id,
+    hover: (item, monitor) => {
+      if (!ref.current || !monitor.isOver({ shallow: true })) return;
+      const dragId = item.id;
       const hoverIndex = index;
-      if (dragIndex === hoverIndex) return;
-      moveCard(dragIndex, hoverIndex);
+      if (dragId === req.id) return;
+      moveCard(dragId, hoverIndex);
       item.index = hoverIndex;
     },
+    drop: (item) => {
+      moveCard(item.id, index);
+    },
     collect: (monitor) => ({
-      isOver: monitor.isOver(),
+      isOver: monitor.isOver({ shallow: true }),
       canDrop: monitor.canDrop()
     })
   });
 
   drag(drop(ref));
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     const depNumbers = depsInput.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
     const depIds: string[] = [];
+    const invalidNums: string[] = [];
     for (const numStr of depNumbers) {
       const num = parseInt(numStr, 10);
-      if (!isNaN(num)) {
-        const found = allRequirements.find(r => r.number === num && r.id !== req.id);
-        if (found) depIds.push(found.id);
+      if (isNaN(num)) {
+        invalidNums.push(numStr);
+        continue;
+      }
+      const found = allRequirements.find(r => r.number === num && r.id !== req.id);
+      if (found) {
+        depIds.push(found.id);
+      } else {
+        invalidNums.push(numStr);
       }
     }
 
+    if (invalidNums.length > 0) {
+      setCircularError(`编号 ${invalidNums.join(', ')} 的需求不存在，请检查`);
+      return;
+    }
+
     const testReqs = allRequirements.map(r =>
-      r.id === req.id ? { ...r, title: title.trim() || '未命名需求', description: description.trim(), priority, dependencies: depIds } : r
+      r.id === req.id
+        ? { ...r, title: title.trim() || '未命名需求', description: description.trim(), priority, dependencies: depIds }
+        : r
     );
     const circular = checkCircularDependencies(testReqs);
     if (circular.length > 0) {
@@ -112,7 +138,7 @@ function RequirementCard({
       dependencies: depIds
     });
     setEditing(false);
-  };
+  }, [depsInput, allRequirements, req.id, req.title, title, description, priority, onUpdate]);
 
   const handleCancel = () => {
     setTitle(req.title);
@@ -140,11 +166,12 @@ function RequirementCard({
     return req.dependencies.map(depId => {
       const dep = allRequirements.find(r => r.id === depId);
       const depHasError = dep && circularIds.has(dep.id);
+      const isInvalid = !dep;
       return (
         <span
           key={depId}
-          className={`dep-tag ${isCircular || depHasError ? 'dep-error' : ''}`}
-          title={dep ? dep.title : '未知依赖'}
+          className={`dep-tag ${isCircular || depHasError ? 'dep-error' : ''} ${isInvalid ? 'dep-invalid' : ''}`}
+          title={dep ? dep.title : '无效依赖（条目不存在）'}
         >
           #{dep ? dep.number : '?'}
         </span>
@@ -157,13 +184,14 @@ function RequirementCard({
       className={`req-card ${isCircular ? 'req-circular' : ''} ${isDragging ? 'dragging' : ''}`}
       ref={ref}
       style={{
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0.45 : 1,
         transition: 'transform 300ms ease, box-shadow 300ms ease, border-color 300ms ease, opacity 300ms ease',
         transform: isDragging ? 'rotate(1.5deg) scale(1.02)' : undefined,
-        borderTop: isOver && canDrop ? '2px solid var(--mint)' : undefined
+        borderTop: isOver && canDrop ? '3px solid var(--mint)' : undefined,
+        paddingTop: isOver && canDrop ? undefined : undefined
       }}
     >
-      <div className="req-handle" ref={drag}>
+      <div className="req-handle" ref={drag} title="拖拽排序">
         <span className="handle-icon">⋮⋮</span>
       </div>
 
@@ -213,7 +241,7 @@ function RequirementCard({
               />
             </div>
             {circularError && (
-              <div style={{ color: 'var(--danger)', fontSize: '0.8rem', padding: '6px 10px', background: 'rgba(239,83,80,0.1)', borderRadius: '4px', animation: 'fadeIn 300ms ease' }}>
+              <div className="edit-error">
                 {circularError}
               </div>
             )}
@@ -274,9 +302,11 @@ export default function RequirementList({
     }
   }, [hasCircular, circularIds.size]);
 
-  const moveCard = (from: number, to: number) => {
-    onReorder(from, to);
-  };
+  const moveCard = useCallback((dragId: string, toIndex: number) => {
+    const fromIndex = requirements.findIndex(r => r.id === dragId);
+    if (fromIndex === -1 || fromIndex === toIndex) return;
+    onReorder(fromIndex, toIndex);
+  }, [requirements, onReorder]);
 
   const handleAddNew = () => {
     onAdd({
