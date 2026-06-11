@@ -34,101 +34,160 @@ export interface TrailCell {
   seed: number;
 }
 
+function seededRandom(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+
 export function generateIceCracks(cellX: number, cellY: number, entryDir: { x: number; y: number }): CrackSegment[] {
   const cracks: CrackSegment[] = [];
-  const seed = (cellX * 127 + cellY * 211) % 10000;
-  const rand = (offset: number): number => {
-    const v = Math.sin(seed + offset * 37.17) * 10000;
-    return v - Math.floor(v);
-  };
+  const seed = ((cellX * 73856093) ^ (cellY * 19349663)) >>> 0;
+  const rand = seededRandom(seed || 1);
 
-  const centerX = 0.5 + (rand(1) - 0.5) * 0.2;
-  const centerY = 0.5 + (rand(2) - 0.5) * 0.2;
+  const cx = 0.5 + (rand() - 0.5) * 0.25;
+  const cy = 0.5 + (rand() - 0.5) * 0.25;
 
-  const entryBias = Math.atan2(entryDir.y, entryDir.x);
-  const mainCount = 3 + Math.floor(rand(3) * 3);
+  const growBranch = (
+    startX: number,
+    startY: number,
+    angle: number,
+    length: number,
+    depth: number,
+    maxDepth: number
+  ): void => {
+    if (depth > maxDepth || length < 0.02) return;
 
-  for (let m = 0; m < mainCount; m++) {
-    const baseAngle = entryBias + ((m - (mainCount - 1) / 2) / mainCount) * Math.PI * 1.3 + (rand(10 + m) - 0.5) * 0.5;
-    const length = 0.2 + rand(20 + m) * 0.4;
+    const depthFactor = 1 - depth / (maxDepth + 1);
+    const baseWidth = (2.2 - depth * 0.55) * depthFactor;
+    const baseAlpha = (0.95 - depth * 0.2) * depthFactor;
 
-    let prevX = centerX;
-    let prevY = centerY;
-    const segments = 2 + Math.floor(rand(30 + m) * 2);
-    for (let s = 0; s < segments; s++) {
-      const t = (s + 1) / segments;
-      const wobble = (rand(100 + m * 10 + s) - 0.5) * 0.15;
-      const angle = baseAngle + wobble;
-      const nextX = centerX + Math.cos(angle) * length * t;
-      const nextY = centerY + Math.sin(angle) * length * t;
+    const segs = Math.max(1, Math.floor(2 + rand() * 3 + length * 10));
+    let px = startX;
+    let py = startY;
+    const curLen = 0;
 
-      if (nextX >= 0.05 && nextX <= 0.95 && nextY >= 0.05 && nextY <= 0.95) {
+    for (let s = 0; s < segs; s++) {
+      const t0 = s / segs;
+      const t1 = (s + 1) / segs;
+      const wob0 = (rand() - 0.5) * 0.25 * (1 + depth * 0.3);
+      const wob1 = (rand() - 0.5) * 0.25 * (1 + depth * 0.3);
+      const a0 = angle + Math.sin(t0 * Math.PI * 2 + seed * 0.01) * 0.35 + wob0;
+      const a1 = angle + Math.sin(t1 * Math.PI * 2 + seed * 0.01) * 0.35 + wob1;
+
+      const x0 = startX + Math.cos(a0) * length * t0;
+      const y0 = startY + Math.sin(a0) * length * t0;
+      const x1 = startX + Math.cos(a1) * length * t1;
+      const y1 = startY + Math.sin(a1) * length * t1;
+
+      const segT = (t0 + t1) / 2;
+      const segAlpha = baseAlpha * (0.75 + 0.25 * (1 - Math.abs(segT - 0.5) * 2));
+      const segWidth = baseWidth * (0.8 + 0.4 * (1 - segT));
+      const isBroken = depth === 0 && rand() > 0.82 && s > 0 && s < segs - 1;
+
+      if (
+        x1 >= 0.02 && x1 <= 0.98 &&
+        y1 >= 0.02 && y1 <= 0.98 &&
+        x0 >= 0.02 && x0 <= 0.98 &&
+        y0 >= 0.02 && y0 <= 0.98
+      ) {
         cracks.push({
-          x1: prevX,
-          y1: prevY,
-          x2: nextX,
-          y2: nextY,
-          depth: 0.9 - t * 0.5,
-          width: 1.8 - t * 1.0,
-          broken: rand(200 + m * 10 + s) > 0.75
+          x1: s === 0 ? startX : x0,
+          y1: s === 0 ? startY : y0,
+          x2: x1,
+          y2: y1,
+          depth: Math.max(0.1, segAlpha),
+          width: Math.max(0.3, segWidth),
+          broken: isBroken
         });
       }
-      prevX = nextX;
-      prevY = nextY;
-    }
 
-    if (length > 0.25) {
-      const branchCount = 1 + Math.floor(rand(40 + m) * 2);
-      for (let b = 0; b < branchCount; b++) {
-        const bt = 0.3 + rand(50 + m * 5 + b) * 0.4;
-        const bx = centerX + Math.cos(baseAngle) * length * bt;
-        const by = centerY + Math.sin(baseAngle) * length * bt;
-        const bAngle = baseAngle + (rand(60 + b) > 0.5 ? 1 : -1) * (0.4 + rand(70 + b) * 0.6);
-        const bLen = 0.08 + rand(80 + b) * 0.18;
+      if (
+        !isBroken &&
+        depth < maxDepth &&
+        rand() < (0.55 - depth * 0.12) &&
+        segT > 0.2 &&
+        segT < 0.85
+      ) {
+        const branchT = segT;
+        const bx = startX + Math.cos(angle + Math.sin(branchT * 6) * 0.3) * length * branchT;
+        const by = startY + Math.sin(angle + Math.sin(branchT * 6) * 0.3) * length * branchT;
+        const branchAngle = a1 + (rand() > 0.5 ? 1 : -1) * (0.5 + rand() * 0.8);
+        const branchLen = length * (0.35 + rand() * 0.35);
 
-        let bpX = bx;
-        let bpY = by;
-        const bSegs = 1 + Math.floor(rand(90 + b) * 2);
-        for (let bs = 0; bs < bSegs; bs++) {
-          const bst = (bs + 1) / bSegs;
-          const bWobble = (rand(150 + b * 10 + bs) - 0.5) * 0.2;
-          const nx = bx + Math.cos(bAngle + bWobble) * bLen * bst;
-          const ny = by + Math.sin(bAngle + bWobble) * bLen * bst;
+        growBranch(bx, by, branchAngle, branchLen, depth + 1, maxDepth);
 
-          if (nx >= 0.05 && nx <= 0.95 && ny >= 0.05 && ny <= 0.95) {
-            cracks.push({
-              x1: bpX,
-              y1: bpY,
-              x2: nx,
-              y2: ny,
-              depth: (0.6 - bt * 0.3) * (1 - bst * 0.4),
-              width: 1.2 - bst * 0.6,
-              broken: rand(250 + b * 10 + bs) > 0.6
-            });
-          }
-          bpX = nx;
-          bpY = ny;
+        if (depth < 1 && rand() < 0.35) {
+          const branchAngle2 = a1 + (rand() > 0.5 ? 1 : -1) * (0.8 + rand() * 0.6);
+          const branchLen2 = length * (0.22 + rand() * 0.22);
+          growBranch(bx, by, branchAngle2, branchLen2, depth + 2, maxDepth);
         }
       }
+
+      if (!isBroken) {
+        px = x1;
+        py = y1;
+      }
+    }
+
+    if (depth === 0 && rand() < 0.4) {
+      const tipT = 1;
+      const tipX = startX + Math.cos(angle) * length * tipT;
+      const tipY = startY + Math.sin(angle) * length * tipT;
+      for (let tb = 0; tb < 2; tb++) {
+        const tipAngle = angle + (tb === 0 ? 1 : -1) * (0.6 + rand() * 0.9);
+        const tipLen = length * (0.12 + rand() * 0.22);
+        growBranch(tipX, tipY, tipAngle, tipLen, depth + 1, maxDepth);
+      }
+    }
+  };
+
+  const entryAngle = Math.atan2(entryDir.y, entryDir.x) || -Math.PI / 2;
+  const trunkCount = 4 + Math.floor(rand() * 3);
+  const maxDepth = 2;
+
+  for (let t = 0; t < trunkCount; t++) {
+    const spread = ((t - (trunkCount - 1) / 2) / trunkCount) * Math.PI * 1.5;
+    const angle = entryAngle + spread + (rand() - 0.5) * 0.6;
+    const length = 0.2 + rand() * 0.4;
+
+    growBranch(cx, cy, angle, length, 0, maxDepth);
+
+    if (rand() < 0.45) {
+      const subAngle = angle + (rand() > 0.5 ? 1 : -1) * (0.3 + rand() * 0.5);
+      const subLen = 0.15 + rand() * 0.25;
+      growBranch(cx, cy, subAngle, subLen, 0, maxDepth - 1);
     }
   }
 
-  const microCrackCount = 4 + Math.floor(rand(5) * 6);
-  for (let mc = 0; mc < microCrackCount; mc++) {
-    const sx = 0.2 + rand(300 + mc) * 0.6;
-    const sy = 0.2 + rand(400 + mc) * 0.6;
-    const sAngle = rand(500 + mc) * Math.PI * 2;
-    const sLen = 0.03 + rand(600 + mc) * 0.08;
+  const microCount = 5 + Math.floor(rand() * 7);
+  for (let m = 0; m < microCount; m++) {
+    const mx = 0.1 + rand() * 0.8;
+    const my = 0.1 + rand() * 0.8;
+    const mAngle = rand() * Math.PI * 2;
+    const mLen = 0.02 + rand() * 0.07;
+    const x1 = mx + Math.cos(mAngle) * mLen;
+    const y1 = my + Math.sin(mAngle) * mLen;
 
-    cracks.push({
-      x1: sx,
-      y1: sy,
-      x2: sx + Math.cos(sAngle) * sLen,
-      y2: sy + Math.sin(sAngle) * sLen,
-      depth: 0.25 + rand(700 + mc) * 0.25,
-      width: 0.5,
-      broken: false
-    });
+    const midX = (mx + x1) / 2;
+    const midY = (my + y1) / 2;
+    if (
+      Math.hypot(midX - cx, midY - cy) < 0.32 &&
+      x1 >= 0.05 && x1 <= 0.95 &&
+      y1 >= 0.05 && y1 <= 0.95
+    ) {
+      cracks.push({
+        x1: mx,
+        y1: my,
+        x2: x1,
+        y2: y1,
+        depth: 0.2 + rand() * 0.35,
+        width: 0.3 + rand() * 0.5,
+        broken: rand() > 0.55
+      });
+    }
   }
 
   return cracks;
