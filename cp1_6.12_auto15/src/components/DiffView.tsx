@@ -10,6 +10,7 @@ interface DiffViewProps {
 type DiffType = 'added' | 'removed' | 'modified' | 'same';
 
 interface DiffItem {
+  key: string;
   type: DiffType;
   left?: Requirement;
   right?: Requirement;
@@ -23,15 +24,14 @@ function formatDate(ts: number): string {
 }
 
 function computeDiff(left: Requirement[], right: Requirement[]): DiffItem[] {
-  const leftByTitle = new Map(left.map(r => [r.title, r]));
-  const rightByTitle = new Map(right.map(r => [r.title, r]));
-
-  const allTitles = new Set([...leftByTitle.keys(), ...rightByTitle.keys()]);
+  const leftById = new Map(left.map(r => [r.title, r]));
+  const rightById = new Map(right.map(r => [r.title, r]));
+  const allTitles = new Set([...leftById.keys(), ...rightById.keys()]);
   const items: DiffItem[] = [];
 
   for (const title of allTitles) {
-    const l = leftByTitle.get(title);
-    const r = rightByTitle.get(title);
+    const l = leftById.get(title);
+    const r = rightById.get(title);
 
     if (l && r) {
       const changedFields: string[] = [];
@@ -43,14 +43,14 @@ function computeDiff(left: Requirement[], right: Requirement[]): DiffItem[] {
       if (lDepKey !== rDepKey) changedFields.push('依赖');
 
       if (changedFields.length > 0) {
-        items.push({ type: 'modified', left: l, right: r, changedFields });
+        items.push({ key: `mod-${l.id}-${r.id}`, type: 'modified', left: l, right: r, changedFields });
       } else {
-        items.push({ type: 'same', left: l, right: r });
+        items.push({ key: `same-${l.id}`, type: 'same', left: l, right: r });
       }
     } else if (!l && r) {
-      items.push({ type: 'added', right: r });
+      items.push({ key: `add-${r.id}`, type: 'added', right: r });
     } else if (l && !r) {
-      items.push({ type: 'removed', left: l });
+      items.push({ key: `rem-${l.id}`, type: 'removed', left: l });
     }
   }
 
@@ -60,33 +60,53 @@ function computeDiff(left: Requirement[], right: Requirement[]): DiffItem[] {
   });
 }
 
-function FieldDiff({
-  label,
-  left,
-  right,
-  changed
-}: {
-  label: string;
-  left?: string;
-  right?: string;
-  changed: boolean;
+function ReqCard({ req, type, side, changedFields }: {
+  req: Requirement;
+  type: DiffType;
+  side: 'left' | 'right';
+  changedFields?: string[];
 }) {
-  if (!changed) {
-    return (
-      <div className="diff-field">
-        <span className="diff-field-label">{label}:</span>
-        <span className="diff-field-value">{left}</span>
-      </div>
-    );
-  }
+  const isChanged = (field: string) => changedFields?.includes(field) || false;
+
   return (
-    <div className="diff-field diff-field-changed">
-      <span className="diff-field-label">{label}:</span>
-      <div className="diff-field-values">
-        {left && <span className="diff-old">{left}</span>}
-        <span className="diff-arrow">→</span>
-        {right && <span className="diff-new">{right}</span>}
+    <div className={`diff-req diff-type-${type} diff-side-${side}`}>
+      <div className="diff-req-header">
+        <span className="diff-req-number">REQ-{req.number}</span>
+        <span className={`diff-req-type ${req.type === '功能' ? 'type-func' : 'type-nonfunc'}`}>
+          {req.type}
+        </span>
+        <span className={`priority-badge priority-${req.priority === '高' ? 'high' : req.priority === '中' ? 'mid' : 'low'}`}>
+          {req.priority}优
+        </span>
       </div>
+      <div className="diff-req-body">
+        <DiffField label="标题" value={req.title} changed={false} type={type} />
+        <DiffField label="描述" value={req.description} changed={isChanged('描述')} type={type} />
+        <DiffField label="优先级" value={req.priority} changed={isChanged('优先级')} type={type} />
+        <DiffField label="类型" value={req.type} changed={isChanged('类型')} type={type} />
+      </div>
+    </div>
+  );
+}
+
+function DiffField({ label, value, changed, type }: {
+  label: string;
+  value: string;
+  changed: boolean;
+  type: DiffType;
+}) {
+  return (
+    <div className={`diff-field ${changed ? 'diff-field-changed' : ''}`}>
+      <span className="diff-field-label">{label}:</span>
+      <span
+        className={`diff-field-value ${
+          type === 'added' ? 'diff-val-added' :
+          type === 'removed' ? 'diff-val-removed' :
+          changed ? 'diff-val-modified' : ''
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -114,103 +134,6 @@ export default function DiffView({ history, onClose, onApply }: DiffViewProps) {
     return { added, removed, modified, same };
   }, [diffItems]);
 
-  const renderItemSide = (req: Requirement | undefined, side: 'left' | 'right', type: DiffType, changedFields?: string[]) => {
-    if (!req) {
-      return <div className="diff-empty">—</div>;
-    }
-    const fieldChanged = (field: string) => changedFields?.includes(field) || false;
-    return (
-      <div className={`diff-req diff-type-${type}`}>
-        <div className="diff-req-header">
-          <span className="diff-req-number">REQ-{req.number}</span>
-          <span className={`diff-req-type ${req.type === '功能' ? 'type-func' : 'type-nonfunc'}`}>
-            {req.type}
-          </span>
-          <span className={`priority-badge priority-${req.priority === '高' ? 'high' : req.priority === '中' ? 'mid' : 'low'}`}>
-            {req.priority}优
-          </span>
-        </div>
-        <div className="diff-req-body">
-          <FieldDiff
-            label="标题"
-            left={side === 'left' ? req.title : req.title}
-            right={side === 'right' ? req.title : req.title}
-            changed={false}
-          />
-          <FieldDiff
-            label="描述"
-            left={req.description}
-            right={req.description}
-            changed={fieldChanged('描述')}
-          />
-          <FieldDiff
-            label="优先级"
-            left={req.priority}
-            right={req.priority}
-            changed={fieldChanged('优先级')}
-          />
-          <FieldDiff
-            label="类型"
-            left={req.type}
-            right={req.type}
-            changed={fieldChanged('类型')}
-          />
-        </div>
-      </div>
-    );
-  };
-
-  const renderDiffRow = (item: DiffItem, idx: number) => {
-    switch (item.type) {
-      case 'added':
-        return (
-          <div key={idx} className="diff-row diff-added">
-            <div className="diff-side">{renderItemSide(undefined, 'left', 'added')}</div>
-            <div className="diff-divider">
-              <span className="diff-type-label diff-label-added">+ 新增</span>
-            </div>
-            <div className="diff-side">{renderItemSide(item.right, 'right', 'added')}</div>
-          </div>
-        );
-      case 'removed':
-        return (
-          <div key={idx} className="diff-row diff-removed">
-            <div className="diff-side">{renderItemSide(item.left, 'left', 'removed')}</div>
-            <div className="diff-divider">
-              <span className="diff-type-label diff-label-removed">− 删除</span>
-            </div>
-            <div className="diff-side">{renderItemSide(undefined, 'right', 'removed')}</div>
-          </div>
-        );
-      case 'modified':
-        return (
-          <div key={idx} className="diff-row diff-modified">
-            <div className="diff-side">{renderItemSide(item.left, 'left', 'modified', item.changedFields)}</div>
-            <div className="diff-divider">
-              <span className="diff-type-label diff-label-modified">~ 修改</span>
-              {item.changedFields && item.changedFields.length > 0 && (
-                <div className="diff-changed-fields">
-                  {item.changedFields.join(', ')}
-                </div>
-              )}
-            </div>
-            <div className="diff-side">{renderItemSide(item.right, 'right', 'modified', item.changedFields)}</div>
-          </div>
-        );
-      case 'same':
-      default:
-        return (
-          <div key={idx} className="diff-row diff-same">
-            <div className="diff-side">{renderItemSide(item.left, 'left', 'same')}</div>
-            <div className="diff-divider">
-              <span className="diff-type-label diff-label-same">= 相同</span>
-            </div>
-            <div className="diff-side">{renderItemSide(item.right, 'right', 'same')}</div>
-          </div>
-        );
-    }
-  };
-
   return (
     <div className="diff-view">
       <div className="diff-header">
@@ -219,10 +142,10 @@ export default function DiffView({ history, onClose, onApply }: DiffViewProps) {
         </button>
         <h2>需求对比视图</h2>
         <div className="diff-stats">
-          <span className="stat stat-added">+{stats.added}</span>
-          <span className="stat stat-removed">−{stats.removed}</span>
-          <span className="stat stat-modified">~{stats.modified}</span>
-          <span className="stat stat-same">={stats.same}</span>
+          <span className="stat stat-added">+{stats.added} 新增</span>
+          <span className="stat stat-removed">−{stats.removed} 删除</span>
+          <span className="stat stat-modified">~{stats.modified} 修改</span>
+          <span className="stat stat-same">={stats.same} 相同</span>
         </div>
       </div>
 
@@ -269,17 +192,63 @@ export default function DiffView({ history, onClose, onApply }: DiffViewProps) {
       ) : (
         <div className="diff-content">
           <div className="diff-columns">
-            <div className="diff-col-header">版本 A</div>
+            <div className="diff-col-header">版本 A（旧）</div>
             <div className="diff-col-header diff-col-center">差异类型</div>
-            <div className="diff-col-header">版本 B</div>
+            <div className="diff-col-header">版本 B（新）</div>
           </div>
           <div className="diff-rows">
             {diffItems.length === 0 ? (
               <div className="empty-state">
-                <p>无差异</p>
+                <p>两个版本完全一致，无差异</p>
               </div>
             ) : (
-              diffItems.map((item, idx) => renderDiffRow(item, idx))
+              diffItems.map(item => {
+                let labelClass = '';
+                let labelText = '';
+                switch (item.type) {
+                  case 'added':
+                    labelClass = 'diff-label-added';
+                    labelText = '+ 新增';
+                    break;
+                  case 'removed':
+                    labelClass = 'diff-label-removed';
+                    labelText = '− 删除';
+                    break;
+                  case 'modified':
+                    labelClass = 'diff-label-modified';
+                    labelText = '~ 修改';
+                    break;
+                  case 'same':
+                    labelClass = 'diff-label-same';
+                    labelText = '= 相同';
+                    break;
+                }
+
+                return (
+                  <div key={item.key} className={`diff-row diff-${item.type}`}>
+                    <div className="diff-side">
+                      {item.left ? (
+                        <ReqCard req={item.left} type={item.type} side="left" changedFields={item.changedFields} />
+                      ) : (
+                        <div className="diff-empty">—</div>
+                      )}
+                    </div>
+                    <div className="diff-divider">
+                      <span className={`diff-type-label ${labelClass}`}>{labelText}</span>
+                      {item.changedFields && item.changedFields.length > 0 && (
+                        <div className="diff-changed-fields">{item.changedFields.join(', ')}</div>
+                      )}
+                    </div>
+                    <div className="diff-side">
+                      {item.right ? (
+                        <ReqCard req={item.right} type={item.type} side="right" changedFields={item.changedFields} />
+                      ) : (
+                        <div className="diff-empty">—</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

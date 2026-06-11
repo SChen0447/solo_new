@@ -2,6 +2,44 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Requirement, ParseResult } from '../types';
 import { renumberRequirements } from './useParseEngine';
 
+export function checkCircularDependencies(requirements: Requirement[]): Requirement[] {
+  const idToReq = new Map(requirements.map(r => [r.id, r]));
+  const visited = new Set<string>();
+  const recursionStack = new Set<string>();
+  const circularIds = new Set<string>();
+
+  function dfs(id: string): boolean {
+    visited.add(id);
+    recursionStack.add(id);
+    const req = idToReq.get(id);
+    if (!req) return false;
+
+    for (const depId of req.dependencies) {
+      if (!idToReq.has(depId)) continue;
+      if (!visited.has(depId)) {
+        if (dfs(depId)) {
+          circularIds.add(id);
+          return true;
+        }
+      } else if (recursionStack.has(depId)) {
+        circularIds.add(id);
+        circularIds.add(depId);
+        return true;
+      }
+    }
+    recursionStack.delete(id);
+    return false;
+  }
+
+  for (const req of requirements) {
+    if (!visited.has(req.id)) {
+      dfs(req.id);
+    }
+  }
+
+  return requirements.filter(r => circularIds.has(r.id));
+}
+
 const STORAGE_KEYS = {
   REQUIREMENTS: 'rqg_requirements',
   HISTORY: 'rqg_history',
@@ -142,6 +180,7 @@ export function useLocalStorage() {
     getHistoryById,
     backup,
     restore,
-    clearAll
+    clearAll,
+    checkCircularDeps: checkCircularDependencies
   };
 }
