@@ -376,14 +376,13 @@ html, body, #root {
 .preview-code-block {
   background: var(--code-bg);
   border-radius: 8px;
-  padding: 16px 20px;
+  padding: 16px 0;
   margin: 0 0 14px 0;
   overflow-x: auto;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 13px;
   line-height: 1.6;
   position: relative;
-  counter-reset: line;
   border: 1px solid var(--border-color);
   transition: border-color 0.3s ease;
 }
@@ -408,6 +407,49 @@ html, body, #root {
 .preview-code-block code {
   color: var(--code-text);
   font-family: inherit;
+  display: block;
+}
+
+.code-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.code-line {
+  display: table-row;
+}
+
+.code-line-number {
+  display: table-cell;
+  width: 50px;
+  padding: 0 12px 0 16px;
+  text-align: right;
+  color: rgba(205, 214, 244, 0.4);
+  user-select: none;
+  font-weight: 400;
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  vertical-align: top;
+  border-right: 1px solid rgba(205, 214, 244, 0.1);
+}
+
+.code-line-content {
+  display: table-cell;
+  padding: 0 16px 0 12px;
+  white-space: pre;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  vertical-align: top;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.code-line-content::-webkit-scrollbar {
+  display: none;
 }
 
 .inline-code {
@@ -527,6 +569,14 @@ html, body, #root {
 .toolbar-btn:active {
   transform: scale(0.95);
   box-shadow: var(--shadow-sm);
+}
+
+.toolbar-btn.error-state {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+}
+
+.toolbar-btn.error-state:hover {
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.3);
 }
 
 .toolbar-btn:focus-visible {

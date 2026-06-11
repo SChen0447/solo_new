@@ -2,12 +2,62 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 interface PreviewPanelProps {
   content: string;
   theme: 'light' | 'dark';
   collapsed: boolean;
   onToggleCollapse: () => void;
+}
+
+function CodeBlockWithLineNumbers({ children }: { children: React.ReactNode }) {
+  const preRef = useRef<HTMLPreElement>(null);
+
+  useEffect(() => {
+    const pre = preRef.current;
+    if (!pre) return;
+
+    const codeEl = pre.querySelector('code');
+    if (!codeEl) return;
+
+    const existingTable = pre.querySelector('.code-table');
+    if (existingTable) return;
+
+    const html = codeEl.innerHTML;
+    const lines = html.split(/\n(?![^<]*>)/g);
+
+    const table = document.createElement('table');
+    table.className = 'code-table';
+    const tbody = document.createElement('tbody');
+
+    lines.forEach((line, index) => {
+      const tr = document.createElement('tr');
+      tr.className = 'code-line';
+
+      const tdNum = document.createElement('td');
+      tdNum.className = 'code-line-number';
+      tdNum.textContent = String(index + 1);
+
+      const tdCode = document.createElement('td');
+      tdCode.className = 'code-line-content';
+      tdCode.innerHTML = line || '&nbsp;';
+
+      tr.appendChild(tdNum);
+      tr.appendChild(tdCode);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    codeEl.innerHTML = '';
+    codeEl.appendChild(table);
+  }, [children]);
+
+  return (
+    <pre ref={preRef} className="preview-code-block">
+      {children}
+    </pre>
+  );
 }
 
 export default function PreviewPanel({ content, theme, collapsed, onToggleCollapse }: PreviewPanelProps) {
@@ -33,17 +83,16 @@ export default function PreviewPanel({ content, theme, collapsed, onToggleCollap
             rehypePlugins={[rehypeHighlight]}
             components={{
               pre: ({ children, ...props }) => (
-                <pre {...props} className="preview-code-block">
+                <CodeBlockWithLineNumbers {...props}>
                   {children}
-                </pre>
+                </CodeBlockWithLineNumbers>
               ),
               code: ({ className, children, ...props }) => {
                 const match = /language-(\w+)/.exec(className || '');
-                const codeStr = String(children).replace(/\n$/, '');
                 if (match) {
                   return (
                     <code className={className} {...props}>
-                      {codeStr}
+                      {children}
                     </code>
                   );
                 }

@@ -65,6 +65,13 @@ export default function App() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const currentRatioRef = useRef(splitRatio);
+
+  useEffect(() => {
+    currentRatioRef.current = splitRatio;
+  }, [splitRatio]);
+
+  const MIN_WIDTH_PX = 200;
 
   const handleMouseDown = useCallback(() => {
     isDragging.current = true;
@@ -75,8 +82,11 @@ export default function App() {
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
-    const clamped = Math.min(0.8, Math.max(0.2, ratio));
+    const totalWidth = rect.width;
+    const minRatio = MIN_WIDTH_PX / totalWidth;
+    const maxRatio = 1 - minRatio;
+    const ratio = (e.clientX - rect.left) / totalWidth;
+    const clamped = Math.min(maxRatio, Math.max(minRatio, ratio));
     setSplitRatio(clamped);
   }, []);
 
@@ -85,9 +95,9 @@ export default function App() {
       isDragging.current = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      localStorage.setItem(SPLIT_KEY, splitRatio.toString());
+      localStorage.setItem(SPLIT_KEY, currentRatioRef.current.toString());
     }
-  }, [splitRatio]);
+  }, []);
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
