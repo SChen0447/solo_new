@@ -56,12 +56,12 @@ export class MoleculeRenderer {
   gridMesh: Mesh | null = null;
 
   currentMode: RenderMode = 'ball-and-stick';
-  targetMode: RenderMode = 'ball-and-stick';
-  currentAtomScale: number = MODE_SCALES['ball-and-stick'].atom;
-  targetAtomScale: number = MODE_SCALES['ball-and-stick'].atom;
-  currentBondScale: number = MODE_SCALES['ball-and-stick'].bond;
-  targetBondScale: number = MODE_SCALES['ball-and-stick'].bond;
-  transitionProgress: number = 1;
+  private _targetMode: RenderMode = 'ball-and-stick';
+  private _startAtomScale: number = MODE_SCALES['ball-and-stick'].atom;
+  private _startBondScale: number = MODE_SCALES['ball-and-stick'].bond;
+  private _targetAtomScale: number = MODE_SCALES['ball-and-stick'].atom;
+  private _targetBondScale: number = MODE_SCALES['ball-and-stick'].bond;
+  private _transitionProgress: number = 1;
   showLabels: boolean = false;
 
   hoveredAtomIndex: number = -1;
@@ -271,7 +271,7 @@ export class MoleculeRenderer {
     const length = direction.length();
     direction.normalize();
 
-    const bondScale = scaleOverride ?? this.currentBondScale;
+    const bondScale = scaleOverride ?? this._currentBondScaleValue;
 
     this._dummy.position.copy(mid);
     this._dummy.scale.set(bondScale, length, bondScale);
@@ -281,11 +281,11 @@ export class MoleculeRenderer {
   }
 
   private _createHighlightMesh(data: MoleculeData): void {
-    const geo = new SphereGeometry(ATOM_BASE_RADIUS * 1.4, 24, 24);
+    const geo = new SphereGeometry(ATOM_BASE_RADIUS, 24, 24);
     const mat = new MeshBasicMaterial({
       color: 0x4fc3f7,
       transparent: true,
-      opacity: 0.0,
+      opacity: 0.5,
       blending: AdditiveBlending,
       depthWrite: false,
     });
@@ -293,7 +293,7 @@ export class MoleculeRenderer {
     this.highlightMesh = new InstancedMesh(geo, mat, data.atoms.length);
     for (let i = 0; i < data.atoms.length; i++) {
       this._dummy.position.copy(this.atomPositions[i]);
-      this._dummy.scale.setScalar(0.01);
+      this._dummy.scale.setScalar(0.001);
       this._dummy.updateMatrix();
       this.highlightMesh.setMatrixAt(i, this._dummy.matrix);
     }
@@ -301,17 +301,32 @@ export class MoleculeRenderer {
     this.scene.add(this.highlightMesh);
   }
 
-  private _getAtomScale(element: string): number {
+  private _getAtomScale(element: string, atomScale?: number): number {
     const baseRadius = getCovalentRadius(element) / getCovalentRadius('C');
-    return baseRadius * this.currentAtomScale;
+    const scale = atomScale ?? this._currentAtomScaleValue;
+    return baseRadius * scale;
+  }
+
+  private get _currentAtomScaleValue(): number {
+    if (this._transitionProgress >= 1) return this._targetAtomScale;
+    const t = easeOutCubic(this._transitionProgress);
+    return this._startAtomScale + (this._targetAtomScale - this._startAtomScale) * t;
+  }
+
+  private get _currentBondScaleValue(): number {
+    if (this._transitionProgress >= 1) return this._targetBondScale;
+    const t = easeOutCubic(this._transitionProgress);
+    return this._startBondScale + (this._targetBondScale - this._startBondScale) * t;
   }
 
   setRenderMode(mode: RenderMode): void {
-    if (mode === this.currentMode && this.transitionProgress >= 1) return;
-    this.targetMode = mode;
-    this.targetAtomScale = MODE_SCALES[mode].atom;
-    this.targetBondScale = MODE_SCALES[mode].bond;
-    this.transitionProgress = 0;
+    if (mode === this._targetMode && this._transitionProgress >= 1) return;
+    this._startAtomScale = this._currentAtomScaleValue;
+    this._startBondScale = this._currentBondScaleValue;
+    this._targetMode = mode;
+    this._targetAtomScale = MODE_SCALES[mode].atom;
+    this._targetBondScale = MODE_SCALES[mode].bond;
+    this._transitionProgress = 0;
   }
 
   toggleLabels(show: boolean): void {
@@ -385,19 +400,18 @@ export class MoleculeRenderer {
   private _setAtomHighlight(atomIndex: number, highlight: boolean): void {
     if (!this.highlightMesh || !this.atomMesh) return;
 
-    const opacity = highlight ? 0.35 : 0.0;
-    const hlScale = highlight ? this._getAtomScale(this.atomElements[atomIndex]) * 1.4 : 0.01;
+    const baseScale = this._getAtomScale(this.atomElements[atomIndex]);
+    const hlScale = highlight ? baseScale * 1.8 : 0.001;
 
     this._dummy.position.copy(this.atomPositions[atomIndex]);
     this._dummy.scale.setScalar(hlScale);
     this._dummy.updateMatrix();
     this.highlightMesh.setMatrixAt(atomIndex, this._dummy.matrix);
-    this.highlightMesh.instanceMatrix.needsUpdate = true;
 
     const neighbors = this.neighborMap.get(atomIndex) || [];
     for (const nIdx of neighbors) {
-      const nHlScale = highlight ? this._getAtomScale(this.atomElements[nIdx]) * 1.2 : 0.01;
-      const nOpacity = highlight ? 0.15 : 0.0;
+      const nBaseScale = this._getAtomScale(this.atomElements[nIdx]);
+      const nHlScale = highlight ? nBaseScale * 1.3 : 0.001;
       this._dummy.position.copy(this.atomPositions[nIdx]);
       this._dummy.scale.setScalar(nHlScale);
       this._dummy.updateMatrix();
@@ -405,20 +419,33 @@ export class MoleculeRenderer {
     }
     this.highlightMesh.instanceMatrix.needsUpdate = true;
 
-    if (highlight && this.atomMesh.instanceColor) {
-      const originalColor = new Color(getElementColor(this.atomElements[atomIndex]));
-      this.atomMesh.setColorAt(atomIndex, originalColor);
-      this.atomMesh.instanceColor.needsUpdate = true;
+    this._highlightBonds(atomIndex, highlight);
+  }
+
+  private _highlightBonds(atomIndex: number, highlight: boolean): void {
+    if (!this.bondMesh || !this.moleculeData) return;
+
+    const bonds = this.atomBondMap.get(atomIndex) || [];
+    if (bonds.length === 0) return;
+
+    for (const bond of bonds) {
+      const bondIndex = this.moleculeData.bonds.indexOf(bond);
+      if (bondIndex < 0) continue;
+
+      if (highlight) {
+        this.bondMesh.setColorAt(bondIndex, new Color(0x4fc3f7));
+      } else {
+        this.bondMesh.setColorAt(bondIndex, new Color(0x8899aa));
+      }
+    }
+    if (this.bondMesh.instanceColor) {
+      this.bondMesh.instanceColor.needsUpdate = true;
     }
   }
 
   update(delta: number): void {
-    if (this.transitionProgress < 1) {
-      this.transitionProgress = Math.min(1, this.transitionProgress + delta / TRANSITION_DURATION);
-      const t = easeOutCubic(this.transitionProgress);
-
-      this.currentAtomScale = this.currentAtomScale + (this.targetAtomScale - this.currentAtomScale) * t;
-      this.currentBondScale = this.currentBondScale + (this.targetBondScale - this.currentBondScale) * t;
+    if (this._transitionProgress < 1) {
+      this._transitionProgress = Math.min(1, this._transitionProgress + delta / TRANSITION_DURATION);
 
       if (this.atomMesh && this.moleculeData) {
         for (let i = 0; i < this.moleculeData.atoms.length; i++) {
@@ -439,8 +466,12 @@ export class MoleculeRenderer {
         this.bondMesh.instanceMatrix.needsUpdate = true;
       }
 
-      if (this.transitionProgress >= 1) {
-        this.currentMode = this.targetMode;
+      if (this.hoveredAtomIndex >= 0) {
+        this._setAtomHighlight(this.hoveredAtomIndex, true);
+      }
+
+      if (this._transitionProgress >= 1) {
+        this.currentMode = this._targetMode;
       }
     }
 

@@ -19,6 +19,7 @@ export class ControlPanel {
   private _currentMode: RenderMode = 'ball-and-stick';
   private _labelsOn: boolean = false;
   private _compareOn: boolean = false;
+  private _uploadForCompare: boolean = false;
 
   constructor() {
     this._fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -37,7 +38,10 @@ export class ControlPanel {
   }
 
   private _bindEvents(): void {
-    this._btnUpload.addEventListener('click', () => this._fileInput.click());
+    this._btnUpload.addEventListener('click', () => {
+      this._uploadForCompare = false;
+      this._fileInput.click();
+    });
 
     this._fileInput.addEventListener('change', async () => {
       const file = this._fileInput.files?.[0];
@@ -47,12 +51,17 @@ export class ControlPanel {
 
       try {
         const data = await loadMoleculeFromFile(file);
-        this._emit('file-loaded', { data, fileName: file.name });
+        if (this._uploadForCompare) {
+          this._emit('compare-file-loaded', { data, fileName: file.name });
+        } else {
+          this._emit('file-loaded', { data, fileName: file.name });
+        }
       } catch (e) {
         console.error('Failed to load file:', e);
       } finally {
         this._showLoading(false);
         this._fileInput.value = '';
+        this._uploadForCompare = false;
       }
     });
 
@@ -118,46 +127,7 @@ export class ControlPanel {
   }
 
   triggerFileUpload(forCompare: boolean = false): void {
-    const input = this._fileInput;
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-
-      this._showLoading(true);
-      try {
-        const data = await loadMoleculeFromFile(file);
-        if (forCompare) {
-          this._emit('compare-file-loaded', { data, fileName: file.name });
-        } else {
-          this._emit('file-loaded', { data, fileName: file.name });
-        }
-      } catch (e) {
-        console.error('Failed to load file:', e);
-      } finally {
-        this._showLoading(false);
-        input.value = '';
-        input.onchange = null;
-        this._bindFileInput();
-      }
-    };
-    input.click();
-  }
-
-  private _bindFileInput(): void {
-    this._fileInput.addEventListener('change', async () => {
-      const file = this._fileInput.files?.[0];
-      if (!file) return;
-
-      this._showLoading(true);
-      try {
-        const data = await loadMoleculeFromFile(file);
-        this._emit('file-loaded', { data, fileName: file.name });
-      } catch (e) {
-        console.error('Failed to load file:', e);
-      } finally {
-        this._showLoading(false);
-        this._fileInput.value = '';
-      }
-    });
+    this._uploadForCompare = forCompare;
+    this._fileInput.click();
   }
 }

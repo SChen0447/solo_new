@@ -23,11 +23,13 @@ export class InteractionManager {
   private _needsRaycast: boolean = false;
   private _isDragging: boolean = false;
   private _mouseDownPos: Vector2 = new Vector2();
+  private _interactionsEnabled: boolean = true;
 
   constructor(
     camera: PerspectiveCamera,
     renderer: MoleculeRenderer,
     container: HTMLElement,
+    options?: { enableInteractions?: boolean },
   ) {
     this.camera = camera;
     this.renderer = renderer;
@@ -44,6 +46,13 @@ export class InteractionManager {
     this.controls.maxDistance = 100;
     this.controls.enablePan = true;
     this.controls.panSpeed = 0.5;
+
+    if (options?.enableInteractions === false) {
+      this._interactionsEnabled = false;
+      this.controls.enableRotate = false;
+      this.controls.enableZoom = false;
+      this.controls.enablePan = false;
+    }
 
     this._bindEvents();
   }
@@ -63,21 +72,17 @@ export class InteractionManager {
     const rect = this.container.getBoundingClientRect();
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    this._needsRaycast = true;
+    this._needsRaycast = e.buttons === 0;
   }
 
-  private _onMouseDown(e: MouseEvent): void {
+  private _onMouseDown(): void {
     this._isDragging = true;
-    this._mouseDownPos.set(e.clientX, e.clientY);
+    this._clearHover();
   }
 
-  private _onMouseUp(e: MouseEvent): void {
-    const dx = e.clientX - this._mouseDownPos.x;
-    const dy = e.clientY - this._mouseDownPos.y;
-    if (Math.sqrt(dx * dx + dy * dy) < 5) {
-      this._isDragging = false;
-    }
+  private _onMouseUp(): void {
     this._isDragging = false;
+    this._needsRaycast = true;
   }
 
   private _onMouseLeave(): void {
