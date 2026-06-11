@@ -6,9 +6,13 @@ interface Bubble {
   mesh: THREE.Mesh;
   city: string;
   month: number;
+  startPosition: THREE.Vector3;
   targetPosition: THREE.Vector3;
+  startScale: number;
   targetScale: number;
+  startColor: THREE.Color;
   targetColor: THREE.Color;
+  startOpacity: number;
   targetOpacity: number;
   currentColorValue: number;
 }
@@ -17,23 +21,29 @@ export class BubbleRenderer {
   private scene: THREE.Scene;
   private bubbles: Map<string, Bubble> = new Map();
   private geometry: THREE.SphereGeometry;
-  private colorScale: d3.ScaleLinear<string, string>;
+  private colorScale: d3.ScaleLinear<number, string>;
   private animationProgress: number = 1;
   private animationDuration: number = 800;
   private animationStartTime: number = 0;
   private isAnimating: boolean = false;
   private raycaster: THREE.Raycaster;
   private mouse: THREE.Vector2;
+  private camera: THREE.PerspectiveCamera | null = null;
   private onBubbleClick?: (data: { city: string; month: number }) => void;
+  private currentMonth: number = 0;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.geometry = new THREE.SphereGeometry(1, 32, 32);
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
-    this.colorScale = d3.scaleLinear()
+    this.colorScale = d3.scaleLinear<number, string>()
       .domain([0, 0.5, 1])
-      .range(['#2196F3', '#FFC107', '#F44336']);
+      .range(['#2196F3', '#FFC107', '#F44336'] as unknown as Iterable<number>);
+  }
+
+  setCamera(camera: THREE.PerspectiveCamera): void {
+    this.camera = camera;
   }
 
   init(): void {
@@ -62,9 +72,13 @@ export class BubbleRenderer {
           mesh,
           city,
           month: m + 1,
+          startPosition: new THREE.Vector3(0, -10, 0),
           targetPosition: new THREE.Vector3(),
+          startScale: 0.01,
           targetScale: 1,
+          startColor: new THREE.Color(0xffffff),
           targetColor: new THREE.Color(),
+          startOpacity: 0,
           targetOpacity: 0,
           currentColorValue: 0
         });
@@ -79,11 +93,13 @@ export class BubbleRenderer {
   }
 
   handleClick(event: MouseEvent, canvas: HTMLCanvasElement): void {
+    if (!this.camera) return;
+
     const rect = canvas.getBoundingClientRect();
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    this.raycaster.setFromCamera(this.mouse, (this.scene as any).camera || new THREE.PerspectiveCamera());
+    this.raycaster.setFromCamera(this.mouse, this.camera);
 
     const meshes = Array.from(this.bubbles.values())
       .filter(b => b.mesh.visible)
@@ -100,10 +116,16 @@ export class BubbleRenderer {
     }
   }
 
+  private easeInOut(t: number): number {
+    return t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
   updateBubbles(currentMonth: number): void {
+    this.currentMonth = currentMonth;
     const cities = dataManager.getCities();
     const monthCount = dataManager.getMonthCount();
-    const displayWindow = 5;
     const startMonth = Math.max(0, currentMonth - 2);
     const endMonth = Math.min(monthCount - 1, currentMonth + 2);
 
@@ -123,6 +145,12 @@ export class BubbleRenderer {
 
         const data = allBubbleData.get(key);
 
+        bubble.startPosition.copy(bubble.mesh.position);
+        bubble.startScale = bubble.mesh.scale.x;
+        const material = bubble.mesh.material as THREE.MeshPhongMaterial;
+        bubble.startColor.copy(material.color);
+        bubble.startOpacity = material.opacity;
+
         if (data) {
           const zOffset = (m - currentMonth) * 2.5;
           bubble.targetPosition.set(data.x, data.y, zOffset);
@@ -132,8 +160,9 @@ export class BubbleRenderer {
           bubble.mesh.visible = true;
           bubble.currentColorValue = data.colorValue;
         } else {
+          bubble.targetPosition.set(0, -10, 0);
+          bubble.targetScale = 0.01;
           bubble.targetOpacity = 0;
-          bubble.mesh.visible = false;
         }
       }
     }
@@ -144,34 +173,29 @@ export class BubbleRenderer {
   updateDataMode(mode: DataMode): void {
     switch (mode) {
       case 'temperature':
-        this.colorScale = d3.scaleLinear()
+        this.colorScale = d3.scaleLinear<number, string>()
           .domain([0, 0.5, 1])
-          .range(['#2196F3', '#FFC107', '#F44336']);
+          .range(['#2196F3', '#FFC107', '#F44336'] as unknown as Iterable<number>);
         break;
       case 'humidity':
-        this.colorScale = d3.scaleLinear()
+        this.colorScale = d3.scaleLinear<number, string>()
           .domain([0, 0.5, 1])
-          .range(['#8D6E63', '#4CAF50', '#00BCD4']);
+          .range(['#8D6E63', '#4CAF50', '#00BCD4'] as unknown as Iterable<number>);
         break;
       case 'precipitation':
-        this.colorScale = d3.scaleLinear()
+        this.colorScale = d3.scaleLinear<number, string>()
           .domain([0, 0.5, 1])
-          .range(['#E0E0E0', '#64B5F6', '#1565C0']);
+          .range(['#E0E0E0', '#64B5F6', '#1565C0'] as unknown as Iterable<number>);
         break;
     }
 
-    for (const bubble of this.bubbles.values()) {
-      if (bubble.mesh.visible) {
-        bubble.targetColor = new THREE.Color(this.colorScale(bubble.currentColorValue));
-      }
-    }
-
-    this.startAnimation();
+    this.updateBubbles(this.currentMonth);
   }
 
   updateCityFilter(): void {
     for (const bubble of this.bubbles.values()) {
       if (bubble.mesh.visible) {
+        bubble.startOpacity = (bubble.mesh.material as THREE.MeshPhongMaterial).opacity;
         bubble.targetOpacity = dataManager.getCityOpacity(bubble.city);
       }
     }
@@ -185,28 +209,25 @@ export class BubbleRenderer {
     this.animationProgress = 0;
   }
 
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     if (!this.isAnimating) return;
 
     const elapsed = performance.now() - this.animationStartTime;
     this.animationProgress = Math.min(1, elapsed / this.animationDuration);
 
-    const eased = d3.easeCubicInOut(this.animationProgress);
+    const eased = this.easeInOut(this.animationProgress);
 
     for (const bubble of this.bubbles.values()) {
       const material = bubble.mesh.material as THREE.MeshPhongMaterial;
 
-      bubble.mesh.position.lerp(bubble.targetPosition, 0.15);
+      bubble.mesh.position.lerpVectors(bubble.startPosition, bubble.targetPosition, eased);
 
-      const currentScale = bubble.mesh.scale.x;
-      const newScale = currentScale + (bubble.targetScale - currentScale) * 0.15;
+      const newScale = bubble.startScale + (bubble.targetScale - bubble.startScale) * eased;
       bubble.mesh.scale.set(newScale, newScale, newScale);
 
-      const currentColor = new THREE.Color(material.color.getHex());
-      currentColor.lerp(bubble.targetColor, 0.12);
-      material.color.copy(currentColor);
+      material.color.copy(bubble.startColor).lerp(bubble.targetColor, eased);
 
-      material.opacity += (bubble.targetOpacity - material.opacity) * 0.15;
+      material.opacity = bubble.startOpacity + (bubble.targetOpacity - bubble.startOpacity) * eased;
 
       if (bubble.targetOpacity <= 0.01 && material.opacity <= 0.01) {
         bubble.mesh.visible = false;

@@ -1,5 +1,3 @@
-import * as d3 from 'd3';
-
 export type TimeChangeCallback = (monthIndex: number) => void;
 export type PlayStateChangeCallback = (isPlaying: boolean) => void;
 
@@ -12,11 +10,6 @@ export class TimeController {
   private accumulatedTime: number = 0;
   private onChangeCallbacks: TimeChangeCallback[] = [];
   private onPlayStateChangeCallbacks: PlayStateChangeCallback[] = [];
-  private transitionDuration: number = 800;
-  private isTransitioning: boolean = false;
-  private transitionStart: number = 0;
-  private transitionFrom: number = 0;
-  private transitionTo: number = 0;
 
   constructor(totalMonths: number = 12) {
     this.totalMonths = totalMonths;

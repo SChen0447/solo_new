@@ -105,27 +105,32 @@ class DataManager {
     const z = this.spaceRanges.z.min + zNorm * (this.spaceRanges.z.max - this.spaceRanges.z.min);
 
     return monthData.map(point => {
-      const xNorm = (point.humidity - this.ranges.humidity.min) / (this.ranges.humidity.max - this.ranges.humidity.min);
-      const yNorm = (point.temperature - this.ranges.temperature.min) / (this.ranges.temperature.max - this.ranges.temperature.min);
-      const sizeNorm = (point.precipitation - this.ranges.precipitation.min) / (this.ranges.precipitation.max - this.ranges.precipitation.min);
+      const humidityNorm = (point.humidity - this.ranges.humidity.min) / (this.ranges.humidity.max - this.ranges.humidity.min);
+      const temperatureNorm = (point.temperature - this.ranges.temperature.min) / (this.ranges.temperature.max - this.ranges.temperature.min);
+      const precipitationNorm = (point.precipitation - this.ranges.precipitation.min) / (this.ranges.precipitation.max - this.ranges.precipitation.min);
 
-      const x = this.spaceRanges.x.min + xNorm * (this.spaceRanges.x.max - this.spaceRanges.x.min);
-      const y = this.spaceRanges.y.min + yNorm * (this.spaceRanges.y.max - this.spaceRanges.y.min);
-      const size = 0.3 + sizeNorm * 0.7;
+      const x = this.spaceRanges.x.min + humidityNorm * (this.spaceRanges.x.max - this.spaceRanges.x.min);
+      const y = this.spaceRanges.y.min + temperatureNorm * (this.spaceRanges.y.max - this.spaceRanges.y.min);
 
+      let size: number;
       let colorValue: number;
+
       switch (this.dataMode) {
         case 'temperature':
-          colorValue = yNorm;
+          size = 0.3 + temperatureNorm * 0.7;
+          colorValue = temperatureNorm;
           break;
         case 'humidity':
-          colorValue = xNorm;
+          size = 0.3 + humidityNorm * 0.7;
+          colorValue = humidityNorm;
           break;
         case 'precipitation':
-          colorValue = sizeNorm;
+          size = 0.3 + precipitationNorm * 0.7;
+          colorValue = precipitationNorm;
           break;
         default:
-          colorValue = yNorm;
+          size = 0.3 + precipitationNorm * 0.7;
+          colorValue = temperatureNorm;
       }
 
       return {
