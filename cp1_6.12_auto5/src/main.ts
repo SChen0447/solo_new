@@ -113,11 +113,16 @@ class App {
       this.uiController.updateBackground(gradient);
     });
 
+    this.uiController.addEventListener('fullscreenToggle', () => {
+      this.handleFullscreenToggle();
+    });
+
     window.addEventListener('beforeunload', () => {
       this.dispose();
     });
 
     window.addEventListener('resize', () => {
+      this.sceneManager.handleWindowResize();
     });
   }
 
@@ -186,6 +191,16 @@ class App {
     };
     
     this.uiController.showToast(`已切换到${themeNames[theme]}主题`, 'info');
+  }
+
+  private handleFullscreenToggle(): void {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {
+        this.uiController.showToast('无法进入全屏模式', 'error');
+      });
+    } else {
+      document.exitFullscreen();
+    }
   }
 
   dispose(): void {

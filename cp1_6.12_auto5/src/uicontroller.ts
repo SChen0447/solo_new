@@ -28,6 +28,9 @@ export class UIController {
   
   private toastTimeouts: Map<HTMLDivElement, number> = new Map();
   
+  private sliderDebounceTimer: number | null = null;
+  private static SLIDER_DEBOUNCE_MS = 150;
+  
   constructor(controls: UIControls) {
     this.controls = controls;
     this.eventTarget = new EventTarget();
@@ -59,7 +62,14 @@ export class UIController {
       const target = e.target as HTMLInputElement;
       const count = parseInt(target.value, 10);
       this.controls.sliderValue.textContent = count.toLocaleString();
-      this.dispatchEvent('particleCountChanged', count);
+      
+      if (this.sliderDebounceTimer !== null) {
+        clearTimeout(this.sliderDebounceTimer);
+      }
+      this.sliderDebounceTimer = window.setTimeout(() => {
+        this.dispatchEvent('particleCountChanged', count);
+        this.sliderDebounceTimer = null;
+      }, UIController.SLIDER_DEBOUNCE_MS);
     });
     
     this.controls.collapseBtn.addEventListener('click', () => {
@@ -67,12 +77,13 @@ export class UIController {
     });
     
     this.controls.fullscreenBtn.addEventListener('click', () => {
-      this.toggleFullscreen();
+      this.dispatchEvent('fullscreenToggle');
     });
     
     document.addEventListener('fullscreenchange', () => {
       this.isFullscreen = !!document.fullscreenElement;
-      this.controls.fullscreenBtn.textContent = this.isFullscreen ? '⛶' : '⛶';
+      this.controls.fullscreenBtn.textContent = this.isFullscreen ? '✕' : '⛶';
+      this.controls.fullscreenBtn.title = this.isFullscreen ? '退出全屏' : '全屏';
     });
   }
   
@@ -228,5 +239,9 @@ export class UIController {
   
   dispose(): void {
     this.clearToasts();
+    if (this.sliderDebounceTimer !== null) {
+      clearTimeout(this.sliderDebounceTimer);
+      this.sliderDebounceTimer = null;
+    }
   }
 }

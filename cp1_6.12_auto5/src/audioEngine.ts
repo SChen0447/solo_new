@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface FrequencyData {
   low: number;
   mid: number;
@@ -16,8 +15,8 @@ export class AudioEngine {
   private audioElement: HTMLAudioElement | null = null;
   private mediaStream: MediaStream | null = null;
   
-  private frequencyData: Float32Array;
-  private timeData: Float32Array;
+  private frequencyData: Float32Array<ArrayBuffer>;
+  private timeData: Float32Array<ArrayBuffer>;
   private fftSize = 2048;
   private smoothingTimeConstant = 0.8;
   
@@ -28,8 +27,8 @@ export class AudioEngine {
   
   constructor() {
     this.eventTarget = new EventTarget();
-    this.frequencyData = new Float32Array(this.fftSize / 2);
-    this.timeData = new Float32Array(this.fftSize / 2);
+    this.frequencyData = new Float32Array(this.fftSize / 2) as Float32Array<ArrayBuffer>;
+    this.timeData = new Float32Array(this.fftSize / 2) as Float32Array<ArrayBuffer>;
   }
   
   private initContext(): void {
@@ -45,8 +44,8 @@ export class AudioEngine {
       this.analyser.connect(this.gainNode);
       this.gainNode.connect(this.audioContext.destination);
       
-      this.frequencyData = new Float32Array(this.analyser.frequencyBinCount);
-      this.timeData = new Float32Array(this.analyser.frequencyBinCount);
+      this.frequencyData = new Float32Array(this.analyser.frequencyBinCount) as Float32Array<ArrayBuffer>;
+      this.timeData = new Float32Array(this.analyser.frequencyBinCount) as Float32Array<ArrayBuffer>;
     }
   }
   
@@ -151,7 +150,7 @@ export class AudioEngine {
         low: 0,
         mid: 0,
         high: 0,
-        array: new Float32Array(1024)
+        array: new Float32Array(1024) as Float32Array<ArrayBuffer>
       };
     }
     

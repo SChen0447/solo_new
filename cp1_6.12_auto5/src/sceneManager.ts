@@ -6,7 +6,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
 import { AudioEngine, FrequencyData } from './audioEngine';
-import { ParticleSystem, ParticleSystemData, ThemeType } from './particleSystem';
+import { ParticleSystem, ParticleSystemData, ThemeType, BloomParams } from './particleSystem';
 
 export class SceneManager {
   private container: HTMLElement;
@@ -79,9 +79,9 @@ export class SceneManager {
     
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(this.container.clientWidth, this.container.clientHeight),
-      0.8,
-      0.4,
-      0.85
+      0.6,
+      0.5,
+      0.7
     );
     this.composer.addPass(bloomPass);
     
@@ -230,7 +230,8 @@ export class SceneManager {
     this.colorAttribute.needsUpdate = true;
     this.sizeAttribute.needsUpdate = true;
     
-    this.particleGeometry.setDrawRange(0, count);
+    this.particleGeometry.setDrawRange(0, this.maxParticles);
+    this.particleGeometry.computeBoundingSphere();
   }
   
   private animate(currentTime: number): void {
@@ -260,6 +261,16 @@ export class SceneManager {
     );
     
     this.updateParticleAttributes(particleData);
+    
+    const bloomParams: BloomParams = this.particleSystem.getCurrentBloomParams();
+    const bloomPass = this.composer.passes.find((p: Pass) =>
+      p instanceof UnrealBloomPass
+    ) as UnrealBloomPass;
+    if (bloomPass) {
+      bloomPass.strength = bloomParams.strength;
+      bloomPass.radius = bloomParams.radius;
+      bloomPass.threshold = bloomParams.threshold;
+    }
     
     if (this.autoRotate) {
       this.points.rotation.y += this.deltaTime * 0.05;
@@ -321,7 +332,13 @@ export class SceneManager {
   setAutoRotate(enabled: boolean): void {
     this.autoRotate = enabled;
   }
-  
+
+  handleWindowResize(): void {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    this.onResize(width, height);
+  }
+
   setBloomIntensity(intensity: number): void {
     const bloomPass = this.composer.passes.find((p: Pass) => 
       p instanceof UnrealBloomPass
