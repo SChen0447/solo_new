@@ -13,6 +13,7 @@ export interface RequestConfig {
   body: string;
   timestamp?: number;
   name?: string;
+  timeout?: number;
 }
 
 export interface ResponseData {

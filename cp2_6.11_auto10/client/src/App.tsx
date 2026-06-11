@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-json';
@@ -6,6 +6,8 @@ import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/ext-language_tools';
 import { sendRequest } from './apiService';
 import { historyService, collectionService } from './historyService';
+import VirtualList from './components/VirtualList';
+import ResponseBody from './components/ResponseBody';
 import {
   HttpMethod,
   HeaderItem,
@@ -17,6 +19,8 @@ import {
 } from './types';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+const MAX_CONCURRENT = 5;
+const REQUEST_TIMEOUT = 30000;
 
 const getStatusClass = (status: number): string => {
   if (status >= 200 && status < 300) return 'success';
@@ -67,12 +71,18 @@ const App: React.FC = () => {
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [compareResults, setCompareResults] = useState<CompareResult[]>([]);
   const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [batchRunning, setBatchRunning] = useState<boolean>(false);
+  const [batchProgress, setBatchProgress] = useState<{ completed: number; total: number }>({ completed: 0, total: 0 });
+  const batchCancelRef = useRef<boolean>(false);
 
   const sendBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    const startTime = performance.now();
     setHistory(historyService.getAll());
     setCollections(collectionService.getAll());
+    const endTime = performance.now();
+    console.log(`[Perf] 历史记录加载: ${(endTime - startTime).toFixed(2)}ms`);
   }, []);
 
   useEffect(() => {
@@ -131,7 +141,9 @@ const App: React.FC = () => {
     setResponse(null);
     setResponseTab('body');
 
-    const config: RequestConfig = { method, url, headers, body };
+    const config: RequestConfig = { method, url, headers, body, timeout: REQUEST_TIMEOUT };
+
+    const startTime = performance.now();
 
     try {
       const res = await sendRequest(config);
@@ -151,6 +163,8 @@ const App: React.FC = () => {
       toast.error(`请求失败: ${errorMsg}`);
     } finally {
       setLoading(false);
+      const endTime = performance.now();
+      console.log(`[Perf] 总请求耗时: ${(endTime - startTime).toFixed(2)}ms`);
     }
   }, [method, url, headers, body]);
 
@@ -221,40 +235,84 @@ const App: React.FC = () => {
   }, []);
 
   const runCollection = useCallback(async (collection: Collection) => {
-    setLoading(true);
-    setResponseTab('compare');
-    const results: CompareResult[] = [];
+    if (batchRunning) return;
 
-    for (const req of collection.requests) {
+    setBatchRunning(true);
+    setBatchCancelFlag(false);
+    setResponseTab('compare');
+    setCompareResults([]);
+    setBatchProgress({ completed: 0, total: collection.requests.length });
+
+    const results: CompareResult[] = [];
+    const requests = [...collection.requests];
+    let currentIndex = 0;
+    let activeCount = 0;
+
+    const runNext = async (): Promise<void> => {
+      if (batchCancelRef.current || currentIndex >= requests.length) {
+        return;
+      }
+
+      const index = currentIndex++;
+      const req = requests[index];
+      activeCount++;
+
       try {
         const res = await sendRequest({
           method: req.method,
           url: req.url,
           headers: req.headers,
           body: req.body,
+          timeout: REQUEST_TIMEOUT,
         });
-        results.push({
+        results[index] = {
           requestId: req.id || '',
           name: req.name || req.url,
           method: req.method,
           url: req.url,
           status: res.status,
           responseTime: res.responseTime,
-        });
+        };
       } catch (err: any) {
-        results.push({
+        results[index] = {
           requestId: req.id || '',
           name: req.name || req.url,
           method: req.method,
           url: req.url,
-          error: err.message || 'Request failed',
-        });
+          error: err.response?.data?.error || err.message || 'Request failed',
+        };
       }
-    }
 
+      activeCount--;
+      setBatchProgress({ completed: results.filter(Boolean).length, total: requests.length });
+      setCompareResults([...results.filter((r) => r !== undefined)]);
+
+      if (!batchCancelRef.current && currentIndex < requests.length) {
+        return runNext();
+      }
+    };
+
+    const initialConcurrency = Math.min(MAX_CONCURRENT, requests.length);
+    const runners = Array.from({ length: initialConcurrency }, () => runNext());
+
+    await Promise.all(runners);
+
+    setBatchRunning(false);
     setCompareResults(results);
-    setLoading(false);
-    toast.success(`集合运行完成: ${results.length} 个请求`);
+
+    if (batchCancelRef.current) {
+      toast.success(`已取消，完成 ${results.filter(Boolean).length}/${requests.length} 个请求`);
+    } else {
+      toast.success(`集合运行完成: ${results.filter(Boolean).length} 个请求`);
+    }
+  }, [batchRunning]);
+
+  const setBatchCancelFlag = (flag: boolean) => {
+    batchCancelRef.current = flag;
+  };
+
+  const cancelBatch = useCallback(() => {
+    setBatchCancelFlag(true);
   }, []);
 
   const addCurrentToCollection = useCallback((collectionId: string) => {
@@ -264,10 +322,48 @@ const App: React.FC = () => {
     toast.success('已添加到集合');
   }, [method, url, headers, body]);
 
-  const responseTimePercent = Math.min((response?.responseTime || 0) / 1000, 1) * 100;
+  const responseTimePercent = useMemo(() => {
+    const time = response?.responseTime ?? 0;
+    return Math.min(time / 1000, 1) * 100;
+  }, [response?.responseTime]);
+
+  const renderHistoryItem = useCallback((item: HistoryItem, _index: number) => (
+    <div
+      className="history-item"
+      onClick={() => loadHistoryItem(item)}
+      style={{ margin: '0 4px 4px 4px' }}
+    >
+      <div className="history-item-header">
+        <span className={`method-badge ${item.method}`}>{item.method}</span>
+        <span className="history-url">{item.url}</span>
+      </div>
+      <div className="history-time">{formatTime(item.timestamp)}</div>
+      {item.status !== undefined && (
+        <div className="history-actions">
+          <span className={`status-badge ${getStatusClass(item.status)}`}>
+            {item.status}
+          </span>
+          <button
+            className="delete-btn"
+            onClick={(e) => deleteHistoryItem(item.id, e)}
+          >
+            删除
+          </button>
+        </div>
+      )}
+    </div>
+  ), [loadHistoryItem, deleteHistoryItem]);
+
+  const safeResponseTime = (time: number | undefined): string => {
+    if (time === undefined || time === null) return '-';
+    return `${time}ms`;
+  };
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth < 1024;
 
   return (
-    <div className="app">
+    <div className={`app ${isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop'}`}>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -279,12 +375,15 @@ const App: React.FC = () => {
         }}
       />
 
-      <button
-        className={`toggle-sidebar-btn ${sidebarCollapsed ? 'visible' : ''}`}
-        onClick={() => setSidebarCollapsed(false)}
-      >
-        ☰
-      </button>
+      {sidebarCollapsed && (
+        <button
+          className={`toggle-sidebar-btn visible`}
+          onClick={() => setSidebarCollapsed(false)}
+          aria-label="展开侧边栏"
+        >
+          ☰
+        </button>
+      )}
 
       <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
@@ -317,32 +416,12 @@ const App: React.FC = () => {
                 <div className="empty-state-text">暂无历史记录</div>
               </div>
             ) : (
-              history.map((item) => (
-                <div
-                  key={item.id}
-                  className="history-item"
-                  onClick={() => loadHistoryItem(item)}
-                >
-                  <div className="history-item-header">
-                    <span className={`method-badge ${item.method}`}>{item.method}</span>
-                    <span className="history-url">{item.url}</span>
-                  </div>
-                  <div className="history-time">{formatTime(item.timestamp)}</div>
-                  {item.status !== undefined && (
-                    <div className="history-actions">
-                      <span className={`status-badge ${getStatusClass(item.status)}`}>
-                        {item.status}
-                      </span>
-                      <button
-                        className="delete-btn"
-                        onClick={(e) => deleteHistoryItem(item.id, e)}
-                      >
-                        删除
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))
+              <VirtualList<HistoryItem>
+                items={history}
+                itemHeight={72}
+                renderItem={renderHistoryItem}
+                containerHeight={window.innerHeight - 180}
+              />
             )
           ) : (
             collections.length === 0 ? (
@@ -351,54 +430,60 @@ const App: React.FC = () => {
                 <div className="empty-state-text">暂无集合</div>
               </div>
             ) : (
-              collections.map((collection) => (
-                <div key={collection.id} className="collection-item">
-                  <div
-                    className="collection-header"
-                    onClick={() => toggleCollection(collection.id)}
-                  >
-                    <span className="collection-name">
-                      {expandedCollections.has(collection.id) ? '▼ ' : '▶ '}
-                      {collection.name}
-                    </span>
-                    <button
-                      className="delete-btn"
-                      onClick={(e) => deleteCollection(collection.id, e)}
+              <div style={{ overflowY: 'auto', height: '100%' }}>
+                {collections.map((collection) => (
+                  <div key={collection.id} className="collection-item">
+                    <div
+                      className="collection-header"
+                      onClick={() => toggleCollection(collection.id)}
                     >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="collection-desc">{collection.description || '无描述'}</div>
-                  {expandedCollections.has(collection.id) && (
-                    <>
-                      <div className="collection-requests">
-                        {collection.requests.map((req, idx) => (
-                          <div
-                            key={req.id || idx}
-                            className="collection-request"
-                            onClick={() => loadCollectionRequest(req)}
-                          >
-                            <span>
-                              <span className={`method-badge ${req.method}`} style={{ marginRight: 8 }}>
-                                {req.method}
+                      <span className="collection-name">
+                        {expandedCollections.has(collection.id) ? '▼ ' : '▶ '}
+                        {collection.name}
+                      </span>
+                      <button
+                        className="delete-btn"
+                        onClick={(e) => deleteCollection(collection.id, e)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="collection-desc">{collection.description || '无描述'}</div>
+                    {expandedCollections.has(collection.id) && (
+                      <>
+                        <div className="collection-requests">
+                          {collection.requests.map((req, idx) => (
+                            <div
+                              key={req.id || idx}
+                              className="collection-request"
+                              onClick={() => loadCollectionRequest(req)}
+                            >
+                              <span>
+                                <span className={`method-badge ${req.method}`} style={{ marginRight: 8 }}>
+                                  {req.method}
+                                </span>
+                                {req.url.length > 30 ? req.url.slice(0, 30) + '...' : req.url}
                               </span>
-                              {req.url.length > 30 ? req.url.slice(0, 30) + '...' : req.url}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="collection-actions">
-                        <button className="btn-sm" onClick={() => addCurrentToCollection(collection.id)}>
-                          添加当前
-                        </button>
-                        <button className="btn-sm primary" onClick={() => runCollection(collection)}>
-                          批量运行
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))
+                            </div>
+                          ))}
+                        </div>
+                        <div className="collection-actions">
+                          <button className="btn-sm" onClick={() => addCurrentToCollection(collection.id)}>
+                            添加当前
+                          </button>
+                          <button
+                            className="btn-sm primary"
+                            onClick={() => runCollection(collection)}
+                            disabled={batchRunning}
+                          >
+                            {batchRunning ? '运行中...' : '批量运行'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
             )
           )}
         </div>
@@ -534,26 +619,57 @@ const App: React.FC = () => {
         </div>
 
         <div className="response-area">
-          {response && (
+          {(response || batchRunning) && (
             <div className="response-header">
-              <div className="response-status">
-                <span
-                  className={`response-status-code ${getStatusClass(response.status)}`}
-                >
-                  {response.status} {response.statusText}
-                </span>
-              </div>
+              {response && !batchRunning && (
+                <div className="response-status">
+                  <span
+                    className={`response-status-code ${getStatusClass(response.status)}`}
+                  >
+                    {response.status} {response.statusText}
+                  </span>
+                </div>
+              )}
+              {batchRunning && (
+                <div className="response-status">
+                  <span className="response-status-code warning">
+                    批量运行中... {batchProgress.completed}/{batchProgress.total}
+                  </span>
+                </div>
+              )}
               <div className="response-time-bar">
-                <div
-                  className="response-time-fill"
-                  style={{ width: `${responseTimePercent}%` }}
-                />
+                {response && !batchRunning && (
+                  <div
+                    className="response-time-fill"
+                    style={{ width: `${responseTimePercent}%` }}
+                  />
+                )}
+                {batchRunning && (
+                  <div
+                    className="response-time-fill"
+                    style={{
+                      width: `${(batchProgress.completed / batchProgress.total) * 100}%`,
+                      background: 'linear-gradient(90deg, var(--accent), var(--accent-hover))',
+                    }}
+                  />
+                )}
               </div>
-              <span className="response-time-text">{response.responseTime}ms</span>
+              {response && !batchRunning && (
+                <span className="response-time-text">{safeResponseTime(response.responseTime)}</span>
+              )}
+              {batchRunning && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 14px', fontSize: 12 }}
+                  onClick={cancelBatch}
+                >
+                  取消
+                </button>
+              )}
             </div>
           )}
 
-          {response && (
+          {(response || compareResults.length > 0) && (
             <div className="tabs" style={{ padding: '0 16px', marginTop: 12 }}>
               <button
                 className={`tab ${responseTab === 'body' ? 'active' : ''}`}
@@ -572,43 +688,28 @@ const App: React.FC = () => {
                   className={`tab ${responseTab === 'compare' ? 'active' : ''}`}
                   onClick={() => setResponseTab('compare')}
                 >
-                  对比结果
+                  对比结果 ({compareResults.length})
                 </button>
               )}
             </div>
           )}
 
           <div className="response-body">
-            {loading ? (
+            {loading && !batchRunning ? (
               <div className="loading-container">
                 <div className="spinner" />
                 <span className="loading-text">发送请求中...</span>
               </div>
-            ) : !response ? (
+            ) : !response && compareResults.length === 0 && !batchRunning ? (
               <div className="empty-state">
                 <div className="empty-state-icon">📤</div>
                 <div className="empty-state-text">
                   点击 Send 按钮发送请求，响应结果将显示在这里
                 </div>
               </div>
-            ) : responseTab === 'body' ? (
-              <div className="editor-wrapper" style={{ borderRadius: 0, border: 'none' }}>
-                <AceEditor
-                  mode={isValidJson(response.body) ? 'json' : 'text'}
-                  theme="monokai"
-                  value={isValidJson(response.body) ? formatJson(response.body) : response.body}
-                  name="response-editor"
-                  editorProps={{ $blockScrolling: true }}
-                  readOnly={true}
-                  showPrintMargin={false}
-                  setOptions={{
-                    tabSize: 2,
-                    useSoftTabs: true,
-                  }}
-                  style={{ width: '100%', height: '100%', minHeight: 400 }}
-                />
-              </div>
-            ) : responseTab === 'headers' ? (
+            ) : responseTab === 'body' && response ? (
+              <ResponseBody body={response.body} isJson={isValidJson(response.body)} />
+            ) : responseTab === 'headers' && response ? (
               <table className="response-headers-table">
                 <thead>
                   <tr>
@@ -632,7 +733,7 @@ const App: React.FC = () => {
                   )}
                 </tbody>
               </table>
-            ) : (
+            ) : responseTab === 'compare' ? (
               <table className="compare-table">
                 <thead>
                   <tr>
@@ -657,25 +758,28 @@ const App: React.FC = () => {
                             {result.status}
                           </span>
                         ) : (
-                          <span className="status-badge error">{result.error}</span>
+                          <span className="status-badge error">{result.error || 'Error'}</span>
                         )}
                       </td>
-                      <td>{result.responseTime !== undefined ? `${result.responseTime}ms` : '-'}</td>
+                      <td>{safeResponseTime(result.responseTime)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
+            ) : null}
           </div>
         </div>
       </main>
 
-      <button
-        className={`toggle-docs-btn ${docsCollapsed ? 'visible' : ''}`}
-        onClick={() => setDocsCollapsed(false)}
-      >
-        📖
-      </button>
+      {docsCollapsed && (
+        <button
+          className={`toggle-docs-btn visible`}
+          onClick={() => setDocsCollapsed(false)}
+          aria-label="展开文档面板"
+        >
+          📖
+        </button>
+      )}
 
       <aside className={`docs-panel ${docsCollapsed ? 'collapsed' : ''}`}>
         <div className="docs-header">
@@ -719,6 +823,7 @@ const App: React.FC = () => {
             <ul>
               <li>历史记录自动保存</li>
               <li>集合管理与批量运行</li>
+              <li>并发请求（最多5个）</li>
               <li>响应对比分析</li>
               <li>JSON 语法高亮</li>
             </ul>

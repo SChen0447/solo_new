@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 import { Headers } from 'node-fetch';
 
 const app = express();
-const PORT = 3001;
+const PORT = 3002;
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -16,6 +16,7 @@ interface ProxyRequest {
   url: string;
   headers?: Record<string, string>;
   body?: string;
+  timeout?: number;
 }
 
 interface ProxyResponse {
@@ -27,13 +28,16 @@ interface ProxyResponse {
 }
 
 app.post('/api/proxy', async (req, res) => {
-  const { method, url, headers, body }: ProxyRequest = req.body;
+  const { method, url, headers, body, timeout }: ProxyRequest = req.body;
 
   if (!method || !url) {
     return res.status(400).json({ error: 'Method and URL are required' });
   }
 
   const startTime = Date.now();
+  const requestTimeout = timeout || 30000;
+
+  let timeoutId: NodeJS.Timeout | null = null;
 
   try {
     const fetchHeaders = new Headers();
@@ -54,7 +58,18 @@ app.post('/api/proxy', async (req, res) => {
       fetchOptions.body = body;
     }
 
-    const response = await fetch(url, fetchOptions);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(`Request timed out after ${requestTimeout}ms`));
+      }, requestTimeout);
+    });
+
+    const response = await Promise.race([fetch(url, fetchOptions), timeoutPromise]);
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
     const endTime = Date.now();
 
     const responseHeaders: Record<string, string> = {};
@@ -74,10 +89,15 @@ app.post('/api/proxy', async (req, res) => {
 
     res.json(proxyResponse);
   } catch (error: any) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
     const endTime = Date.now();
-    res.status(500).json({
+    const isTimeout = error.message?.includes('timed out');
+    res.status(isTimeout ? 408 : 500).json({
       error: error.message || 'Request failed',
       responseTime: endTime - startTime,
+      timeout: isTimeout,
     });
   }
 });

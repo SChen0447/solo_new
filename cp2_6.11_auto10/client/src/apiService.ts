@@ -12,11 +12,17 @@ const headersToRecord = (headers: HeaderItem[]): Record<string, string> => {
 };
 
 export const sendRequest = async (config: RequestConfig): Promise<ResponseData> => {
-  const response = await axios.post<ResponseData>('/api/proxy', {
-    method: config.method,
-    url: config.url,
-    headers: headersToRecord(config.headers),
-    body: config.body,
-  });
+  const timeout = config.timeout || 30000;
+  const response = await axios.post<ResponseData>(
+    '/api/proxy',
+    {
+      method: config.method,
+      url: config.url,
+      headers: headersToRecord(config.headers),
+      body: config.body,
+      timeout,
+    },
+    { timeout: timeout + 5000 }
+  );
   return response.data;
 };
