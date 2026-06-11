@@ -39,6 +39,41 @@ const difficultyOptions = ['简单', '中等', '困难'];
 
 const defaultCoverImage = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=800&h=500&fit=crop';
 
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return function (this: any, ...args: Parameters<T>) {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => {
+      func.apply(this, args);
+      timeout = null;
+    }, wait);
+  };
+}
+
+function useDebounce<T extends (...args: any[]) => any>(
+  callback: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  const callbackRef = useRef(callback);
+
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
+  const debouncedFn = useRef(
+    debounce((...args: Parameters<T>) => {
+      callbackRef.current(...args);
+    }, delay)
+  ).current;
+
+  return debouncedFn;
+}
+
 const DraggableIngredient: React.FC<DraggableIngredientProps> = ({
   ingredient,
   index,
@@ -56,7 +91,7 @@ const DraggableIngredient: React.FC<DraggableIngredientProps> = ({
     }),
   }));
 
-  const [, drop] = useDrop(() => ({
+  const [{ isOver }, drop] = useDrop(() => ({
     accept: ItemTypes.INGREDIENT,
     hover: (item: { index: number }) => {
       if (item.index !== index) {
@@ -64,14 +99,36 @@ const DraggableIngredient: React.FC<DraggableIngredientProps> = ({
         item.index = index;
       }
     },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
   }));
 
   drag(drop(ref));
 
+  const draggingStyle: React.CSSProperties = isDragging
+    ? {
+        opacity: 0.5,
+        transform: 'scale(1.02)',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+      }
+    : {};
+
+  const dropIndicatorStyle: React.CSSProperties = isOver && !isDragging
+    ? {
+        borderLeft: '3px solid #3b82f6',
+      }
+    : {};
+
   return (
     <div
       ref={ref}
-      className={`draggable-ingredient ${isDragging ? 'dragging' : ''}`}
+      className={`draggable-ingredient ${isDragging ? 'dragging' : ''} ${isOver && !isDragging ? 'drag-over' : ''}`}
+      style={{
+        ...draggingStyle,
+        ...dropIndicatorStyle,
+        transition: 'opacity 0.2s, transform 0.2s, box-shadow 0.2s, border-left 0.15s',
+      }}
     >
       <div className="drag-handle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -137,7 +194,7 @@ const DraggableStep: React.FC<DraggableStepProps> = ({
     }),
   }));
 
-  const [, drop] = useDrop(() => ({
+  const [{ isOver }, drop] = useDrop(() => ({
     accept: ItemTypes.STEP,
     hover: (item: { index: number }) => {
       if (item.index !== index) {
@@ -145,6 +202,9 @@ const DraggableStep: React.FC<DraggableStepProps> = ({
         item.index = index;
       }
     },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
   }));
 
   drag(drop(ref));
@@ -160,10 +220,29 @@ const DraggableStep: React.FC<DraggableStepProps> = ({
     }
   };
 
+  const draggingStyle: React.CSSProperties = isDragging
+    ? {
+        opacity: 0.5,
+        transform: 'scale(1.02)',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+      }
+    : {};
+
+  const dropIndicatorStyle: React.CSSProperties = isOver && !isDragging
+    ? {
+        borderLeft: '3px solid #3b82f6',
+      }
+    : {};
+
   return (
     <div
       ref={ref}
-      className={`draggable-step ${isDragging ? 'dragging' : ''}`}
+      className={`draggable-step ${isDragging ? 'dragging' : ''} ${isOver && !isDragging ? 'drag-over' : ''}`}
+      style={{
+        ...draggingStyle,
+        ...dropIndicatorStyle,
+        transition: 'opacity 0.2s, transform 0.2s, box-shadow 0.2s, border-left 0.15s',
+      }}
     >
       <div className="drag-handle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -297,29 +376,32 @@ const EditorContent: React.FC<EditorProps> = ({
     setHasUnsavedChanges(true);
   }, [title, description, coverImage, cuisine, difficulty, cookTime, servings, ingredients, steps, tags, isPublic]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (hasUnsavedChanges) {
-        const draft = {
-          title,
-          description,
-          coverImage,
-          cuisine,
-          difficulty,
-          cookTime,
-          servings,
-          ingredients,
-          steps,
-          tags,
-          isPublic,
-        };
-        localStorage.setItem(draftKey, JSON.stringify(draft));
-        setLastSaved(new Date());
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
+  const saveDraft = useCallback(() => {
+    if (hasUnsavedChanges) {
+      const draft = {
+        title,
+        description,
+        coverImage,
+        cuisine,
+        difficulty,
+        cookTime,
+        servings,
+        ingredients,
+        steps,
+        tags,
+        isPublic,
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
+    }
   }, [title, description, coverImage, cuisine, difficulty, cookTime, servings, ingredients, steps, tags, isPublic, hasUnsavedChanges, draftKey]);
+
+  const debouncedSaveDraft = useDebounce(saveDraft, 300);
+
+  useEffect(() => {
+    debouncedSaveDraft();
+  }, [title, description, coverImage, cuisine, difficulty, cookTime, servings, ingredients, steps, tags, isPublic, debouncedSaveDraft]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -407,7 +489,7 @@ const EditorContent: React.FC<EditorProps> = ({
       const result = [...prev];
       const [removed] = result.splice(fromIndex, 1);
       result.splice(toIndex, 0, removed);
-      return result;
+      return result.map((step, idx) => ({ ...step, order: idx + 1 }));
     });
   }, []);
 
@@ -418,7 +500,7 @@ const EditorContent: React.FC<EditorProps> = ({
   };
 
   const deleteStep = (id: string) => {
-    setSteps(prev => prev.filter(step => step.id !== id));
+    setSteps(prev => prev.filter(step => step.id !== id).map((step, idx) => ({ ...step, order: idx + 1 })));
   };
 
   const addStep = () => {

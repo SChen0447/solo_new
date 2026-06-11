@@ -2,9 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcryptjs';
 
 const app = express();
 const PORT = 4000;
+const SALT_ROUNDS = 10;
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -16,6 +18,18 @@ const tokens = new Map();
 
 const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
 
+const hashPassword = (password) => {
+  return bcrypt.hashSync(password, SALT_ROUNDS);
+};
+
+const verifyPassword = (password, hash) => {
+  return bcrypt.compareSync(password, hash);
+};
+
+const generateToken = () => {
+  return uuidv4();
+};
+
 const sampleUsers = [
   { id: 'user1', username: '美食家小王', email: 'wang@example.com', password: '123456', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=wang' },
   { id: 'user2', username: '厨神小李', email: 'li@example.com', password: '123456', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=li' },
@@ -23,7 +37,7 @@ const sampleUsers = [
 ];
 
 sampleUsers.forEach(u => {
-  users.set(u.id, u);
+  users.set(u.id, { ...u, password: hashPassword(u.password) });
 });
 
 const sampleRecipes = [
@@ -277,12 +291,12 @@ const authenticateToken = (req, res, next) => {
     return res.status(403).json({ error: '用户不存在' });
   }
   
-  req.user = { ...user, password: undefined };
+  req.user = { id: user.id, username: user.username, email: user.email, avatar: user.avatar };
   req.token = token;
   next();
 };
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
   
   if (!username || !email || !password) {
@@ -295,12 +309,13 @@ app.post('/api/auth/register', (req, res) => {
   }
   
   const id = uuidv4();
-  const token = uuidv4();
+  const token = generateToken();
+  const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
   const user = {
     id,
     username,
     email,
-    password,
+    password: hashedPassword,
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
   };
   
@@ -313,7 +328,7 @@ app.post('/api/auth/register', (req, res) => {
   });
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   
   if (!email || !password) {
@@ -321,11 +336,16 @@ app.post('/api/auth/login', (req, res) => {
   }
   
   const user = Array.from(users.values()).find(u => u.email === email);
-  if (!user || user.password !== password) {
+  if (!user) {
+    return res.status(401).json({ error: '邮箱或密码错误' });
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
     return res.status(401).json({ error: '邮箱或密码错误' });
   }
   
-  const token = uuidv4();
+  const token = generateToken();
   tokens.set(token, user.id);
   
   res.json({

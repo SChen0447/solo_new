@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider';
 
 interface RecipeDetailProps {
   recipe: Recipe;
+  loading?: boolean;
   onBack: () => void;
   onEdit: () => void;
   onToggleFavorite: () => void;
@@ -13,8 +14,172 @@ interface RecipeDetailProps {
 
 const emojis = ['😀', '😍', '🤤', '👍', '🔥', '💯', '✨', '🎉', '❤️', '👨‍🍳'];
 
+const styles = `
+.ingredient-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.ingredient-item:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.ingredient-checkbox {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border: 2px solid var(--text-secondary, #999);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.ingredient-item.checked .ingredient-checkbox {
+  background-color: var(--success-color, #22c55e);
+  border-color: var(--success-color, #22c55e);
+}
+
+.checkmark {
+  width: 14px;
+  height: 14px;
+  color: #ffffff;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.ingredient-item.checked .checkmark {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.ingredient-name {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary, #1f2937);
+  transition: color 0.3s ease, text-decoration 0.3s ease;
+  text-decoration: none;
+  text-decoration-color: transparent;
+}
+
+.ingredient-item.checked .ingredient-name {
+  color: var(--text-secondary, #9ca3af);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-secondary, #9ca3af);
+}
+
+.ingredient-amount {
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  transition: color 0.3s ease;
+}
+
+.ingredient-item.checked .ingredient-amount {
+  color: var(--text-secondary, #9ca3af);
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-start, #e5e7eb) 25%,
+    var(--skeleton-end, #f3f4f6) 50%,
+    var(--skeleton-start, #e5e7eb) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-hero {
+  width: 100%;
+  height: 360px;
+  border-radius: 0;
+}
+
+.skeleton-title {
+  width: 60%;
+  height: 36px;
+  margin-bottom: 16px;
+}
+
+.skeleton-text {
+  width: 100%;
+  height: 16px;
+  margin-bottom: 8px;
+}
+
+.skeleton-text.short {
+  width: 40%;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton-tag {
+  width: 60px;
+  height: 28px;
+  border-radius: 16px;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.skeleton-ingredient {
+  width: 100%;
+  height: 44px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+}
+
+.skeleton-step {
+  width: 100%;
+  height: 120px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+}
+
+.skeleton-comment {
+  width: 100%;
+  height: 80px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+}
+
+.skeleton-section-title {
+  width: 120px;
+  height: 24px;
+  margin-bottom: 16px;
+}
+
+.skeleton-info {
+  width: 100px;
+  height: 20px;
+  margin-bottom: 6px;
+}
+`;
+
 export const RecipeDetail: React.FC<RecipeDetailProps> = ({
   recipe,
+  loading = false,
   onBack,
   onEdit,
   onToggleFavorite,
@@ -179,8 +344,108 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({
     );
   };
 
+  if (loading) {
+    return (
+      <div className="recipe-detail-page">
+        <style>{styles}</style>
+        <button className="back-btn" onClick={onBack}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          返回列表
+        </button>
+
+        <div className="recipe-hero">
+          <div className="skeleton skeleton-hero" />
+          <div className="recipe-hero-overlay" />
+          <div className="recipe-hero-content">
+            <div className="recipe-hero-tags">
+              <span className="skeleton skeleton-tag" />
+              <span className="skeleton skeleton-tag" />
+            </div>
+            <div className="skeleton skeleton-title" style={{ background: 'rgba(255,255,255,0.3)' }} />
+            <div className="recipe-hero-meta">
+              <div className="skeleton skeleton-avatar" style={{ background: 'rgba(255,255,255,0.3)' }} />
+              <div>
+                <div className="skeleton skeleton-text" style={{ width: '100px', background: 'rgba(255,255,255,0.3)', marginBottom: '4px' }} />
+                <div className="skeleton skeleton-text" style={{ width: '140px', height: '12px', background: 'rgba(255,255,255,0.3)' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="recipe-detail-body">
+          <div className="recipe-sidebar">
+            <div className="ingredients-section">
+              <div className="skeleton skeleton-section-title" />
+              <div className="skeleton skeleton-info" />
+              <ul className="ingredients-list" style={{ listStyle: 'none', padding: 0 }}>
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <li key={i} className="skeleton skeleton-ingredient" />
+                ))}
+              </ul>
+              <div className="skeleton skeleton-text short" />
+            </div>
+
+            <div className="quick-info">
+              <div className="info-item">
+                <div className="skeleton skeleton-info" />
+                <div className="skeleton skeleton-info" />
+              </div>
+              <div className="info-item">
+                <div className="skeleton skeleton-info" />
+                <div className="skeleton skeleton-info" />
+              </div>
+            </div>
+
+            <div className="tag-section">
+              <div className="skeleton skeleton-section-title" style={{ width: '60px', height: '20px' }} />
+              <div>
+                {[1, 2, 3].map(i => (
+                  <span key={i} className="skeleton skeleton-tag" />
+                ))}
+              </div>
+            </div>
+
+            <div className="action-buttons">
+              <div className="skeleton" style={{ width: '100%', height: '44px', borderRadius: '8px', marginBottom: '12px' }} />
+              <div className="skeleton" style={{ width: '100%', height: '44px', borderRadius: '8px' }} />
+            </div>
+          </div>
+
+          <div className="recipe-main">
+            <div className="description-section">
+              <div className="skeleton skeleton-section-title" />
+              <div className="skeleton skeleton-text" />
+              <div className="skeleton skeleton-text" />
+              <div className="skeleton skeleton-text short" />
+            </div>
+
+            <div className="steps-section">
+              <div className="skeleton skeleton-section-title" />
+              <div className="steps-list">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="skeleton skeleton-step" />
+                ))}
+              </div>
+            </div>
+
+            <div className="comments-section">
+              <div className="skeleton skeleton-section-title" />
+              <div className="skeleton" style={{ width: '100%', height: '120px', borderRadius: '8px', marginBottom: '24px' }} />
+              {[1, 2].map(i => (
+                <div key={i} className="skeleton skeleton-comment" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="recipe-detail-page">
+      <style>{styles}</style>
       <button className="back-btn" onClick={onBack}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <polyline points="15 18 9 12 15 6" />
@@ -244,17 +509,15 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({
                   onClick={() => toggleIngredient(ing.id)}
                 >
                   <div className="ingredient-checkbox">
-                    {checkedIngredients.has(ing.id) && (
-                      <svg
-                        className="checkmark"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
+                    <svg
+                      className="checkmark"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
                   </div>
                   <span className="ingredient-name">{ing.name}</span>
                   <span className="ingredient-amount">
