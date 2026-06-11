@@ -1,16 +1,137 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>咒语熔炉</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>星际矿工 - Stellar Miner</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow: hidden;
+      background: #0a0a1a;
+      font-family: 'Courier New', monospace;
+    }
+
+    #gameCanvas {
+      display: block;
+      cursor: crosshair;
+    }
+
+    #startScreen, #gameOverScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #0a0a2e 0%, #1a0a3e 50%, #0a1a2e 100%);
+      z-index: 10;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    h1 {
+      font-size: 4rem;
+      color: #39ff14;
+      text-shadow: 0 0 20px #39ff14, 0 0 40px #39ff14, 0 0 60px #39ff14;
+      margin-bottom: 1rem;
+      letter-spacing: 4px;
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      color: #ff8c00;
+      text-shadow: 0 0 10px #ff8c00;
+      margin-bottom: 3rem;
+    }
+
+    .instructions {
+      color: #88ccff;
+      text-align: center;
+      line-height: 2;
+      margin-bottom: 2rem;
+      font-size: 1rem;
+    }
+
+    .instructions span {
+      color: #39ff14;
+      font-weight: bold;
+    }
+
+    .btn {
+      padding: 1rem 3rem;
+      font-size: 1.2rem;
+      font-family: 'Courier New', monospace;
+      background: transparent;
+      border: 2px solid #39ff14;
+      color: #39ff14;
+      cursor: pointer;
+      text-shadow: 0 0 10px #39ff14;
+      box-shadow: 0 0 20px rgba(57, 255, 20, 0.3), inset 0 0 20px rgba(57, 255, 20, 0.1);
+      transition: all 0.3s ease;
+      letter-spacing: 2px;
+    }
+
+    .btn:hover {
+      background: rgba(57, 255, 20, 0.2);
+      box-shadow: 0 0 40px rgba(57, 255, 20, 0.5), inset 0 0 30px rgba(57, 255, 20, 0.2);
+      transform: scale(1.05);
+    }
+
+    .final-score {
+      font-size: 2rem;
+      color: #ff8c00;
+      text-shadow: 0 0 15px #ff8c00;
+      margin: 1rem 0 2rem;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2.5rem;
+      }
+      .subtitle {
+        font-size: 1rem;
+      }
+      .instructions {
+        font-size: 0.9rem;
+      }
+      .btn {
+        padding: 0.8rem 2rem;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <div id="startScreen">
+    <h1>星际矿工</h1>
+    <p class="subtitle">STELLAR MINER</p>
+    <div class="instructions">
+      <p><span>WASD / 方向键</span> - 移动飞船</p>
+      <p><span>鼠标点击</span> - 发射激光</p>
+      <p><span>目标</span> - 采集资源，躲避陨石</p>
+    </div>
+    <button class="btn" id="startBtn">开始游戏</button>
+  </div>
+
+  <div id="gameOverScreen" class="hidden">
+    <h1>游戏结束</h1>
+    <p class="final-score" id="finalScore">得分: 0</p>
+    <button class="btn" id="restartBtn">再来一次</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>
