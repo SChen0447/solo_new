@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>城市风环境可视化工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .glass-panel {
+      background: rgba(45, 45, 68, 0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    #info-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 20px 24px;
+      min-width: 200px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    #info-panel.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    #info-panel h3 {
+      font-size: 16px;
+      margin-bottom: 12px;
+      color: #e0e0ff;
+      font-weight: 600;
+    }
+
+    #info-panel .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #info-panel .info-row:last-child {
+      border-bottom: none;
+    }
+
+    #info-panel .info-label {
+      color: #9999bb;
+    }
+
+    #info-panel .info-value {
+      color: #ffffff;
+      font-weight: 500;
+    }
+
+    #control-panel {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      padding: 18px 28px;
+      display: flex;
+      gap: 30px;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+    }
+
+    #control-panel.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      color: #aaaacc;
+      font-weight: 500;
+    }
+
+    .control-group .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-group input[type="range"] {
+      width: 160px;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .control-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #6699ff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(102, 153, 255, 0.5);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .control-group input[type="range"]::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 15px rgba(102, 153, 255, 0.8);
+      transform: scale(1.1);
+    }
+
+    .control-group input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      background: #6699ff;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 10px rgba(102, 153, 255, 0.5);
+    }
+
+    .control-group .value-display {
+      min-width: 50px;
+      text-align: right;
+      font-size: 13px;
+      color: #ffffff;
+      font-weight: 500;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      background: rgba(102, 153, 255, 0.2);
+      border: 1px solid rgba(102, 153, 255, 0.4);
+      border-radius: 8px;
+      color: #aaccff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: rgba(102, 153, 255, 0.35);
+      border-color: rgba(102, 153, 255, 0.6);
+      color: #ffffff;
+    }
+
+    .btn.active {
+      background: rgba(102, 153, 255, 0.4);
+      border-color: #6699ff;
+      color: #ffffff;
+    }
+
+    #sidebar-toggle {
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 80px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 101;
+      font-size: 20px;
+      color: #aaaacc;
+      transition: all 0.3s;
+    }
+
+    #sidebar-toggle:hover {
+      color: #ffffff;
+      background: rgba(45, 45, 68, 0.8);
+    }
+
+    @media (max-width: 1440px) {
+      #control-panel {
+        left: 80px;
+        transform: translateX(0) translateY(20px);
+        flex-direction: column;
+        gap: 16px;
+        padding: 20px;
+        bottom: 50%;
+        transform: translateY(50%) translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      #control-panel.visible {
+        transform: translateY(50%) translateX(0);
+      }
+
+      #control-panel.collapsed {
+        transform: translateY(50%) translateX(-120%);
+        opacity: 0;
+      }
+
+      #sidebar-toggle {
+        display: flex;
+      }
+
+      .control-group input[type="range"] {
+        width: 140px;
+      }
+    }
+
+    #fps-counter {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: #99ff99;
+      font-family: 'Courier New', monospace;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    #fps-counter.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #legend {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      padding: 14px 18px;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    #legend.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #legend h4 {
+      font-size: 12px;
+      color: #aaaacc;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .legend-bar {
+      width: 120px;
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #0066ff, #00ccff, #ffffff, #ffcc00, #ff3300);
+      margin-bottom: 6px;
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #9999bb;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container"></div>
+
+    <div id="fps-counter" class="glass-panel">FPS: 60</div>
+
+    <div id="sidebar-toggle" class="glass-panel">
+      <span id="toggle-icon">▶</span>
+    </div>
+
+    <div id="control-panel" class="glass-panel">
+      <div class="control-group">
+        <label>风速 (m/s)</label>
+        <div class="slider-container">
+          <input type="range" id="wind-speed" min="0" max="15" step="0.5" value="5" />
+          <span class="value-display" id="speed-value">5.0</span>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>风向 (°)</label>
+        <div class="slider-container">
+          <input type="range" id="wind-direction" min="0" max="360" step="1" value="270" />
+          <span class="value-display" id="direction-value">270°</span>
+        </div>
+      </div>
+      <button class="btn" id="top-view-btn">俯视图</button>
+      <button class="btn" id="contour-btn">压力等高线</button>
+    </div>
+
+    <div id="info-panel" class="glass-panel">
+      <h3 id="building-title">建筑信息</h3>
+      <div class="info-row">
+        <span class="info-label">高度</span>
+        <span class="info-value" id="building-height">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">楼层数</span>
+        <span class="info-value" id="building-floors">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">体积</span>
+        <span class="info-value" id="building-volume">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">迎风面压力</span>
+        <span class="info-value" id="building-pressure-front">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">背风面压力</span>
+        <span class="info-value" id="building-pressure-back">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">压力差</span>
+        <span class="info-value" id="building-pressure-diff">--</span>
+      </div>
+    </div>
+
+    <div id="legend" class="glass-panel">
+      <h4>风速/压力</h4>
+      <div class="legend-bar"></div>
+      <div class="legend-labels">
+        <span>低</span>
+        <span>高</span>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
