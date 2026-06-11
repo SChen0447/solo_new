@@ -8,6 +8,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -129,6 +131,7 @@ export default function Decks() {
   const [showCardModal, setShowCardModal] = useState(false)
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([])
   const [flippedCardIds, setFlippedCardIds] = useState<string[]>([])
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
 
   const [newDeckName, setNewDeckName] = useState('')
   const [newDeckDesc, setNewDeckDesc] = useState('')
@@ -197,8 +200,13 @@ export default function Decks() {
     setSelectedCardIds([])
   }
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string)
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
+    setActiveDragId(null)
 
     if (over && active.id !== over.id && selectedDeck) {
       const oldIndex = selectedDeck.cards.findIndex((c) => c.id === active.id)
@@ -283,6 +291,7 @@ export default function Decks() {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
             <SortableContext
@@ -301,6 +310,16 @@ export default function Decks() {
                 />
               ))}
             </SortableContext>
+            <DragOverlay>
+              {activeDragId ? (
+                <div className="bg-white rounded-xl shadow-xl p-4 flex items-center gap-3 border-2 border-accent/30 opacity-90">
+                  <GripVertical size={20} className="text-accent" />
+                  <span className="text-sm font-medium text-gray-800 truncate">
+                    {selectedDeck.cards.find((c) => c.id === activeDragId)?.question}
+                  </span>
+                </div>
+              ) : null}
+            </DragOverlay>
           </DndContext>
         )}
 

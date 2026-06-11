@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { Clock, CheckCircle, XCircle, Trophy, RotateCcw } from 'lucide-react'
 import { useAppStore } from '@/store'
@@ -17,17 +17,16 @@ interface AnswerRecord {
 const QUIZ_COUNT = 10
 const TIME_PER_QUESTION = 15
 
-const PARTICLE_COLORS = ['#ff6f00', '#1a237e', '#4caf50', '#2196f3', '#9c27b0']
+const PARTICLE_COLORS = ['#ff6f00', '#1a237e', '#4caf50', '#2196f3', '#9c27b0', '#e91e63', '#00bcd4']
 
 interface Particle {
   id: number
-  x: number
-  y: number
   size: number
   color: string
   delay: number
   angle: number
   distance: number
+  duration: number
 }
 
 export default function Quiz() {
@@ -47,23 +46,51 @@ export default function Quiz() {
 
   const timerRef = useRef<number | null>(null)
   const scoreAnimationRef = useRef<number | null>(null)
+  const userAnswerRef = useRef('')
+  const submittedRef = useRef(false)
+
+  useEffect(() => {
+    userAnswerRef.current = userAnswer
+  }, [userAnswer])
+
+  useEffect(() => {
+    submittedRef.current = submitted
+  }, [submitted])
 
   const particles = useMemo<Particle[]>(() => {
-    return Array.from({ length: 40 }, (_, i) => ({
+    return Array.from({ length: 50 }, (_, i) => ({
       id: i,
-      x: 50,
-      y: 50,
-      size: Math.random() * 10 + 6,
+      size: Math.random() * 12 + 4,
       color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
-      delay: Math.random() * 0.3,
-      angle: (i / 40) * 360 + Math.random() * 30,
-      distance: Math.random() * 120 + 60,
+      delay: Math.random() * 0.5,
+      angle: (i / 50) * 360 + Math.random() * 20,
+      distance: Math.random() * 200 + 80,
+      duration: Math.random() * 0.8 + 0.8,
     }))
   }, [])
 
   useEffect(() => {
     fetchDecks()
   }, [fetchDecks])
+
+  const handleTimeout = useCallback(() => {
+    if (submittedRef.current) return
+    const currentCard = cards[currentIndex]
+    if (!currentCard) return
+
+    setSubmitted(true)
+    submittedRef.current = true
+    setIsCorrect(false)
+    setAnswers((prev) => [
+      ...prev,
+      {
+        question: currentCard.question,
+        userAnswer: userAnswerRef.current || '',
+        correctAnswer: currentCard.answer,
+        isCorrect: false,
+      },
+    ])
+  }, [cards, currentIndex])
 
   useEffect(() => {
     if (quizState === 'quiz' && !submitted) {
@@ -74,7 +101,7 @@ export default function Quiz() {
               clearInterval(timerRef.current)
               timerRef.current = null
             }
-            handleTimeout()
+            setTimeout(() => handleTimeout(), 0)
             return 0
           }
           return prev - 1
@@ -88,7 +115,7 @@ export default function Quiz() {
         timerRef.current = null
       }
     }
-  }, [quizState, submitted, currentIndex])
+  }, [quizState, submitted, currentIndex, handleTimeout])
 
   useEffect(() => {
     if (quizState === 'result') {
@@ -117,23 +144,6 @@ export default function Quiz() {
     }
   }, [quizState, score])
 
-  const handleTimeout = () => {
-    const currentCard = cards[currentIndex]
-    if (!currentCard) return
-
-    setSubmitted(true)
-    setIsCorrect(false)
-    setAnswers((prev) => [
-      ...prev,
-      {
-        question: currentCard.question,
-        userAnswer: userAnswer || '',
-        correctAnswer: currentCard.answer,
-        isCorrect: false,
-      },
-    ])
-  }
-
   const startQuiz = async () => {
     if (!selectedDeckId) return
 
@@ -145,7 +155,9 @@ export default function Quiz() {
       setScore(0)
       setAnswers([])
       setUserAnswer('')
+      userAnswerRef.current = ''
       setSubmitted(false)
+      submittedRef.current = false
       setTimeLeft(TIME_PER_QUESTION)
       setQuestionKey(0)
       setQuizState('quiz')
@@ -168,6 +180,7 @@ export default function Quiz() {
     const correct = userTrimmed === correctTrimmed
 
     setSubmitted(true)
+    submittedRef.current = true
     setIsCorrect(correct)
     if (correct) {
       setScore((prev) => prev + 10)
@@ -185,7 +198,7 @@ export default function Quiz() {
 
   const nextQuestion = async () => {
     if (currentIndex >= cards.length - 1) {
-      const finalScore = score + (isCorrect ? 0 : 0)
+      const finalScore = score
       try {
         await fetch('/api/quiz/result', {
           method: 'POST',
@@ -205,7 +218,9 @@ export default function Quiz() {
 
     setCurrentIndex((prev) => prev + 1)
     setUserAnswer('')
+    userAnswerRef.current = ''
     setSubmitted(false)
+    submittedRef.current = false
     setIsCorrect(false)
     setTimeLeft(TIME_PER_QUESTION)
     setQuestionKey((prev) => prev + 1)
@@ -218,7 +233,9 @@ export default function Quiz() {
     setScore(0)
     setAnswers([])
     setUserAnswer('')
+    userAnswerRef.current = ''
     setSubmitted(false)
+    submittedRef.current = false
     setDisplayScore(0)
     setTimeLeft(TIME_PER_QUESTION)
   }
@@ -247,7 +264,7 @@ export default function Quiz() {
 
   if (quizState === 'setup') {
     return (
-      <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-6">
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 fade-in">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
@@ -294,7 +311,7 @@ export default function Quiz() {
 
   if (quizState === 'quiz') {
     return (
-      <div className="min-h-screen bg-bg flex flex-col items-center p-6">
+      <div className="min-h-[60vh] flex flex-col items-center p-6">
         <div className="w-full max-w-2xl">
           <div className="flex items-center justify-between mb-6">
             <div className="text-lg font-medium text-gray-600">
@@ -309,35 +326,41 @@ export default function Quiz() {
           </div>
 
           <div className="flex justify-center mb-6">
-            <div className="relative w-20 h-20">
-              <svg className="w-20 h-20 transform -rotate-90">
+            <div className="relative w-24 h-24">
+              <svg className="w-24 h-24 transform -rotate-90">
                 <circle
-                  cx="40"
-                  cy="40"
-                  r="36"
+                  cx="48"
+                  cy="48"
+                  r="42"
                   stroke="#e5e7eb"
                   strokeWidth="6"
                   fill="none"
                 />
                 <circle
-                  cx="40"
-                  cy="40"
-                  r="36"
+                  cx="48"
+                  cy="48"
+                  r="42"
                   stroke={timerStroke}
                   strokeWidth="6"
                   fill="none"
                   strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 36}
-                  strokeDashoffset={2 * Math.PI * 36 * (1 - timerProgress / 100)}
-                  className="transition-all duration-300"
+                  strokeDasharray={2 * Math.PI * 42}
+                  strokeDashoffset={2 * Math.PI * 42 * (1 - timerProgress / 100)}
+                  className="transition-all duration-500 ease-linear"
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <Clock className={cn('w-5 h-5 mr-1', timerColor)} />
-                <span className={cn('text-xl font-bold', timerColor)}>{timeLeft}</span>
+                <span className={cn('text-2xl font-bold', timerColor)}>{timeLeft}</span>
               </div>
             </div>
           </div>
+
+          {timeLeft <= 5 && timeLeft > 0 && !submitted && (
+            <div className="text-center mb-3 fade-in">
+              <span className="text-red-500 text-sm font-medium animate-pulse">⏰ 即将超时！</span>
+            </div>
+          )}
 
           {currentCard && (
             <div key={questionKey} className="fade-in">
@@ -380,9 +403,9 @@ export default function Quiz() {
                     >
                       <div className="flex items-center mb-2">
                         {isCorrect ? (
-                          <CheckCircle className="w-6 h-6 text-green-500 mr-2" />
+                          <CheckCircle className="w-6 h-6 text-green-500 mr-2 fade-in" />
                         ) : (
-                          <XCircle className="w-6 h-6 text-red-500 mr-2" />
+                          <XCircle className="w-6 h-6 text-red-500 mr-2 fade-in" />
                         )}
                         <span
                           className={cn(
@@ -416,25 +439,30 @@ export default function Quiz() {
   }
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {particles.map((particle) => (
-          <div
-            key={particle.id}
-            className="absolute rounded-full"
-            style={{
-              width: particle.size,
-              height: particle.size,
-              backgroundColor: particle.color,
-              left: `${particle.x}%`,
-              top: `${particle.y}%`,
-              transform: `translate(-50%, -50%)`,
-              animation: `particle-burst 1.5s ease-out ${particle.delay}s forwards`,
-              animationDelay: `${particle.delay}s`,
-              opacity: 0,
-            }}
-          />
-        ))}
+        {particles.map((particle) => {
+          const rad = (particle.angle * Math.PI) / 180
+          const tx = Math.cos(rad) * particle.distance
+          const ty = Math.sin(rad) * particle.distance
+          return (
+            <div
+              key={particle.id}
+              className="absolute rounded-full"
+              style={{
+                width: particle.size,
+                height: particle.size,
+                backgroundColor: particle.color,
+                left: '50%',
+                top: '50%',
+                opacity: 0,
+                animation: `particleFly${particle.id % 4} ${particle.duration}s ease-out ${particle.delay}s forwards`,
+                ['--tx' as string]: `${tx}px`,
+                ['--ty' as string]: `${ty}px`,
+              }}
+            />
+          )
+        })}
       </div>
 
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 fade-in relative z-10">
@@ -457,7 +485,7 @@ export default function Quiz() {
           <span className="text-lg font-medium text-gray-700">{comment.text}</span>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-6" style={{ animation: 'pieExpand 0.8s ease-out' }}>
           <div style={{ width: '100%', height: 250 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -465,23 +493,37 @@ export default function Quiz() {
                   data={pieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={2}
+                  innerRadius={55}
+                  outerRadius={85}
+                  paddingAngle={3}
                   dataKey="value"
-                  animationBegin={0}
-                  animationDuration={800}
+                  animationBegin={200}
+                  animationDuration={1000}
+                  animationEasing="ease-out"
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={2} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  }}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={36}
+                  formatter={(value: string) => (
+                    <span style={{ color: '#666', fontSize: '14px' }}>{value}</span>
+                  )}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="text-center -mt-20 mb-8">
+          <div className="text-center -mt-12 mb-6">
             <div className="text-3xl font-bold text-primary">{percentage}%</div>
             <div className="text-sm text-gray-500">正确率</div>
           </div>
@@ -506,6 +548,29 @@ export default function Quiz() {
           再测一次
         </button>
       </div>
+
+      <style>{`
+        @keyframes particleFly0 {
+          0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+          60% { opacity: 1; }
+          100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1); opacity: 0; }
+        }
+        @keyframes particleFly1 {
+          0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+          50% { opacity: 0.8; }
+          100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.5); opacity: 0; }
+        }
+        @keyframes particleFly2 {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          70% { opacity: 0.6; }
+          100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.3); opacity: 0; }
+        }
+        @keyframes particleFly3 {
+          0% { transform: translate(-50%, -50%) scale(0); opacity: 0.8; }
+          40% { opacity: 1; transform: translate(calc(-50% + var(--tx) * 0.3), calc(-50% + var(--ty) * 0.3)) scale(1.2); }
+          100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0); opacity: 0; }
+        }
+      `}</style>
     </div>
   )
 }
