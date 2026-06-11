@@ -41,6 +41,18 @@ export class UIRenderer {
     }
   }
 
+  private getScale(): number {
+    const baseSize = 800;
+    const minScale = 0.55;
+    const maxScale = 1.2;
+    const s = Math.min(this.width, this.height) / baseSize;
+    return Math.max(minScale, Math.min(maxScale, s));
+  }
+
+  private getPadding(): number {
+    return Math.max(12, this.width * 0.02);
+  }
+
   drawBackground(ctx: CanvasRenderingContext2D, dt: number): void {
     const gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
     gradient.addColorStop(0, '#0a0a2e');
@@ -65,38 +77,43 @@ export class UIRenderer {
     player: PlayerState,
     meteorProgress: number,
     meteorRainActive: boolean,
+    meteorRainWarning: boolean,
     scoreMultiplier: number
   ): void {
-    const padding = 20;
-    const scale = Math.min(1, this.width / 1200);
+    const scale = this.getScale();
+    const pad = this.getPadding();
 
     ctx.save();
-    ctx.font = `bold ${Math.floor(24 * scale)}px 'Courier New', monospace`;
-    ctx.textAlign = 'right';
 
+    const scoreFontSize = Math.floor(24 * scale);
+    const scoreY = pad + scoreFontSize;
+    ctx.font = `bold ${scoreFontSize}px 'Courier New', monospace`;
+    ctx.textAlign = 'right';
     ctx.fillStyle = '#39ff14';
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#39ff14';
-    ctx.fillText(`得分: ${score}`, this.width - padding, padding + 30 * scale);
+    ctx.fillText(`得分: ${score}`, this.width - pad, scoreY);
 
     if (scoreMultiplier > 1) {
+      const multFontSize = Math.floor(18 * scale);
       ctx.fillStyle = '#ff8c00';
       ctx.shadowColor = '#ff8c00';
-      ctx.font = `bold ${Math.floor(18 * scale)}px 'Courier New', monospace`;
-      ctx.fillText(`x${scoreMultiplier} 倍分`, this.width - padding, padding + 60 * scale);
+      ctx.font = `bold ${multFontSize}px 'Courier New', monospace`;
+      ctx.fillText(`x${scoreMultiplier} 倍分`, this.width - pad, scoreY + multFontSize + 4);
     }
 
     ctx.textAlign = 'left';
+    const hpFontSize = Math.floor(20 * scale);
     ctx.fillStyle = '#ff8c00';
     ctx.shadowColor = '#ff8c00';
-    ctx.font = `bold ${Math.floor(20 * scale)}px 'Courier New', monospace`;
-    ctx.fillText('生命:', padding, padding + 25 * scale);
+    ctx.font = `bold ${hpFontSize}px 'Courier New', monospace`;
+    ctx.fillText('生命:', pad, pad + hpFontSize);
 
-    const heartSize = 20 * scale;
-    const heartSpacing = 30 * scale;
+    const heartSize = Math.max(12, 20 * scale);
+    const heartSpacing = Math.max(18, 30 * scale);
     for (let i = 0; i < player.maxHealth; i++) {
-      const hx = padding + 70 * scale + i * heartSpacing;
-      const hy = padding + 18 * scale;
+      const hx = pad + hpFontSize * 3.5 + i * heartSpacing;
+      const hy = pad + hpFontSize * 0.6;
 
       if (i < player.health) {
         ctx.fillStyle = '#ff3366';
@@ -110,29 +127,29 @@ export class UIRenderer {
       this.drawHeart(ctx, hx, hy, heartSize);
     }
 
-    const barWidth = 150 * scale;
-    const barHeight = 8 * scale;
-    const barX = this.width - padding - barWidth;
-    const barY = padding + 75 * scale;
+    const barWidth = Math.max(80, Math.min(200, this.width * 0.12));
+    const barHeight = Math.max(6, 8 * scale);
+    const barX = this.width - pad - barWidth;
+    const barY = scoreY + Math.floor(20 * scale);
 
-    ctx.strokeStyle = meteorRainActive ? '#ff4400' : '#ff8c00';
+    const barColor = meteorRainActive ? '#ff4400' : meteorRainWarning ? '#ffcc00' : '#ff8c00';
+
+    ctx.strokeStyle = barColor;
     ctx.lineWidth = 2;
     ctx.shadowBlur = 8;
-    ctx.shadowColor = meteorRainActive ? '#ff4400' : '#ff8c00';
+    ctx.shadowColor = barColor;
     ctx.strokeRect(barX, barY, barWidth, barHeight);
 
     const fillWidth = barWidth * meteorProgress;
-    ctx.fillStyle = meteorRainActive ? '#ff4400' : '#ff8c00';
+    ctx.fillStyle = barColor;
     ctx.fillRect(barX, barY, fillWidth, barHeight);
 
+    const barLabelFontSize = Math.max(10, Math.floor(12 * scale));
     ctx.textAlign = 'right';
-    ctx.font = `${Math.floor(12 * scale)}px 'Courier New', monospace`;
-    ctx.fillStyle = meteorRainActive ? '#ff4400' : '#ff8c00';
-    ctx.fillText(
-      meteorRainActive ? '陨石雨!' : '下波陨石雨',
-      this.width - padding,
-      barY + barHeight + 18 * scale
-    );
+    ctx.font = `${barLabelFontSize}px 'Courier New', monospace`;
+    ctx.fillStyle = barColor;
+    const barLabel = meteorRainActive ? '陨石雨!' : meteorRainWarning ? '即将来袭!' : '下波陨石雨';
+    ctx.fillText(barLabel, this.width - pad, barY + barHeight + barLabelFontSize + 4);
 
     ctx.restore();
   }
@@ -166,7 +183,8 @@ export class UIRenderer {
   }
 
   drawNotifications(ctx: CanvasRenderingContext2D): void {
-    const scale = Math.min(1, this.width / 1200);
+    const scale = this.getScale();
+    const fontSize = Math.max(16, Math.floor(28 * scale));
     let y = this.height * 0.3;
 
     for (const notif of this.notifications) {
@@ -181,7 +199,7 @@ export class UIRenderer {
 
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.font = `bold ${Math.floor(28 * scale)}px 'Courier New', monospace`;
+      ctx.font = `bold ${fontSize}px 'Courier New', monospace`;
       ctx.textAlign = 'center';
       ctx.fillStyle = notif.color;
       ctx.shadowBlur = 15;
@@ -189,7 +207,7 @@ export class UIRenderer {
       ctx.fillText(notif.text, this.width / 2, y);
       ctx.restore();
 
-      y += 50 * scale;
+      y += fontSize + 12;
     }
   }
 
@@ -203,14 +221,15 @@ export class UIRenderer {
   }
 
   drawFPS(ctx: CanvasRenderingContext2D): void {
-    const scale = Math.min(1, this.width / 1200);
+    const scale = this.getScale();
+    const fontSize = Math.max(10, Math.floor(12 * scale));
     ctx.save();
-    ctx.font = `${Math.floor(12 * scale)}px 'Courier New', monospace`;
+    ctx.font = `${fontSize}px 'Courier New', monospace`;
     ctx.textAlign = 'left';
     ctx.fillStyle = this.fps >= 55 ? '#39ff14' : this.fps >= 30 ? '#ffcc00' : '#ff3300';
     ctx.shadowBlur = 5;
     ctx.shadowColor = ctx.fillStyle;
-    ctx.fillText(`FPS: ${Math.floor(this.fps)}`, 10, this.height - 10);
+    ctx.fillText(`FPS: ${Math.floor(this.fps)}`, 8, this.height - 8);
     ctx.restore();
   }
 

@@ -8,12 +8,15 @@ export interface Particle {
   size: number;
   color: string;
   type: 'thrust' | 'explosion' | 'pickup' | 'debris' | 'glow';
-  alpha?: number;
 }
 
 export class ParticleSystem {
   private particles: Particle[] = [];
   private maxParticles: number = 200;
+
+  get available(): number {
+    return this.maxParticles - this.particles.length;
+  }
 
   update(dt: number): void {
     for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -66,14 +69,13 @@ export class ParticleSystem {
   }
 
   addParticle(particle: Particle): void {
-    if (this.particles.length >= this.maxParticles) {
-      this.particles.shift();
+    if (this.particles.length < this.maxParticles) {
+      this.particles.push(particle);
     }
-    this.particles.push(particle);
   }
 
   createThrust(x: number, y: number, angle: number): void {
-    if (this.particles.length >= this.maxParticles - 1) return;
+    if (this.available <= 0) return;
 
     const speed = 80 + Math.random() * 60;
     const spread = 0.3;
@@ -93,12 +95,12 @@ export class ParticleSystem {
   }
 
   createExplosion(x: number, y: number, count: number = 20): void {
-    const remaining = this.maxParticles - this.particles.length;
-    if (remaining <= 0) return;
+    const avail = this.available;
+    if (avail <= 1) return;
 
-    const actualCount = Math.min(count, remaining - 1);
-    for (let i = 0; i < actualCount; i++) {
-      const angle = (Math.PI * 2 * i) / actualCount + Math.random() * 0.5;
+    const explosionCount = Math.min(count, avail - 1);
+    for (let i = 0; i < explosionCount; i++) {
+      const angle = (Math.PI * 2 * i) / explosionCount + Math.random() * 0.5;
       const speed = 100 + Math.random() * 150;
 
       this.addParticle({
@@ -114,7 +116,7 @@ export class ParticleSystem {
       });
     }
 
-    if (this.particles.length < this.maxParticles) {
+    if (this.available > 0) {
       this.addParticle({
         x,
         y,
@@ -130,10 +132,10 @@ export class ParticleSystem {
   }
 
   createPickup(x: number, y: number): void {
-    const remaining = this.maxParticles - this.particles.length;
-    if (remaining <= 0) return;
+    const avail = this.available;
+    if (avail <= 0) return;
 
-    const actualCount = Math.min(8, remaining);
+    const actualCount = Math.min(8, avail);
     for (let i = 0; i < actualCount; i++) {
       const angle = (Math.PI * 2 * i) / actualCount;
       const speed = 60;
@@ -153,10 +155,10 @@ export class ParticleSystem {
   }
 
   createDebris(x: number, y: number, count: number = 8): void {
-    const remaining = this.maxParticles - this.particles.length;
-    if (remaining <= 0) return;
+    const avail = this.available;
+    if (avail <= 0) return;
 
-    const actualCount = Math.min(count, remaining);
+    const actualCount = Math.min(count, avail);
     for (let i = 0; i < actualCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 50 + Math.random() * 100;

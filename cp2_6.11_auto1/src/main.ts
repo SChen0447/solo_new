@@ -302,6 +302,10 @@ class Game {
       }
     }
 
+    this.updateSpawnRate();
+  }
+
+  private updateSpawnRate(): void {
     const baseInterval = 1.5;
     const minInterval = 0.3;
     const reduction = Math.floor(this.score / 100) * 0.15;
@@ -412,21 +416,24 @@ class Game {
     const hitAsteroid = this.player.checkCollision(this.asteroidManager);
     if (hitAsteroid) {
       const gameOver = this.player.takeDamage(1);
-      this.sound.playHit();
 
       if (hitAsteroid.isMeteor) {
         this.asteroidManager.destroyAsteroid(hitAsteroid, this.scoreMultiplier);
       }
 
       if (gameOver) {
+        this.sound.playGameOver();
         this.gameOver();
+      } else {
+        this.sound.playHit();
       }
     }
 
-    if (this.asteroidManager.isMeteorRainActive() &&
-        this.asteroidManager.getMeteorRainProgress() === 1) {
+    if (this.asteroidManager.shouldPlayWarningSound()) {
       this.sound.playMeteorWarning();
     }
+
+    this.updateSpawnRate();
   }
 
   private render(): void {
@@ -437,14 +444,16 @@ class Game {
     this.particles.draw(this.ctx);
     this.player.draw(this.ctx);
 
+    const meteorRainActive = this.asteroidManager.isMeteorRainActive();
+    const meteorRainWarning = this.asteroidManager.isMeteorRainWarning();
+
     this.ui.drawHUD(
       this.ctx,
       this.score,
       this.player.getState(),
-      this.asteroidManager.isMeteorRainActive()
-        ? this.asteroidManager.getMeteorRainProgress()
-        : this.asteroidManager.getMeteorTimerProgress(),
-      this.asteroidManager.isMeteorRainActive(),
+      this.asteroidManager.getMeteorTimerProgress(),
+      meteorRainActive,
+      meteorRainWarning,
       this.scoreMultiplier
     );
 

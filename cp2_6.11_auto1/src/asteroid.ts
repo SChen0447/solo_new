@@ -194,13 +194,16 @@ export class AsteroidManager {
   resources: ResourceOrb[] = [];
   private spawnTimer: number = 0;
   private spawnInterval: number = 1.5;
-  private meteorTimer: number = 0;
-  private meteorInterval: number = 30;
-  private meteorRainState: 'idle' | 'warning' | 'active' = 'idle';
-  private meteorRainTimer: number = 0;
-  private meteorRainDuration: number = 5;
-  private warningDuration: number = 2;
-  private hasTriggeredWarning: boolean = false;
+
+  private meteorState: 'idle' | 'warning' | 'active' = 'idle';
+  private meteorIdleTimer: number = 0;
+  private meteorIdleInterval: number = 30;
+  private meteorWarningTimer: number = 0;
+  private meteorWarningDuration: number = 2;
+  private meteorActiveTimer: number = 0;
+  private meteorActiveDuration: number = 5;
+  private warningSoundTriggered: boolean = false;
+
   private width: number;
   private height: number;
   private particles: ParticleSystem;
@@ -223,36 +226,34 @@ export class AsteroidManager {
       this.spawnAsteroid();
     }
 
-    switch (this.meteorRainState) {
+    switch (this.meteorState) {
       case 'idle':
-        this.meteorTimer += dt;
-        if (this.meteorTimer >= this.meteorInterval - this.warningDuration) {
-          this.meteorRainState = 'warning';
-          this.meteorRainTimer = 0;
-          this.hasTriggeredWarning = false;
+        this.meteorIdleTimer += dt;
+        if (this.meteorIdleTimer >= this.meteorIdleInterval) {
+          this.meteorState = 'warning';
+          this.meteorWarningTimer = 0;
+          this.warningSoundTriggered = false;
         }
         break;
 
       case 'warning':
-        this.meteorRainTimer += dt;
-        this.meteorTimer += dt;
-        if (this.meteorRainTimer >= this.warningDuration) {
-          this.meteorRainState = 'active';
-          this.meteorRainTimer = 0;
+        this.meteorWarningTimer += dt;
+        if (this.meteorWarningTimer >= this.meteorWarningDuration) {
+          this.meteorState = 'active';
+          this.meteorActiveTimer = 0;
         }
         break;
 
       case 'active':
-        this.meteorRainTimer += dt;
-        if (this.meteorRainTimer < this.meteorRainDuration) {
+        this.meteorActiveTimer += dt;
+        if (this.meteorActiveTimer < this.meteorActiveDuration) {
           if (Math.random() < dt * 8) {
             this.spawnMeteor(playerX, playerY);
           }
         } else {
           this.clearMeteors();
-          this.meteorRainState = 'idle';
-          this.meteorTimer = 0;
-          this.meteorRainTimer = 0;
+          this.meteorState = 'idle';
+          this.meteorIdleTimer = 0;
         }
         break;
     }
@@ -441,24 +442,32 @@ export class AsteroidManager {
   }
 
   isMeteorRainActive(): boolean {
-    return this.meteorRainState === 'active';
+    return this.meteorState === 'active';
   }
 
   isMeteorRainWarning(): boolean {
-    return this.meteorRainState === 'warning';
+    return this.meteorState === 'warning';
+  }
+
+  shouldPlayWarningSound(): boolean {
+    if (this.meteorState === 'warning' && !this.warningSoundTriggered) {
+      this.warningSoundTriggered = true;
+      return true;
+    }
+    return false;
   }
 
   getMeteorRainProgress(): number {
-    if (this.meteorRainState !== 'active') return 0;
-    return 1 - this.meteorRainTimer / this.meteorRainDuration;
+    if (this.meteorState !== 'active') return 0;
+    return 1 - this.meteorActiveTimer / this.meteorActiveDuration;
   }
 
   getMeteorTimerProgress(): number {
-    if (this.meteorRainState === 'active') return 1;
-    if (this.meteorRainState === 'warning') {
-      return (this.meteorInterval - this.warningDuration + this.meteorRainTimer) / this.meteorInterval;
+    if (this.meteorState === 'active') return 1;
+    if (this.meteorState === 'warning') {
+      return (this.meteorIdleInterval + this.meteorWarningTimer) / (this.meteorIdleInterval + this.meteorWarningDuration);
     }
-    return this.meteorTimer / this.meteorInterval;
+    return this.meteorIdleTimer / (this.meteorIdleInterval + this.meteorWarningDuration);
   }
 
   setSpawnRate(rate: number): void {
@@ -477,10 +486,11 @@ export class AsteroidManager {
     this.asteroids = [];
     this.resources = [];
     this.spawnTimer = 0;
-    this.meteorTimer = 0;
-    this.meteorRainState = 'idle';
-    this.meteorRainTimer = 0;
-    this.hasTriggeredWarning = false;
+    this.meteorState = 'idle';
+    this.meteorIdleTimer = 0;
+    this.meteorWarningTimer = 0;
+    this.meteorActiveTimer = 0;
+    this.warningSoundTriggered = false;
   }
 
   collectResource(orb: ResourceOrb): void {
