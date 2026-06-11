@@ -322,7 +322,7 @@ export class AsteroidManager {
     const baseAngle = Math.atan2(dy, dx);
     const angle = baseAngle + angleOffset;
 
-    const speedIncrease = gameTime * 0.5;
+    const speedIncrease = Math.min(GAME_CONFIG.ASTEROID_MAX_SPEED_INCREASE, gameTime * 0.15);
     const baseSpeed = ASTEROID_CONFIGS[size].speed;
     const speed = baseSpeed + speedIncrease;
     const vx = Math.cos(angle) * speed;

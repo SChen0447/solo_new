@@ -151,22 +151,6 @@ export class FragmentManager {
     this.fragments.push(fragment);
   }
 
-  spawnRandom(width: number, height: number, shipX: number, shipY: number): void {
-    if (this.fragments.length >= GAME_CONFIG.MAX_FRAGMENTS) return;
-    if (Math.random() > GAME_CONFIG.FRAGMENT_SPAWN_CHANCE) return;
-
-    const angle = Math.random() * Math.PI * 2;
-    const dist = 300 + Math.random() * 200;
-    const x = shipX + Math.cos(angle) * dist;
-    const y = shipY + Math.sin(angle) * dist;
-
-    const clampedX = Math.max(50, Math.min(width - 50, x));
-    const clampedY = Math.max(50, Math.min(height - 50, y));
-
-    const fragment = new Fragment(clampedX, clampedY);
-    this.fragments.push(fragment);
-  }
-
   update(dt: number, ship: Ship, width: number, height: number): number {
     let collected = 0;
 

@@ -106,7 +106,7 @@ export class Renderer {
   ): void {
     const ctx = this.ctx;
 
-    if (this.backgroundCanvas) {
+    if (this.backgroundCanvas && this.backgroundCanvas.width > 0 && this.backgroundCanvas.height > 0) {
       ctx.drawImage(this.backgroundCanvas, 0, 0);
     } else {
       const gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
@@ -137,46 +137,54 @@ export class Renderer {
     }
   }
 
+  private drawFrostedGlass(
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, w: number, h: number, radius: number
+  ): void {
+    const dpr = window.devicePixelRatio || 1;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, radius);
+    ctx.clip();
+
+    if (ctx.canvas.width > 0 && ctx.canvas.height > 0) {
+      ctx.filter = 'blur(14px)';
+      ctx.drawImage(
+        ctx.canvas,
+        x * dpr, y * dpr, w * dpr, h * dpr,
+        x, y, w, h
+      );
+      ctx.filter = 'none';
+    }
+
+    ctx.fillStyle = 'rgba(8, 12, 30, 0.65)';
+    ctx.fillRect(x, y, w, h);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    for (let i = 0; i < h; i += 8) {
+      ctx.fillRect(x, y + i, w, 3);
+    }
+
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, radius);
+    ctx.strokeStyle = 'rgba(0, 255, 204, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   private drawUI(ctx: CanvasRenderingContext2D, gameState: GameState): void {
     const panelX = 20;
     const panelY = 20;
     const panelWidth = 260;
-    const panelHeight = 150;
+    const panelHeight = 155;
     const padding = 18;
-    const cornerRadius = 14;
 
-    ctx.save();
-    
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-    ctx.shadowBlur = 25;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 6;
-    
-    ctx.beginPath();
-    ctx.roundRect(panelX, panelY, panelWidth, panelHeight, cornerRadius);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.fill();
-    
-    ctx.shadowBlur = 0;
-    
-    ctx.beginPath();
-    ctx.roundRect(panelX, panelY, panelWidth, panelHeight, cornerRadius);
-    ctx.strokeStyle = 'rgba(0, 255, 204, 0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(panelX, panelY, panelWidth, panelHeight, cornerRadius);
-    ctx.clip();
-    
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-    for (let i = 0; i < 3; i++) {
-      ctx.fillRect(panelX, panelY + i * 30, panelWidth, 15);
-    }
-    
-    ctx.restore();
-    ctx.restore();
+    this.drawFrostedGlass(ctx, panelX, panelY, panelWidth, panelHeight, 14);
 
     const contentX = panelX + padding;
     let contentY = panelY + padding;
@@ -282,7 +290,7 @@ export class Renderer {
     ctx.textAlign = 'right';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 4;
-    ctx.fillText('空格 / 按住鼠标 释放引力波', this.width - 20, this.height - 20);
+    ctx.fillText('空格 / 按住鼠标拖拽 释放引力波', this.width - 20, this.height - 20);
     ctx.fillText('R 键重新开始', this.width - 20, this.height - 42);
     ctx.restore();
   }
@@ -292,33 +300,13 @@ export class Renderer {
     const centerY = this.height / 2;
     const panelWidth = 380;
     const panelHeight = 240;
-    const cornerRadius = 18;
 
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.fillRect(0, 0, this.width, this.height);
     ctx.restore();
 
-    ctx.save();
-    
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 30;
-    ctx.shadowOffsetY = 8;
-    
-    ctx.beginPath();
-    ctx.roundRect(centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, cornerRadius);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.fill();
-    
-    ctx.shadowBlur = 0;
-    
-    ctx.beginPath();
-    ctx.roundRect(centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, cornerRadius);
-    ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    ctx.restore();
+    this.drawFrostedGlass(ctx, centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, 18);
 
     ctx.save();
     ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
@@ -344,10 +332,6 @@ export class Renderer {
     const btnHeight = 50;
 
     ctx.save();
-    
-    ctx.shadowColor = 'rgba(0, 255, 204, 0.4)';
-    ctx.shadowBlur = 15;
-    
     ctx.beginPath();
     ctx.roundRect(btnX, btnY, btnWidth, btnHeight, 10);
     ctx.fillStyle = 'rgba(0, 255, 204, 0.15)';

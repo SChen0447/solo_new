@@ -4,6 +4,9 @@ export interface InputState {
   mouseX: number;
   mouseY: number;
   isMouseDown: boolean;
+  dragStartX: number;
+  dragStartY: number;
+  isDragging: boolean;
   keys: Set<string>;
 }
 
@@ -13,6 +16,7 @@ export class InputManager {
   private actionListeners: Map<InputAction, () => void>;
   private dragWaveTimer: number | null;
   private dragWaveInterval: number;
+  private readonly DRAG_THRESHOLD = 10;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -20,36 +24,57 @@ export class InputManager {
       mouseX: 0,
       mouseY: 0,
       isMouseDown: false,
+      dragStartX: 0,
+      dragStartY: 0,
+      isDragging: false,
       keys: new Set()
     };
     this.actionListeners = new Map();
     this.dragWaveTimer = null;
-    this.dragWaveInterval = 350;
+    this.dragWaveInterval = 400;
     this.bindEvents();
   }
 
   private bindEvents(): void {
-    const rect = this.canvas.getBoundingClientRect();
-    
+    const getCanvasPos = (e: MouseEvent) => {
+      const rect = this.canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
     this.canvas.addEventListener('mousemove', (e) => {
-      this.state.mouseX = e.clientX - rect.left;
-      this.state.mouseY = e.clientY - rect.top;
+      const pos = getCanvasPos(e);
+      this.state.mouseX = pos.x;
+      this.state.mouseY = pos.y;
+
+      if (this.state.isMouseDown && !this.state.isDragging) {
+        const dx = this.state.mouseX - this.state.dragStartX;
+        const dy = this.state.mouseY - this.state.dragStartY;
+        if (Math.sqrt(dx * dx + dy * dy) >= this.DRAG_THRESHOLD) {
+          this.state.isDragging = true;
+          this.startDragWave();
+        }
+      }
     });
 
     this.canvas.addEventListener('mousedown', (e) => {
       e.preventDefault();
+      const pos = getCanvasPos(e);
       this.state.isMouseDown = true;
+      this.state.dragStartX = pos.x;
+      this.state.dragStartY = pos.y;
+      this.state.isDragging = false;
       this.triggerAction('gravityWave');
-      this.startDragWave();
     });
 
     this.canvas.addEventListener('mouseup', () => {
       this.state.isMouseDown = false;
+      this.state.isDragging = false;
       this.stopDragWave();
     });
 
     this.canvas.addEventListener('mouseleave', () => {
       this.state.isMouseDown = false;
+      this.state.isDragging = false;
       this.stopDragWave();
     });
 
@@ -74,9 +99,9 @@ export class InputManager {
     });
 
     window.addEventListener('resize', () => {
-      const newRect = this.canvas.getBoundingClientRect();
-      this.state.mouseX = Math.max(0, Math.min(this.state.mouseX, newRect.width));
-      this.state.mouseY = Math.max(0, Math.min(this.state.mouseY, newRect.height));
+      const rect = this.canvas.getBoundingClientRect();
+      this.state.mouseX = Math.max(0, Math.min(this.state.mouseX, rect.width));
+      this.state.mouseY = Math.max(0, Math.min(this.state.mouseY, rect.height));
     });
   }
 
@@ -98,7 +123,7 @@ export class InputManager {
   private startDragWave(): void {
     if (this.dragWaveTimer !== null) return;
     this.dragWaveTimer = window.setInterval(() => {
-      if (this.state.isMouseDown) {
+      if (this.state.isMouseDown && this.state.isDragging) {
         this.triggerAction('gravityWave');
       } else {
         this.stopDragWave();
