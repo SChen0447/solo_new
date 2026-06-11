@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D 分子可视化</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: #e0e0e0;
+    }
+
+    #scene-container {
+      width: 100%;
+      height: calc(100% - 60px);
+      position: relative;
+    }
+
+    #info-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      z-index: 10;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #molecule-buttons {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .mol-btn {
+      border: none;
+      outline: none;
+      padding: 8px 20px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #c0c0c0;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      letter-spacing: 0.5px;
+    }
+
+    .mol-btn:hover {
+      background: rgba(60, 140, 255, 0.6);
+      color: #fff;
+      transform: scale(1.05);
+    }
+
+    .mol-btn.active {
+      background: #1a3a7a;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(26, 58, 122, 0.5);
+    }
+
+    #molecule-name {
+      margin-left: 24px;
+      font-size: 15px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.7);
+      white-space: nowrap;
+    }
+
+    #atom-info {
+      margin-left: auto;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.85);
+      text-align: right;
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+
+    #atom-info .label {
+      color: rgba(255, 255, 255, 0.45);
+      margin-right: 4px;
+    }
+
+    #atom-info .value {
+      font-weight: 600;
+    }
+
+    #atom-info .separator {
+      margin: 0 10px;
+      color: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="scene-container"></div>
+  <div id="info-bar">
+    <div id="molecule-buttons">
+      <button class="mol-btn active" data-molecule="h2o">H₂O</button>
+      <button class="mol-btn" data-molecule="co2">CO₂</button>
+      <button class="mol-btn" data-molecule="c6h6">C₆H₆</button>
+    </div>
+    <div id="molecule-name">水 (H₂O)</div>
+    <div id="atom-info"></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
