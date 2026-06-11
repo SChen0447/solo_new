@@ -1,47 +1,9 @@
 import * as THREE from 'three';
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import GrowthWorker from './growthWorker.worker.ts?worker';
+import type { WorkerInput, WorkerOutput } from './growthWorker.worker.ts';
 import type { EnvParams } from '../env/EnvController';
-import {
-  GrowthAnimation,
-  easeInOutQuad,
-  lerp,
-  clamp,
-  getCSSColorString,
-  leafWobble,
-} from '../utils/effects';
-
-interface WorkerInput {
-  plantId: string;
-  species: string;
-  temperature: number;
-  humidity: number;
-  lightIntensity: number;
-  currentGrowthIndex: number;
-  deltaTime: number;
-  age: number;
-  maxAge: number;
-}
-
-interface WorkerOutput {
-  plantId: string;
-  growthIndex: number;
-  heightFactor: number;
-  leafFactor: number;
-  fruitFactor: number;
-  healthScore: number;
-  stressLevel: number;
-  temperatureEffect: number;
-  humidityEffect: number;
-  lightEffect: number;
-  status: {
-    heatStress: boolean;
-    coldStress: boolean;
-    droughtStress: boolean;
-    overwatering: boolean;
-    lightDeficiency: boolean;
-    lightBurn: boolean;
-  };
-}
+import { lerp, clamp, getCSSColorString, leafWobble } from '../utils/effects';
 
 export interface PlantInfo {
   id: string;
@@ -50,13 +12,26 @@ export interface PlantInfo {
   emoji: string;
   position: THREE.Vector3;
   growthIndex: number;
-  heightFactor: number;
-  leafFactor: number;
-  fruitFactor: number;
+  height: number;
+  leafCount: number;
+  fruitCount: number;
+  fruitSize: number;
   healthScore: number;
   stressLevel: number;
   age: number;
-  status: WorkerOutput['status'];
+  leafCurl: number;
+  leafYellow: number;
+  stemThinness: number;
+  overallWilt: number;
+  status: {
+    heatStress: boolean;
+    coldStress: boolean;
+    droughtStress: boolean;
+    overwatering: boolean;
+    lightDeficiency: boolean;
+    lightBurn: boolean;
+    leggyGrowth: boolean;
+  };
   effects: {
     temperatureEffect: number;
     humidityEffect: number;
@@ -70,11 +45,14 @@ interface PlantParts {
   leaves: THREE.Mesh[];
   fruits: THREE.Mesh[];
   flowers: THREE.Mesh[];
-  soil: THREE.Mesh;
-  targetHeight: number;
+  labelContainer: CSS2DObject;
   currentHeight: number;
-  baseLeafCount: number;
-  baseFruitCount: number;
+  targetHeight: number;
+  targetLeafCount: number;
+  targetFruitCount: number;
+  targetFruitSize: number;
+  baseLeafColor: THREE.Color;
+  baseStemColor: THREE.Color;
 }
 
 type SpeciesKey = 'tomato' | 'strawberry' | 'lettuce' | 'cucumber' | 'pepper' | 'basil';
@@ -89,9 +67,9 @@ const SPECIES_CONFIG: Record<
     fruitColor: number;
     flowerColor: number;
     baseHeight: number;
-    baseLeafCount: number;
-    baseFruitCount: number;
-    fruitSize: number;
+    baseLeaves: number;
+    baseFruits: number;
+    baseFruitSize: number;
   }
 > = {
   tomato: {
@@ -102,9 +80,9 @@ const SPECIES_CONFIG: Record<
     fruitColor: 0xe53935,
     flowerColor: 0xffeb3b,
     baseHeight: 1.8,
-    baseLeafCount: 7,
-    baseFruitCount: 5,
-    fruitSize: 0.18,
+    baseLeaves: 9,
+    baseFruits: 6,
+    baseFruitSize: 0.18,
   },
   strawberry: {
     name: '草莓',
@@ -113,10 +91,10 @@ const SPECIES_CONFIG: Record<
     leafColor: 0x4caf50,
     fruitColor: 0xe91e63,
     flowerColor: 0xffffff,
-    baseHeight: 0.5,
-    baseLeafCount: 9,
-    baseFruitCount: 6,
-    fruitSize: 0.14,
+    baseHeight: 0.45,
+    baseLeaves: 12,
+    baseFruits: 8,
+    baseFruitSize: 0.14,
   },
   lettuce: {
     name: '生菜',
@@ -125,10 +103,10 @@ const SPECIES_CONFIG: Record<
     leafColor: 0x8bc34a,
     fruitColor: 0x000000,
     flowerColor: 0x000000,
-    baseHeight: 0.35,
-    baseLeafCount: 14,
-    baseFruitCount: 0,
-    fruitSize: 0,
+    baseHeight: 0.3,
+    baseLeaves: 22,
+    baseFruits: 0,
+    baseFruitSize: 0,
   },
   cucumber: {
     name: '黄瓜',
@@ -137,10 +115,10 @@ const SPECIES_CONFIG: Record<
     leafColor: 0x558b2f,
     fruitColor: 0x7cb342,
     flowerColor: 0xffd54f,
-    baseHeight: 1.5,
-    baseLeafCount: 8,
-    baseFruitCount: 4,
-    fruitSize: 0.22,
+    baseHeight: 2.0,
+    baseLeaves: 10,
+    baseFruits: 5,
+    baseFruitSize: 0.3,
   },
   pepper: {
     name: '辣椒',
@@ -149,10 +127,10 @@ const SPECIES_CONFIG: Record<
     leafColor: 0x388e3c,
     fruitColor: 0xf44336,
     flowerColor: 0xffffff,
-    baseHeight: 1.2,
-    baseLeafCount: 9,
-    baseFruitCount: 6,
-    fruitSize: 0.16,
+    baseHeight: 1.1,
+    baseLeaves: 11,
+    baseFruits: 7,
+    baseFruitSize: 0.15,
   },
   basil: {
     name: '罗勒',
@@ -161,33 +139,48 @@ const SPECIES_CONFIG: Record<
     leafColor: 0x388e3c,
     fruitColor: 0x000000,
     flowerColor: 0xba68c8,
-    baseHeight: 0.7,
-    baseLeafCount: 16,
-    baseFruitCount: 0,
-    fruitSize: 0,
+    baseHeight: 0.6,
+    baseLeaves: 20,
+    baseFruits: 0,
+    baseFruitSize: 0,
   },
 };
 
+interface HistoryFrame {
+  time: number;
+  plants: Record<string, {
+    growthIndex: number;
+    height: number;
+    leafCount: number;
+    fruitCount: number;
+    fruitSize: number;
+    healthScore: number;
+    leafCurl: number;
+    leafYellow: number;
+    stemThinness: number;
+    overallWilt: number;
+    effects: { temperatureEffect: number; humidityEffect: number; lightEffect: number };
+    status: WorkerOutput['status'];
+  }>;
+}
+
 export class PlantManager {
   private scene: THREE.Scene;
-  private container: HTMLElement;
+  private labelRenderer: CSS2DRenderer;
   private camera: THREE.PerspectiveCamera;
   private plants: Map<string, PlantParts> = new Map();
   private plantInfos: Map<string, PlantInfo> = new Map();
-  private dataPanels: Map<string, HTMLDivElement> = new Map();
+  private dataPanelElements: Map<string, HTMLDivElement> = new Map();
   private worker: Worker;
   private pendingResults: Map<string, WorkerOutput> = new Map();
-  private growthAnim: GrowthAnimation;
   private currentEnv: EnvParams;
-  private selectedPlantId: string | null = null;
   private detailReportEl: HTMLDivElement | null = null;
   private time = 0;
-  private readonly MAX_AGE = 180;
-  private history: Array<{
-    time: number;
-    plantStates: Map<string, { growthIndex: number; heightFactor: number; leafFactor: number; fruitFactor: number }>;
-  }> = [];
+  private readonly MAX_AGE = 200;
+  private history: HistoryFrame[] = [];
   private maxHistoryTime = 60000;
+  private lastHistoryRecord = 0;
+  private historyRecordInterval = 500;
   public onPlantClick?: (plantId: string, position: THREE.Vector3) => void;
   public onPlantFocus?: (position: THREE.Vector3, target: THREE.Vector3) => void;
 
@@ -198,10 +191,17 @@ export class PlantManager {
     initialEnv: EnvParams
   ) {
     this.scene = scene;
-    this.container = container;
     this.camera = camera;
     this.currentEnv = initialEnv;
-    this.growthAnim = new GrowthAnimation();
+
+    this.labelRenderer = new CSS2DRenderer();
+    this.labelRenderer.setSize(container.clientWidth, container.clientHeight);
+    this.labelRenderer.domElement.style.position = 'absolute';
+    this.labelRenderer.domElement.style.top = '0';
+    this.labelRenderer.domElement.style.left = '0';
+    this.labelRenderer.domElement.style.pointerEvents = 'none';
+    this.labelRenderer.domElement.style.zIndex = '100';
+    container.appendChild(this.labelRenderer.domElement);
 
     this.worker = new GrowthWorker();
     this.worker.onmessage = (e: MessageEvent<WorkerOutput>) => {
@@ -212,14 +212,18 @@ export class PlantManager {
     this.recordHistory();
   }
 
+  getLabelRenderer(): CSS2DRenderer {
+    return this.labelRenderer;
+  }
+
   private createPlants(): void {
     const positions: [number, number][] = [
-      [-4, -3],
-      [-1.5, -3.5],
-      [1.5, -3.2],
-      [4, -3],
-      [-2.5, 2.5],
-      [2.5, 2.8],
+      [-4.2, -3.2],
+      [-1.4, -3.6],
+      [1.4, -3.4],
+      [4.2, -3.0],
+      [-2.8, 2.6],
+      [2.8, 3.0],
     ];
     const speciesList: SpeciesKey[] = [
       'tomato',
@@ -248,9 +252,8 @@ export class PlantManager {
     group.position.set(x, 0, z);
     group.name = id;
     group.userData.plantId = id;
-    group.userData.interactive = true;
 
-    const soilGeo = new THREE.CylinderGeometry(0.55, 0.7, 0.15, 16);
+    const soilGeo = new THREE.CylinderGeometry(0.55, 0.7, 0.15, 20);
     const soilMat = new THREE.MeshStandardMaterial({
       color: 0x4a3a2a,
       roughness: 0.95,
@@ -261,7 +264,7 @@ export class PlantManager {
     soil.receiveShadow = true;
     group.add(soil);
 
-    const potGeo = new THREE.CylinderGeometry(0.6, 0.5, 0.4, 16, 1, false);
+    const potGeo = new THREE.CylinderGeometry(0.6, 0.5, 0.4, 20, 1, false);
     const potMat = new THREE.MeshStandardMaterial({
       color: 0xa0826d,
       roughness: 0.85,
@@ -273,157 +276,82 @@ export class PlantManager {
     pot.castShadow = true;
     group.add(pot);
 
-    const stemGeo = new THREE.CylinderGeometry(0.06, 0.1, config.baseHeight, 8);
-    const stemMat = new THREE.MeshStandardMaterial({
-      color: config.stemColor,
-      roughness: 0.8,
-      metalness: 0.05,
-    });
-    const stem = new THREE.Mesh(stemGeo, stemMat);
-    stem.position.y = config.baseHeight / 2 + 0.2;
-    stem.castShadow = true;
-    stem.receiveShadow = true;
+    const stem = this.createStem(species, config);
     group.add(stem);
 
     const leaves: THREE.Mesh[] = [];
-    for (let i = 0; i < config.baseLeafCount; i++) {
-      const leafGeo = new THREE.SphereGeometry(0.18, 8, 6);
-      leafGeo.scale(1.2, 0.4, 1.4);
-      const leafMat = new THREE.MeshStandardMaterial({
-        color: config.leafColor,
-        roughness: 0.75,
-        metalness: 0.05,
-        side: THREE.DoubleSide,
-      });
-      const leaf = new THREE.Mesh(leafGeo, leafMat);
-
-      const yOffset =
-        species === 'lettuce'
-          ? 0.15 + i * 0.03
-          : 0.3 + (i / config.baseLeafCount) * (config.baseHeight - 0.4);
-      const angle = (i / config.baseLeafCount) * Math.PI * 2 + i * 0.3;
-      const radius = species === 'lettuce' ? 0.1 + Math.random() * 0.15 : 0.2;
-
-      leaf.position.set(
-        Math.cos(angle) * radius,
-        yOffset,
-        Math.sin(angle) * radius
-      );
-      leaf.rotation.set(
-        Math.random() * 0.5 - 0.25,
-        angle + Math.random() * 0.4 - 0.2,
-        Math.random() * 0.4 - 0.2
-      );
-      leaf.castShadow = true;
-      leaf.receiveShadow = true;
-      leaf.userData.leafIndex = i;
-      leaf.userData.baseScale = 1 + Math.random() * 0.3 - 0.15;
-      leaf.userData.wobbleOffset = Math.random() * Math.PI * 2;
+    const leafCount = Math.max(4, Math.floor(config.baseLeaves * 0.4));
+    for (let i = 0; i < leafCount; i++) {
+      const leaf = this.createLeaf(species, config, i, leafCount);
       leaves.push(leaf);
       group.add(leaf);
     }
 
     const fruits: THREE.Mesh[] = [];
-    if (config.baseFruitCount > 0) {
-      for (let i = 0; i < config.baseFruitCount; i++) {
-        let fruitGeo: THREE.BufferGeometry;
-        if (species === 'cucumber') {
-          fruitGeo = new THREE.CylinderGeometry(
-            config.fruitSize * 0.3,
-            config.fruitSize * 0.35,
-            config.fruitSize * 2,
-            8
-          );
-        } else if (species === 'pepper') {
-          fruitGeo = new THREE.ConeGeometry(
-            config.fruitSize * 0.5,
-            config.fruitSize * 2,
-            8
-          );
-        } else if (species === 'strawberry') {
-          fruitGeo = new THREE.SphereGeometry(config.fruitSize, 10, 8);
-          fruitGeo.scale(1, 0.8, 0.9);
-        } else {
-          fruitGeo = new THREE.SphereGeometry(config.fruitSize, 12, 10);
-        }
-
-        const fruitMat = new THREE.MeshStandardMaterial({
-          color: config.fruitColor,
-          roughness: 0.45,
-          metalness: 0.1,
-        });
-        const fruit = new THREE.Mesh(fruitGeo, fruitMat);
-
-        const yOffset = 0.5 + Math.random() * (config.baseHeight - 0.6);
-        const angle = (i / config.baseFruitCount) * Math.PI * 2;
-        fruit.position.set(
-          Math.cos(angle) * 0.25,
-          yOffset,
-          Math.sin(angle) * 0.25
-        );
-        fruit.rotation.set(
-          Math.random() * Math.PI,
-          Math.random() * Math.PI,
-          species === 'pepper' || species === 'cucumber'
-            ? Math.PI + Math.random() * 0.3 - 0.15
-            : 0
-        );
-        fruit.castShadow = true;
-        fruit.receiveShadow = true;
-        fruit.userData.baseScale = 1;
-        fruit.userData.ripeProgress = 0.5 + Math.random() * 0.5;
+    if (config.baseFruits > 0) {
+      const fruitCount = Math.max(1, Math.floor(config.baseFruits * 0.3));
+      for (let i = 0; i < fruitCount; i++) {
+        const fruit = this.createFruit(species, config, i, fruitCount);
         fruits.push(fruit);
         group.add(fruit);
       }
     }
 
     const flowers: THREE.Mesh[] = [];
-    if (species !== 'lettuce') {
-      const flowerCount = species === 'basil' ? 6 : 3;
-      for (let i = 0; i < flowerCount; i++) {
-        const flowerGeo = new THREE.SphereGeometry(0.07, 8, 6);
-        const flowerMat = new THREE.MeshStandardMaterial({
-          color: config.flowerColor,
-          roughness: 0.6,
-          metalness: 0.1,
-          emissive: config.flowerColor,
-          emissiveIntensity: 0.1,
-        });
-        const flower = new THREE.Mesh(flowerGeo, flowerMat);
-
-        const yOffset = 0.6 + Math.random() * (config.baseHeight * 0.5);
-        const angle = (i / flowerCount) * Math.PI * 2;
-        flower.position.set(
-          Math.cos(angle) * 0.18,
-          yOffset,
-          Math.sin(angle) * 0.18
-        );
-        flower.castShadow = true;
-        flower.userData.wobbleOffset = Math.random() * Math.PI * 2;
+    if (species !== 'lettuce' && species !== 'basil') {
+      for (let i = 0; i < 3; i++) {
+        const flower = this.createFlower(species, config, i);
         flowers.push(flower);
         group.add(flower);
       }
     }
 
-    this.scene.add(group);
-    this.growthAnim.registerObject(group);
-    group.scale.setScalar(0);
-    this.growthAnim.startGrowth(group, 1, 1.8);
-
-    this.plants.set(id, {
-      group,
-      stem,
-      leaves,
-      fruits,
-      flowers,
-      soil,
-      targetHeight: config.baseHeight,
-      currentHeight: 0,
-      baseLeafCount: config.baseLeafCount,
-      baseFruitCount: config.baseFruitCount,
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'plant-data-panel';
+    labelDiv.dataset.plantId = id;
+    const initialColor = getCSSColorString(35);
+    labelDiv.style.borderColor = initialColor;
+    labelDiv.innerHTML = `
+      <div class="panel-plant-name">
+        <span>${config.emoji}</span>
+        <span>${config.name}</span>
+        <span class="growth-index-badge" style="background:${initialColor}">35</span>
+      </div>
+      <div class="panel-growth-bar">
+        <div class="panel-growth-fill" style="width:35%; background:${initialColor}"></div>
+      </div>
+      <div class="panel-metrics">
+        <div class="panel-metric">
+          <span>🌡️</span>
+          <span class="panel-metric-value">80%</span>
+        </div>
+        <div class="panel-metric">
+          <span>💧</span>
+          <span class="panel-metric-value">80%</span>
+        </div>
+        <div class="panel-metric">
+          <span>☀️</span>
+          <span class="panel-metric-value">80%</span>
+        </div>
+        <div class="panel-metric">
+          <span>❤️</span>
+          <span class="panel-metric-value">75%</span>
+        </div>
+      </div>
+    `;
+    labelDiv.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.focusPlant(id);
     });
 
-    const initialGrowth = 35 + Math.random() * 25;
+    const labelObj = new CSS2DObject(labelDiv);
+    labelObj.position.set(0, config.baseHeight * 1.2, 0);
+    group.add(labelObj);
+
+    this.scene.add(group);
+
+    const initialGrowth = 30 + Math.random() * 15;
+
     const info: PlantInfo = {
       id,
       species,
@@ -431,12 +359,17 @@ export class PlantManager {
       emoji: config.emoji,
       position: group.position.clone(),
       growthIndex: initialGrowth,
-      heightFactor: 0.4,
-      leafFactor: 0.5,
-      fruitFactor: 0.3,
+      height: config.baseHeight * 0.35,
+      leafCount: Math.floor(config.baseLeaves * 0.3),
+      fruitCount: 0,
+      fruitSize: 0,
       healthScore: 75,
       stressLevel: 25,
       age: Math.random() * 30,
+      leafCurl: 0,
+      leafYellow: 0,
+      stemThinness: 0,
+      overallWilt: 0,
       status: {
         heatStress: false,
         coldStress: false,
@@ -444,6 +377,7 @@ export class PlantManager {
         overwatering: false,
         lightDeficiency: false,
         lightBurn: false,
+        leggyGrowth: false,
       },
       effects: {
         temperatureEffect: 0.8,
@@ -452,52 +386,293 @@ export class PlantManager {
       },
     };
     this.plantInfos.set(id, info);
-    this.createDataPanel(id, info);
+    this.dataPanelElements.set(id, labelDiv);
+
+    this.plants.set(id, {
+      group,
+      stem,
+      leaves,
+      fruits,
+      flowers,
+      labelContainer: labelObj,
+      currentHeight: config.baseHeight * 0.3,
+      targetHeight: config.baseHeight * 0.35,
+      targetLeafCount: Math.floor(config.baseLeaves * 0.3),
+      targetFruitCount: 0,
+      targetFruitSize: 0,
+      baseLeafColor: new THREE.Color(config.leafColor),
+      baseStemColor: new THREE.Color(config.stemColor),
+    });
   }
 
-  private createDataPanel(id: string, info: PlantInfo): void {
-    const panel = document.createElement('div');
-    panel.className = 'plant-data-panel';
-    panel.dataset.plantId = id;
-    panel.style.borderColor = getCSSColorString(info.growthIndex);
+  private createStem(species: SpeciesKey, config: typeof SPECIES_CONFIG[SpeciesKey]): THREE.Mesh {
+    let geo: THREE.BufferGeometry;
+    const h = config.baseHeight;
 
-    const color = getCSSColorString(info.growthIndex);
-    panel.innerHTML = `
-      <div class="panel-plant-name">
-        <span>${info.emoji}</span>
-        <span>${info.speciesName}</span>
-        <span class="growth-index-badge" style="background:${color}">${Math.round(info.growthIndex)}</span>
-      </div>
-      <div class="panel-growth-bar">
-        <div class="panel-growth-fill" style="width:${info.growthIndex}%; background:${color}; color:${color}"></div>
-      </div>
-      <div class="panel-metrics">
-        <div class="panel-metric">
-          <span>🌡️</span>
-          <span class="panel-metric-value">${Math.round(info.effects.temperatureEffect * 100)}%</span>
-        </div>
-        <div class="panel-metric">
-          <span>💧</span>
-          <span class="panel-metric-value">${Math.round(info.effects.humidityEffect * 100)}%</span>
-        </div>
-        <div class="panel-metric">
-          <span>☀️</span>
-          <span class="panel-metric-value">${Math.round(info.effects.lightEffect * 100)}%</span>
-        </div>
-        <div class="panel-metric">
-          <span>❤️</span>
-          <span class="panel-metric-value">${info.healthScore}%</span>
-        </div>
-      </div>
-    `;
+    if (species === 'cucumber') {
+      const points: THREE.Vector3[] = [];
+      const segments = 16;
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const y = t * h;
+        const angle = t * Math.PI * 1.5;
+        const radius = 0.04 + t * 0.03;
+        points.push(new THREE.Vector3(
+          Math.cos(angle) * radius * 0.3,
+          y,
+          Math.sin(angle) * radius * 0.3
+        ));
+      }
+      const path = new THREE.CatmullRomCurve3(points);
+      geo = new THREE.TubeGeometry(path, 20, 0.05, 8, false);
+    } else if (species === 'lettuce') {
+      geo = new THREE.CylinderGeometry(0.03, 0.06, h * 0.3, 8);
+    } else if (species === 'strawberry') {
+      geo = new THREE.CylinderGeometry(0.04, 0.07, h, 10);
+    } else if (species === 'basil') {
+      geo = new THREE.CylinderGeometry(0.035, 0.06, h, 6);
+    } else {
+      geo = new THREE.CylinderGeometry(0.05, 0.09, h, 10);
+    }
 
-    panel.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.focusPlant(id);
+    const mat = new THREE.MeshStandardMaterial({
+      color: config.stemColor,
+      roughness: 0.85,
+      metalness: 0.05,
     });
+    const stem = new THREE.Mesh(geo, mat);
+    stem.position.y = h / 2 + 0.2;
+    stem.castShadow = true;
+    stem.receiveShadow = true;
+    stem.userData.baseHeight = h;
+    return stem;
+  }
 
-    this.container.appendChild(panel);
-    this.dataPanels.set(id, panel);
+  private createLeaf(
+    species: SpeciesKey,
+    config: typeof SPECIES_CONFIG[SpeciesKey],
+    index: number,
+    total: number
+  ): THREE.Mesh {
+    let geo: THREE.BufferGeometry;
+    const leafSize = 0.22 + Math.random() * 0.15;
+    const h = config.baseHeight;
+
+    if (species === 'tomato') {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      shape.bezierCurveTo(leafSize * 0.6, leafSize * 0.3, leafSize * 0.8, leafSize * 0.7, 0, leafSize);
+      shape.bezierCurveTo(-leafSize * 0.8, leafSize * 0.7, -leafSize * 0.6, leafSize * 0.3, 0, 0);
+      geo = new THREE.ShapeGeometry(shape, 6);
+      geo.rotateX(Math.PI / 2);
+    } else if (species === 'strawberry') {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI - Math.PI / 2;
+        const r = leafSize * (0.7 + Math.sin(i * 2.1) * 0.3);
+        shape.lineTo(Math.cos(a) * r, Math.sin(a) * r + leafSize * 0.5);
+      }
+      geo = new THREE.ShapeGeometry(shape, 6);
+      geo.rotateX(Math.PI / 2.2);
+    } else if (species === 'lettuce') {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, -leafSize * 0.5);
+      shape.quadraticCurveTo(leafSize * 0.8, 0, 0, leafSize);
+      shape.quadraticCurveTo(-leafSize * 0.8, 0, 0, -leafSize * 0.5);
+      geo = new THREE.ShapeGeometry(shape, 8);
+      geo.rotateX(-Math.PI / 3);
+    } else if (species === 'cucumber') {
+      const shape = new THREE.Shape();
+      shape.moveTo(-leafSize * 0.5, 0);
+      shape.quadraticCurveTo(0, leafSize * 0.8, leafSize * 0.5, 0);
+      shape.quadraticCurveTo(0, -leafSize * 0.3, -leafSize * 0.5, 0);
+      geo = new THREE.ShapeGeometry(shape, 8);
+      geo.rotateX(Math.PI / 2);
+    } else if (species === 'pepper') {
+      geo = new THREE.SphereGeometry(leafSize * 0.45, 8, 6);
+      geo.scale(1.5, 0.3, 0.9);
+    } else {
+      geo = new THREE.SphereGeometry(leafSize * 0.4, 8, 6);
+      geo.scale(1.3, 0.4, 1.0);
+    }
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: config.leafColor,
+      roughness: 0.75,
+      metalness: 0.05,
+      side: THREE.DoubleSide,
+    });
+    const leaf = new THREE.Mesh(geo, mat);
+
+    if (species === 'lettuce') {
+      const t = index / total;
+      const angle = (index / total) * Math.PI * 2 + index * 0.25;
+      const radius = 0.08 + t * 0.45;
+      leaf.position.set(
+        Math.cos(angle) * radius,
+        0.15 + t * h * 0.5,
+        Math.sin(angle) * radius
+      );
+      leaf.rotation.set(
+        -Math.PI / 3 + t * 0.8,
+        angle + Math.PI / 2,
+        Math.sin(index) * 0.2
+      );
+    } else if (species === 'strawberry') {
+      const t = index / total;
+      const angle = (index / total) * Math.PI * 2;
+      const radius = 0.2 + t * 0.25;
+      leaf.position.set(
+        Math.cos(angle) * radius,
+        0.1 + t * h * 0.6,
+        Math.sin(angle) * radius
+      );
+      leaf.rotation.set(
+        -Math.PI / 2.5,
+        angle + Math.random() * 0.3,
+        0
+      );
+    } else {
+      const t = index / total;
+      const y = 0.25 + t * (h - 0.35);
+      const angle = (index / total) * Math.PI * 2.5 + index * 0.4;
+      const radius = 0.12 + t * 0.18;
+      leaf.position.set(
+        Math.cos(angle) * radius,
+        y,
+        Math.sin(angle) * radius
+      );
+      leaf.rotation.set(
+        0.3 + Math.random() * 0.4,
+        angle + Math.random() * 0.4 - 0.2,
+        Math.random() * 0.3 - 0.15
+      );
+    }
+
+    leaf.castShadow = true;
+    leaf.receiveShadow = true;
+    leaf.userData.leafIndex = index;
+    leaf.userData.baseScale = 1 + Math.random() * 0.4 - 0.2;
+    leaf.userData.wobbleOffset = Math.random() * Math.PI * 2;
+    leaf.userData.baseY = leaf.position.y;
+    return leaf;
+  }
+
+  private createFruit(
+    species: SpeciesKey,
+    config: typeof SPECIES_CONFIG[SpeciesKey],
+    index: number,
+    total: number
+  ): THREE.Mesh {
+    let geo: THREE.BufferGeometry;
+    const size = config.baseFruitSize;
+
+    if (species === 'tomato') {
+      geo = new THREE.SphereGeometry(size, 14, 12);
+      geo.scale(1.05, 0.95, 1.05);
+    } else if (species === 'strawberry') {
+      geo = new THREE.ConeGeometry(size * 0.7, size * 1.8, 10);
+      geo.rotateX(Math.PI);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const y = pos.getY(i);
+        const t = (y + size * 0.9) / (size * 1.8);
+        const wobble = Math.sin(i * 3.7) * size * 0.08;
+        pos.setX(i, pos.getX(i) + wobble * t);
+        pos.setZ(i, pos.getZ(i) + wobble * t);
+      }
+      pos.needsUpdate = true;
+      geo.computeVertexNormals();
+    } else if (species === 'cucumber') {
+      geo = new THREE.CylinderGeometry(size * 0.28, size * 0.35, size * 2.5, 10);
+      geo.rotateZ(0.3);
+    } else if (species === 'pepper') {
+      geo = new THREE.ConeGeometry(size * 0.5, size * 2.5, 10);
+      geo.rotateX(0.2);
+    } else {
+      geo = new THREE.SphereGeometry(size, 10, 8);
+    }
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: config.fruitColor,
+      roughness: 0.45,
+      metalness: 0.12,
+    });
+    const fruit = new THREE.Mesh(geo, mat);
+
+    const h = config.baseHeight;
+    const t = index / total;
+    const y = 0.4 + t * (h - 0.5);
+    const angle = (index / total) * Math.PI * 2 + index * 0.5;
+    fruit.position.set(
+      Math.cos(angle) * 0.25,
+      y,
+      Math.sin(angle) * 0.25
+    );
+    fruit.rotation.set(
+      Math.random() * Math.PI * 0.5,
+      Math.random() * Math.PI,
+      species === 'pepper' ? Math.PI + Math.random() * 0.4 - 0.2 : 0
+    );
+
+    fruit.castShadow = true;
+    fruit.receiveShadow = true;
+    fruit.userData.baseScale = 1;
+    fruit.userData.ripeProgress = 0.5 + Math.random() * 0.5;
+    return fruit;
+  }
+
+  private createFlower(
+    species: SpeciesKey,
+    config: typeof SPECIES_CONFIG[SpeciesKey],
+    index: number
+  ): THREE.Mesh {
+    const petalCount = 5;
+    const petalSize = 0.06 + Math.random() * 0.02;
+    const shape = new THREE.Shape();
+    for (let i = 0; i < petalCount; i++) {
+      const a = (i / petalCount) * Math.PI * 2;
+      const r = petalSize;
+      if (i === 0) {
+        shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      } else {
+        const prevA = ((i - 0.5) / petalCount) * Math.PI * 2;
+        shape.quadraticCurveTo(
+          Math.cos(prevA) * r * 1.3,
+          Math.sin(prevA) * r * 1.3,
+          Math.cos(a) * r,
+          Math.sin(a) * r
+        );
+      }
+    }
+    const geo = new THREE.ShapeGeometry(shape, 6);
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: config.flowerColor,
+      roughness: 0.6,
+      metalness: 0.1,
+      side: THREE.DoubleSide,
+      emissive: config.flowerColor,
+      emissiveIntensity: 0.08,
+    });
+    const flower = new THREE.Mesh(geo, mat);
+
+    const h = config.baseHeight;
+    flower.position.set(
+      (Math.random() - 0.5) * 0.25,
+      0.55 + index * 0.15 + Math.random() * (h * 0.3),
+      (Math.random() - 0.5) * 0.25
+    );
+    flower.rotation.set(
+      Math.random() * Math.PI,
+      Math.random() * Math.PI,
+      Math.random() * Math.PI * 0.5
+    );
+    flower.castShadow = true;
+    flower.userData.wobbleOffset = Math.random() * Math.PI * 2;
+    flower.userData.baseY = flower.position.y;
+    return flower;
   }
 
   focusPlant(id: string): void {
@@ -505,16 +680,16 @@ export class PlantManager {
     const parts = this.plants.get(id);
     if (!info || !parts) return;
 
-    this.selectedPlantId = id;
     this.showDetailReport(info);
 
     const plantPos = info.position.clone();
-    const offset = new THREE.Vector3(0, 1.2, 2.5);
-    const cameraTarget = plantPos.clone().add(new THREE.Vector3(0, 0.8, 0));
-    const cameraPos = plantPos.clone().add(offset);
+    const height = info.height;
+    const camOffset = new THREE.Vector3(0, height * 0.6 + 0.8, height * 1.6 + 2.0);
+    const target = plantPos.clone().add(new THREE.Vector3(0, height * 0.5, 0));
+    const camPos = plantPos.clone().add(camOffset);
 
     if (this.onPlantFocus) {
-      this.onPlantFocus(cameraPos, cameraTarget);
+      this.onPlantFocus(camPos, target);
     }
   }
 
@@ -524,61 +699,62 @@ export class PlantManager {
     const color = getCSSColorString(info.growthIndex);
     const status = info.status;
 
-    const statusItems: { text: string; level: 'good' | 'warning' | 'danger' }[] = [];
-    statusItems.push({
-      text: `整体健康: ${info.healthScore}%`,
+    const items: { text: string; level: 'good' | 'warning' | 'danger' }[] = [];
+    items.push({
+      text: `整体健康度: ${info.healthScore}%`,
       level: info.healthScore >= 70 ? 'good' : info.healthScore >= 40 ? 'warning' : 'danger',
     });
-    if (status.heatStress) statusItems.push({ text: '⚠️ 高温胁迫', level: 'danger' });
-    if (status.coldStress) statusItems.push({ text: '⚠️ 低温胁迫', level: 'danger' });
-    if (status.droughtStress) statusItems.push({ text: '⚠️ 干旱胁迫', level: 'warning' });
-    if (status.overwatering) statusItems.push({ text: '⚠️ 水分过多', level: 'warning' });
-    if (status.lightDeficiency) statusItems.push({ text: '⚠️ 光照不足', level: 'warning' });
-    if (status.lightBurn) statusItems.push({ text: '⚠️ 光照灼伤', level: 'danger' });
+    if (status.heatStress) items.push({ text: '⚠️ 高温胁迫 - 叶片卷曲发黄', level: 'danger' });
+    if (status.coldStress) items.push({ text: '⚠️ 低温胁迫 - 生长迟缓', level: 'danger' });
+    if (status.droughtStress) items.push({ text: '⚠️ 干旱胁迫 - 植株萎蔫', level: 'warning' });
+    if (status.overwatering) items.push({ text: '⚠️ 水分过多 - 根部缺氧', level: 'warning' });
+    if (status.lightDeficiency) items.push({ text: '⚠️ 光照不足 - 徒长趋势', level: 'warning' });
+    if (status.lightBurn) items.push({ text: '⚠️ 光照过强 - 叶片灼伤', level: 'danger' });
+    if (status.leggyGrowth) items.push({ text: '⚠️ 徒长现象 - 茎细叶疏', level: 'warning' });
 
     const report = document.createElement('div');
     report.className = 'plant-detail-report';
     report.innerHTML = `
       <div class="report-header">
         <div class="report-title">
-          <span style="font-size:28px">${info.emoji}</span>
+          <span style="font-size:32px">${info.emoji}</span>
           <div>
-            <div style="color:${color};font-weight:700">${info.speciesName}</div>
-            <div style="font-size:12px;color:#81c784;margin-top:2px">生长指数: ${Math.round(info.growthIndex)} / 100</div>
+            <div style="color:${color};font-weight:700;font-size:18px">${info.speciesName} 生长报告</div>
+            <div style="font-size:13px;color:#81c784;margin-top:3px">综合生长指数: ${Math.round(info.growthIndex)} / 100</div>
           </div>
         </div>
         <button class="report-close-btn" id="report-close">✕</button>
       </div>
-      
+
       <div class="report-section">
-        <div class="report-section-title">📊 生长状态</div>
+        <div class="report-section-title">📏 生长指标</div>
         <div class="report-stats">
           <div class="report-stat">
             <div class="report-stat-label">植株高度</div>
             <div>
-              <span class="report-stat-value">${(info.heightFactor * SPECIES_CONFIG[info.species as SpeciesKey].baseHeight).toFixed(2)}</span>
+              <span class="report-stat-value">${info.height.toFixed(2)}</span>
               <span class="report-stat-unit">m</span>
             </div>
           </div>
           <div class="report-stat">
             <div class="report-stat-label">叶片数量</div>
             <div>
-              <span class="report-stat-value">${Math.round(info.leafFactor * parts?.baseLeafCount || 0)}</span>
+              <span class="report-stat-value">${info.leafCount}</span>
               <span class="report-stat-unit">片</span>
             </div>
           </div>
           <div class="report-stat">
             <div class="report-stat-label">果实数量</div>
             <div>
-              <span class="report-stat-value">${Math.round(info.fruitFactor * parts?.baseFruitCount || 0)}</span>
+              <span class="report-stat-value">${info.fruitCount}</span>
               <span class="report-stat-unit">个</span>
             </div>
           </div>
           <div class="report-stat">
-            <div class="report-stat-label">生长龄期</div>
+            <div class="report-stat-label">果实大小</div>
             <div>
-              <span class="report-stat-value">${info.age.toFixed(1)}</span>
-              <span class="report-stat-unit">天</span>
+              <span class="report-stat-value">${(info.fruitSize * 100).toFixed(1)}</span>
+              <span class="report-stat-unit">cm</span>
             </div>
           </div>
         </div>
@@ -590,21 +766,21 @@ export class PlantManager {
           <div class="report-stat">
             <div class="report-stat-label">温度适应</div>
             <div>
-              <span class="report-stat-value">${Math.round(info.effects.temperatureEffect * 100)}</span>
+              <span class="report-stat-value" style="color:${getCSSColorString(info.effects.temperatureEffect * 100)}">${Math.round(info.effects.temperatureEffect * 100)}</span>
               <span class="report-stat-unit">%</span>
             </div>
           </div>
           <div class="report-stat">
             <div class="report-stat-label">湿度适应</div>
             <div>
-              <span class="report-stat-value">${Math.round(info.effects.humidityEffect * 100)}</span>
+              <span class="report-stat-value" style="color:${getCSSColorString(info.effects.humidityEffect * 100)}">${Math.round(info.effects.humidityEffect * 100)}</span>
               <span class="report-stat-unit">%</span>
             </div>
           </div>
           <div class="report-stat">
             <div class="report-stat-label">光照适应</div>
             <div>
-              <span class="report-stat-value">${Math.round(info.effects.lightEffect * 100)}</span>
+              <span class="report-stat-value" style="color:${getCSSColorString(info.effects.lightEffect * 100)}">${Math.round(info.effects.lightEffect * 100)}</span>
               <span class="report-stat-unit">%</span>
             </div>
           </div>
@@ -621,7 +797,7 @@ export class PlantManager {
       <div class="report-section">
         <div class="report-section-title">📋 状态诊断</div>
         <ul class="report-status-list">
-          ${statusItems.map((s) => `
+          ${items.map((s) => `
             <li class="report-status-item">
               <span class="status-indicator status-${s.level}"></span>
               ${s.text}
@@ -636,17 +812,13 @@ export class PlantManager {
 
     report.querySelector('#report-close')?.addEventListener('click', () => {
       this.removeDetailReport();
-      this.selectedPlantId = null;
     });
   }
 
   private removeDetailReport(): void {
     if (this.detailReportEl) {
-      this.detailReportEl.style.animation = 'reportSlideIn 0.3s ease reverse';
-      setTimeout(() => {
-        this.detailReportEl?.remove();
-        this.detailReportEl = null;
-      }, 280);
+      this.detailReportEl.remove();
+      this.detailReportEl = null;
     }
   }
 
@@ -668,8 +840,7 @@ export class PlantManager {
       while (obj) {
         if (obj.userData.plantId) {
           const id = obj.userData.plantId as string;
-          const info = this.plantInfos.get(id);
-          if (info) {
+          if (this.plantInfos.has(id)) {
             this.focusPlant(id);
             return true;
           }
@@ -698,157 +869,179 @@ export class PlantManager {
   }
 
   private applyWorkerResults(): void {
+    if (this.pendingResults.size === 0) return;
+
     this.pendingResults.forEach((result, id) => {
       const info = this.plantInfos.get(id);
       if (!info) return;
 
-      const t = 0.12;
-      info.growthIndex = lerp(info.growthIndex, result.growthIndex, t);
-      info.heightFactor = lerp(info.heightFactor, result.heightFactor, t);
-      info.leafFactor = lerp(info.leafFactor, result.leafFactor, t);
-      info.fruitFactor = lerp(info.fruitFactor, result.fruitFactor, t);
+      const smoothT = 0.15;
+      info.growthIndex = lerp(info.growthIndex, result.growthIndex, smoothT);
+      info.height = lerp(info.height, result.height, smoothT);
+      info.leafCount = Math.round(
+        lerp(info.leafCount, result.leafCount, smoothT)
+      );
+      info.fruitCount = Math.round(
+        lerp(info.fruitCount, result.fruitCount, smoothT)
+      );
+      info.fruitSize = lerp(info.fruitSize, result.fruitSize, smoothT);
       info.healthScore = result.healthScore;
       info.stressLevel = result.stressLevel;
+      info.leafCurl = lerp(info.leafCurl, result.leafCurl, smoothT);
+      info.leafYellow = lerp(info.leafYellow, result.leafYellow, smoothT);
+      info.stemThinness = lerp(info.stemThinness, result.stemThinness, smoothT);
+      info.overallWilt = lerp(info.overallWilt, result.overallWilt, smoothT);
       info.status = result.status;
       info.effects = {
         temperatureEffect: result.temperatureEffect,
         humidityEffect: result.humidityEffect,
         lightEffect: result.lightEffect,
       };
-      info.age = Math.min(info.age + 0.01, this.MAX_AGE);
+      info.age = Math.min(info.age + 0.008, this.MAX_AGE);
+
+      const parts = this.plants.get(id);
+      if (parts) {
+        parts.targetHeight = result.height;
+        parts.targetLeafCount = result.leafCount;
+        parts.targetFruitCount = result.fruitCount;
+        parts.targetFruitSize = result.fruitSize;
+      }
     });
     this.pendingResults.clear();
   }
 
-  private updatePlantVisuals(delta: number): void {
+  private updatePlantVisuals(): void {
     this.plants.forEach((parts, id) => {
       const info = this.plantInfos.get(id);
       if (!info) return;
       const config = SPECIES_CONFIG[info.species as SpeciesKey];
 
-      const targetStemHeight = config.baseHeight * info.heightFactor;
-      parts.currentHeight = lerp(parts.currentHeight, targetStemHeight, 0.1);
-      parts.stem.scale.y = parts.currentHeight / config.baseHeight;
+      const targetH = parts.targetHeight;
+      parts.currentHeight = lerp(parts.currentHeight, targetH, 0.12);
+
+      const baseH = (parts.stem.userData.baseHeight as number) || config.baseHeight;
+      const scaleY = parts.currentHeight / baseH;
+      const scaleX = 1 - info.stemThinness * 0.5;
+      parts.stem.scale.set(scaleX, scaleY, scaleX);
       parts.stem.position.y = parts.currentHeight / 2 + 0.2;
 
       const stemMat = parts.stem.material as THREE.MeshStandardMaterial;
-      const baseColor = new THREE.Color(config.stemColor);
-      if (info.status.droughtStress) {
-        stemMat.color.lerpColors(baseColor, new THREE.Color(0x8b7355), 0.4);
-      } else if (info.status.overwatering) {
-        stemMat.color.lerpColors(baseColor, new THREE.Color(0x3a5a3a), 0.3);
-      } else {
-        stemMat.color.lerp(baseColor, 0.15);
+      const wiltColor = new THREE.Color(0x8b7355);
+      stemMat.color.lerpColors(
+        parts.baseStemColor,
+        wiltColor,
+        info.overallWilt * 0.5
+      );
+      if (info.status.overwatering) {
+        stemMat.color.lerp(new THREE.Color(0x3a5a3a), 0.2);
       }
 
+      const leafT = clamp(
+        info.leafCount / Math.max(1, parts.leaves.length),
+        0,
+        1
+      );
+
       parts.leaves.forEach((leaf, i) => {
-        const leafInfo = leaf.userData;
-        const offset = leafInfo.wobbleOffset || 0;
-        const baseScale = leafInfo.baseScale || 1;
-        const wobbleIntensity = clamp(info.healthScore / 100, 0.2, 1);
+        const leafData = leaf.userData;
+        const offset = leafData.wobbleOffset || 0;
+        const baseScale = leafData.baseScale || 1;
+        const wobbleInt = clamp(info.healthScore / 100, 0.25, 1);
 
-        leafWobble(leaf, this.time, wobbleIntensity, offset);
+        leafWobble(leaf, this.time, wobbleInt, offset);
 
-        const visProgress = clamp(
-          (i / parts.baseLeafCount) * 2 - (1 - info.leafFactor),
+        const visibleRatio = clamp(
+          (i + 1) / Math.max(1, parts.targetLeafCount),
           0,
-          1
+          3
         );
-        const targetLeafScale = easeInOutQuad(visProgress) * baseScale;
-        const s = lerp(leaf.scale.x, targetLeafScale, 0.15);
+        const visT = clamp(visibleRatio, 0, 1);
+        const targetScale = visT * baseScale * (1 - info.overallWilt * 0.3);
+        const s = lerp(leaf.scale.x, targetScale, 0.1);
         leaf.scale.setScalar(s);
 
-        const leafMat = leaf.material as THREE.MeshStandardMaterial;
-        const leafBaseColor = new THREE.Color(config.leafColor);
+        const curlAngle = info.leafCurl * 0.6;
+        leaf.rotation.x += curlAngle * 0.01;
+        leaf.rotation.z += curlAngle * 0.005;
 
-        if (info.status.heatStress) {
-          leafMat.color.lerpColors(
-            leafBaseColor,
-            new THREE.Color(0xc9a961),
-            0.5
-          );
-          leaf.rotation.z += Math.sin(this.time * 3 + offset) * 0.003;
-        } else if (info.status.lightDeficiency) {
-          leafMat.color.lerpColors(
-            leafBaseColor,
-            new THREE.Color(0x8bc34a),
-            0.25
-          );
-        } else if (info.status.droughtStress) {
-          leafMat.color.lerpColors(
-            leafBaseColor,
-            new THREE.Color(0x9e9d65),
-            0.35
-          );
-        } else if (info.status.overwatering) {
-          leafMat.color.lerpColors(
-            leafBaseColor,
-            new THREE.Color(0x2e4e2e),
-            0.25
-          );
-        } else {
-          leafMat.color.lerp(leafBaseColor, 0.15);
+        const leafMat = leaf.material as THREE.MeshStandardMaterial;
+        const yellowColor = new THREE.Color(0xd4c25a);
+        const driedColor = new THREE.Color(0x9e8a55);
+        const paleColor = new THREE.Color(0xa4cf6b);
+
+        let targetColor = parts.baseLeafColor.clone();
+        if (info.leafYellow > 0) {
+          targetColor.lerp(yellowColor, info.leafYellow * 0.6);
+        }
+        if (info.status.lightDeficiency) {
+          targetColor.lerp(paleColor, 0.35);
+        }
+        if (info.overallWilt > 0.3) {
+          targetColor.lerp(driedColor, info.overallWilt * 0.4);
+        }
+        leafMat.color.lerp(targetColor, 0.12);
+
+        if (leafData.baseY !== undefined) {
+          const wiltDrop = info.overallWilt * 0.2;
+          leaf.position.y = leafData.baseY * scaleY - wiltDrop;
         }
       });
 
       parts.fruits.forEach((fruit, i) => {
-        const visProgress = clamp(
-          (i / Math.max(1, parts.baseFruitCount)) * 2 - (1 - info.fruitFactor),
+        const visibleRatio = clamp(
+          (i + 1) / Math.max(1, parts.targetFruitCount),
           0,
-          1
+          3
         );
-        const targetFruitScale = easeInOutQuad(visProgress);
-        const s = lerp(fruit.scale.x, targetFruitScale, 0.12);
+        const visT = clamp(visibleRatio, 0, 1);
+        const targetScale = visT * (info.fruitSize / config.baseFruitSize);
+        const s = lerp(fruit.scale.x, targetScale, 0.1);
         fruit.scale.setScalar(s);
 
         const fruitMat = fruit.material as THREE.MeshStandardMaterial;
-        const ripe = (fruit.userData.ripeProgress || 0.8) * info.healthScore / 100;
+        const ripe =
+          ((fruit.userData.ripeProgress || 0.7) * info.healthScore) / 100;
         const ripeColor = new THREE.Color(config.fruitColor);
-        const unripeColor = new THREE.Color(0x8bc34a);
-        fruitMat.color.lerpColors(unripeColor, ripeColor, clamp(ripe, 0.2, 1));
+        const unripeColor = new THREE.Color(0x9ccc65);
+        fruitMat.color.lerpColors(
+          unripeColor,
+          ripeColor,
+          clamp(ripe, 0.15, 1)
+        );
       });
 
-      parts.flowers.forEach((flower, i) => {
-        const offset = flower.userData.wobbleOffset || 0;
-        flower.position.y += Math.sin(this.time * 1.2 + offset) * 0.002;
-        const flowerScale = clamp(info.growthIndex / 50, 0.3, 1);
-        flower.scale.setScalar(lerp(flower.scale.x, flowerScale, 0.1));
+      parts.flowers.forEach((flower) => {
+        const flowerOffset = flower.userData.wobbleOffset || 0;
+        flower.position.y =
+          (flower.userData.baseY || 0.6) +
+          Math.sin(this.time * 1.2 + flowerOffset) * 0.005;
+        const flowerScale = clamp(info.growthIndex / 40, 0.2, 1);
+        flower.scale.setScalar(lerp(flower.scale.x, flowerScale, 0.08));
       });
+
+      parts.labelContainer.position.y = parts.currentHeight * 1.25 + 0.3;
     });
   }
 
   private updateDataPanels(): void {
-    this.dataPanels.forEach((panel, id) => {
+    this.dataPanelElements.forEach((panel, id) => {
       const info = this.plantInfos.get(id);
-      const parts = this.plants.get(id);
-      if (!info || !parts) return;
-
-      const worldPos = parts.group.position.clone();
-      const topOffset = SPECIES_CONFIG[info.species as SpeciesKey].baseHeight * info.heightFactor + 0.6;
-      worldPos.y += topOffset;
-
-      const screenPos = worldPos.project(this.camera);
-      const rect = this.container.getBoundingClientRect();
-      const x = (screenPos.x * 0.5 + 0.5) * rect.width;
-      const y = (-screenPos.y * 0.5 + 0.5) * rect.height;
-
-      panel.style.left = `${x}px`;
-      panel.style.top = `${y}px`;
-      panel.style.transform = 'translate(-50%, -100%)';
+      if (!info) return;
 
       const color = getCSSColorString(info.growthIndex);
       panel.style.borderColor = color;
+      panel.style.boxShadow = `0 4px 20px rgba(0,0,0,0.4), 0 0 ${15 + info.growthIndex * 0.15}px ${color}33`;
 
-      const badge = panel.querySelector('.growth-index-badge') as HTMLElement | null;
+      const badge = panel.querySelector('.growth-index-badge');
       if (badge) {
-        badge.style.background = color;
+        (badge as HTMLElement).style.background = color;
         badge.textContent = `${Math.round(info.growthIndex)}`;
       }
 
-      const growthFill = panel.querySelector('.panel-growth-fill') as HTMLElement | null;
-      if (growthFill) {
-        growthFill.style.width = `${info.growthIndex}%`;
-        growthFill.style.background = color;
+      const bar = panel.querySelector('.panel-growth-fill');
+      if (bar) {
+        (bar as HTMLElement).style.width = `${info.growthIndex}%`;
+        (bar as HTMLElement).style.background = `linear-gradient(90deg, ${color}, ${color}cc)`;
       }
 
       const metrics = panel.querySelectorAll('.panel-metric-value');
@@ -863,26 +1056,26 @@ export class PlantManager {
 
   private recordHistory(): void {
     const now = Date.now();
-    const plantStates = new Map<
-      string,
-      {
-        growthIndex: number;
-        heightFactor: number;
-        leafFactor: number;
-        fruitFactor: number;
-      }
-    >();
+    const plants: HistoryFrame['plants'] = {};
 
     this.plantInfos.forEach((info) => {
-      plantStates.set(info.id, {
+      plants[info.id] = {
         growthIndex: info.growthIndex,
-        heightFactor: info.heightFactor,
-        leafFactor: info.leafFactor,
-        fruitFactor: info.fruitFactor,
-      });
+        height: info.height,
+        leafCount: info.leafCount,
+        fruitCount: info.fruitCount,
+        fruitSize: info.fruitSize,
+        healthScore: info.healthScore,
+        leafCurl: info.leafCurl,
+        leafYellow: info.leafYellow,
+        stemThinness: info.stemThinness,
+        overallWilt: info.overallWilt,
+        effects: { ...info.effects },
+        status: { ...info.status },
+      };
     });
 
-    this.history.push({ time: now, plantStates });
+    this.history.push({ time: now, plants });
 
     while (
       this.history.length > 0 &&
@@ -892,27 +1085,41 @@ export class PlantManager {
     }
   }
 
-  getHistory(): typeof this.history {
+  getHistory(): HistoryFrame[] {
     return [...this.history];
   }
 
-  applyHistoryState(
-    state: Map<string, {
-      growthIndex: number;
-      heightFactor: number;
-      leafFactor: number;
-      fruitFactor: number;
-    }>
-  ): void {
-    state.forEach((data, id) => {
+  applyHistoryState(plants: HistoryFrame['plants']): void {
+    for (const id of Object.keys(plants)) {
       const info = this.plantInfos.get(id);
-      if (info) {
-        info.growthIndex = data.growthIndex;
-        info.heightFactor = data.heightFactor;
-        info.leafFactor = data.leafFactor;
-        info.fruitFactor = data.fruitFactor;
+      const data = plants[id];
+      if (!info || !data) continue;
+
+      info.growthIndex = data.growthIndex;
+      info.height = data.height;
+      info.leafCount = data.leafCount;
+      info.fruitCount = data.fruitCount;
+      info.fruitSize = data.fruitSize;
+      info.healthScore = data.healthScore;
+      info.leafCurl = data.leafCurl;
+      info.leafYellow = data.leafYellow;
+      info.stemThinness = data.stemThinness;
+      info.overallWilt = data.overallWilt;
+      info.effects = data.effects;
+      info.status = data.status;
+
+      const parts = this.plants.get(id);
+      if (parts) {
+        parts.targetHeight = data.height;
+        parts.targetLeafCount = data.leafCount;
+        parts.targetFruitCount = data.fruitCount;
+        parts.targetFruitSize = data.fruitSize;
       }
-    });
+    }
+  }
+
+  onResize(width: number, height: number): void {
+    this.labelRenderer.setSize(width, height);
   }
 
   update(delta: number): void {
@@ -920,19 +1127,22 @@ export class PlantManager {
 
     this.dispatchWorkerMessages(delta);
     this.applyWorkerResults();
-    this.updatePlantVisuals(delta);
+    this.updatePlantVisuals();
     this.updateDataPanels();
-    this.growthAnim.update();
 
-    if (this.time % 1 < delta * 2) {
+    const now = Date.now();
+    if (now - this.lastHistoryRecord > this.historyRecordInterval) {
       this.recordHistory();
+      this.lastHistoryRecord = now;
     }
+
+    this.labelRenderer.render(this.scene, this.camera);
   }
 
   dispose(): void {
     this.worker.terminate();
-    this.dataPanels.forEach((panel) => panel.remove());
-    this.dataPanels.clear();
+    this.dataPanelElements.forEach((el) => el.remove());
+    this.dataPanelElements.clear();
     this.removeDetailReport();
     this.plants.forEach((parts) => {
       parts.group.traverse((obj) => {
@@ -947,5 +1157,8 @@ export class PlantManager {
       });
       this.scene.remove(parts.group);
     });
+    this.plants.clear();
+    this.plantInfos.clear();
+    this.labelRenderer.domElement.remove();
   }
 }

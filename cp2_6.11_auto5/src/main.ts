@@ -20,27 +20,21 @@ class GreenhouseApp {
   private clock: THREE.Clock;
   private raycaster: THREE.Raycaster;
   private mouse: THREE.Vector2;
-  private animationFrameId: number | null = null;
-  private targetCameraPos: THREE.Vector3;
+  private animationId: number | null = null;
+  private targetCamPos: THREE.Vector3;
   private targetLookAt: THREE.Vector3;
-  private isCameraTransitioning = false;
   private camVelX = { value: 0 };
   private camVelY = { value: 0 };
   private camVelZ = { value: 0 };
-  private lookAtVelX = { value: 0 };
-  private lookAtVelY = { value: 0 };
-  private lookAtVelZ = { value: 0 };
+  private lookVelX = { value: 0 };
+  private lookVelY = { value: 0 };
+  private lookVelZ = { value: 0 };
+  private isCamTransitioning = false;
   private isPlaying = false;
   private playbackTime = 0;
   private playbackSpeed = 3;
-  private originalEnv: EnvParams | null = null;
-  private savedPlantState: Map<string, { growthIndex: number; heightFactor: number; leafFactor: number; fruitFactor: number }> | null = null;
-  private playbackTimeline: HTMLElement | null;
-  private playbackBtn: HTMLElement | null;
-  private playIcon: HTMLElement | null;
-  private timelineProgress: HTMLElement | null;
-  private timelineTime: HTMLElement | null;
-  private timelineMarkers: HTMLElement | null;
+  private savedEnv: EnvParams | null = null;
+  private savedPlantState: Record<string, any> | null = null;
 
   constructor() {
     this.container = document.getElementById('scene-container')!;
@@ -54,7 +48,10 @@ class GreenhouseApp {
       powerPreference: 'high-performance',
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+    this.renderer.setSize(
+      this.container.clientWidth,
+      this.container.clientHeight
+    );
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -70,35 +67,25 @@ class GreenhouseApp {
       0.1,
       200
     );
-    this.camera.position.set(6, 7, 10);
-
-    this.targetCameraPos = this.camera.position.clone();
+    this.camera.position.set(6.5, 6, 9.5);
+    this.targetCamPos = this.camera.position.clone();
     this.targetLookAt = new THREE.Vector3(0, 1, 0);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.07;
-    this.controls.minDistance = 3;
-    this.controls.maxDistance = 22;
-    this.controls.maxPolarAngle = Math.PI / 2.1;
-    this.controls.minPolarAngle = 0.15;
+    this.controls.minDistance = 2.5;
+    this.controls.maxDistance = 24;
+    this.controls.maxPolarAngle = Math.PI / 2.05;
+    this.controls.minPolarAngle = 0.12;
     this.controls.target.copy(this.targetLookAt);
     this.controls.enablePan = true;
     this.controls.panSpeed = 0.7;
     this.controls.rotateSpeed = 0.65;
     this.controls.zoomSpeed = 0.85;
 
-    this.playbackTimeline = document.getElementById('timeline-container');
-    this.playbackBtn = document.getElementById('playback-btn');
-    this.playIcon = document.getElementById('play-icon');
-    this.timelineProgress = document.getElementById('timeline-progress');
-    this.timelineTime = document.getElementById('timeline-time');
-    this.timelineMarkers = document.getElementById('timeline-markers');
-
-    this.createGreenhouseStructure();
-    this.createGround();
-    this.createDecorations();
-    this.setupControlsHint();
+    this.buildScene();
+    this.createControlsHint();
 
     this.envController = new EnvController(this.scene);
     this.plantManager = new PlantManager(
@@ -109,28 +96,35 @@ class GreenhouseApp {
     );
 
     this.envController.onChange((params) => {
-      this.plantManager.updateEnvironment(params);
+      if (!this.isPlaying) {
+        this.plantManager.updateEnvironment(params);
+      }
     });
 
     this.plantManager.onPlantFocus = (
       camPos: THREE.Vector3,
       lookAt: THREE.Vector3
     ) => {
-      this.focusCameraOn(camPos, lookAt);
+      this.focusCamera(camPos, lookAt);
     };
 
-    this.setupEventListeners();
-    this.setupPlaybackControls();
+    this.setupEvents();
+    this.setupPlayback();
     this.animate();
   }
 
-  private createGreenhouseStructure(): void {
+  private buildScene(): void {
+    this.buildGreenhouse();
+    this.buildGround();
+    this.buildDecorations();
+  }
+
+  private buildGreenhouse(): void {
     const frameMat = new THREE.MeshStandardMaterial({
       color: 0x8b9c8e,
       roughness: 0.55,
       metalness: 0.35,
     });
-
     const glassMat = new THREE.MeshPhysicalMaterial({
       color: 0xc8e6d0,
       transparent: true,
@@ -143,193 +137,161 @@ class GreenhouseApp {
     });
 
     const frameGroup = new THREE.Group();
-    const width = 16;
-    const height = 6;
-    const depth = 12;
-    const roofHeight = 2.2;
+    const W = 16, H = 6, D = 12, RH = 2.2;
 
-    const polePositions: [number, number, number][] = [];
-    for (let x = -width / 2; x <= width / 2; x += width / 2) {
-      for (let z = -depth / 2; z <= depth / 2; z += depth / 2) {
-        polePositions.push([x, 0, z]);
-      }
-    }
-
-    for (const [x, y, z] of polePositions) {
+    const corners: [number, number][] = [
+      [-W / 2, -D / 2],
+      [W / 2, -D / 2],
+      [W / 2, D / 2],
+      [-W / 2, D / 2],
+    ];
+    for (const [x, z] of corners) {
       const pole = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, height, 0.12),
+        new THREE.BoxGeometry(0.12, H, 0.12),
         frameMat
       );
-      pole.position.set(x, height / 2 + y, z);
+      pole.position.set(x, H / 2, z);
       pole.castShadow = true;
       frameGroup.add(pole);
 
-      const roofPole = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, roofHeight, 0.08),
-        frameMat
-      );
-      roofPole.position.set(x * 0.6, height + roofHeight / 2, z);
-      roofPole.rotation.z = x > 0 ? -0.35 : 0.35;
-      roofPole.castShadow = true;
-      frameGroup.add(roofPole);
+      const rp = pole.clone();
+      rp.position.set(x * 0.65, H + RH / 2, z);
+      rp.rotation.z = x > 0 ? -0.35 : 0.35;
+      rp.scale.y = RH / H;
+      frameGroup.add(rp);
     }
 
-    const addFrameBar = (
-      w: number,
-      h: number,
-      d: number,
-      x: number,
-      y: number,
-      z: number
-    ) => {
+    const addBar = (w: number, h: number, d: number, x: number, y: number, z: number) => {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
       bar.position.set(x, y, z);
       bar.castShadow = true;
       frameGroup.add(bar);
     };
-
-    addFrameBar(width, 0.08, 0.08, 0, height, -depth / 2);
-    addFrameBar(width, 0.08, 0.08, 0, height, depth / 2);
-    addFrameBar(0.08, 0.08, depth, -width / 2, height, 0);
-    addFrameBar(0.08, 0.08, depth, width / 2, height, 0);
-    addFrameBar(width * 0.6, 0.08, 0.08, 0, height + roofHeight, -depth / 2);
-    addFrameBar(width * 0.6, 0.08, 0.08, 0, height + roofHeight, depth / 2);
-
+    addBar(W, 0.08, 0.08, 0, H, -D / 2);
+    addBar(W, 0.08, 0.08, 0, H, D / 2);
+    addBar(0.08, 0.08, D, -W / 2, H, 0);
+    addBar(0.08, 0.08, D, W / 2, H, 0);
+    addBar(W * 0.65, 0.08, 0.08, 0, H + RH, -D / 2);
+    addBar(W * 0.65, 0.08, 0.08, 0, H + RH, D / 2);
     this.scene.add(frameGroup);
 
     const glassGroup = new THREE.Group();
+    const makeWall = (w: number, h: number, x: number, y: number, z: number, ry = 0) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glassMat);
+      m.position.set(x, y, z);
+      m.rotation.y = ry;
+      glassGroup.add(m);
+    };
+    makeWall(W * 0.98, H * 0.98, 0, H / 2, D / 2 + 0.01);
+    makeWall(W * 0.98, H * 0.98, 0, H / 2, -D / 2 - 0.01, Math.PI);
+    makeWall(D * 0.98, H * 0.98, -W / 2 - 0.01, H / 2, 0, Math.PI / 2);
+    makeWall(D * 0.98, H * 0.98, W / 2 + 0.01, H / 2, 0, -Math.PI / 2);
 
-    const wallFront = new THREE.Mesh(
-      new THREE.PlaneGeometry(width * 0.98, height * 0.98),
-      glassMat
-    );
-    wallFront.position.set(0, height / 2, depth / 2 + 0.01);
-    glassGroup.add(wallFront);
-
-    const wallBack = wallFront.clone();
-    wallBack.position.set(0, height / 2, -depth / 2 - 0.01);
-    wallBack.rotation.y = Math.PI;
-    glassGroup.add(wallBack);
-
-    const wallLeft = new THREE.Mesh(
-      new THREE.PlaneGeometry(depth * 0.98, height * 0.98),
-      glassMat
-    );
-    wallLeft.position.set(-width / 2 - 0.01, height / 2, 0);
-    wallLeft.rotation.y = Math.PI / 2;
-    glassGroup.add(wallLeft);
-
-    const wallRight = wallLeft.clone();
-    wallRight.position.set(width / 2 + 0.01, height / 2, 0);
-    wallRight.rotation.y = -Math.PI / 2;
-    glassGroup.add(wallRight);
-
-    const roofW = width * 0.62;
-    const roofD = depth * 1.02;
-    const roofGeo = new THREE.PlaneGeometry(roofW, roofD);
-    const roofLeft = new THREE.Mesh(roofGeo, glassMat);
-    roofLeft.position.set(-roofW * 0.22, height + roofHeight * 0.5, 0);
-    roofLeft.rotation.set(-Math.PI / 2 + 0.35, 0, 0.35);
-    glassGroup.add(roofLeft);
-
-    const roofRight = roofLeft.clone();
-    roofRight.position.set(roofW * 0.22, height + roofHeight * 0.5, 0);
-    roofRight.rotation.set(-Math.PI / 2 + 0.35, 0, -0.35);
-    glassGroup.add(roofRight);
+    const rw = W * 0.64, rd = D * 1.02;
+    const roofGeo = new THREE.PlaneGeometry(rw, rd);
+    const rLeft = new THREE.Mesh(roofGeo, glassMat);
+    rLeft.position.set(-rw * 0.22, H + RH * 0.5, 0);
+    rLeft.rotation.set(-Math.PI / 2 + 0.35, 0, 0.35);
+    glassGroup.add(rLeft);
+    const rRight = rLeft.clone();
+    rRight.position.x = rw * 0.22;
+    rRight.rotation.z = -0.35;
+    glassGroup.add(rRight);
 
     this.scene.add(glassGroup);
   }
 
-  private createGround(): void {
-    const groundGeo = new THREE.CircleGeometry(12, 48);
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x5a4a35,
-      roughness: 0.95,
-      metalness: 0.03,
-    });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
+  private buildGround(): void {
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(12, 48),
+      new THREE.MeshStandardMaterial({
+        color: 0x5a4a35,
+        roughness: 0.95,
+        metalness: 0.03,
+      })
+    );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    const pathGeo = new THREE.PlaneGeometry(1.6, 10);
-    const pathMat = new THREE.MeshStandardMaterial({
-      color: 0x8b7a5a,
-      roughness: 0.9,
-      metalness: 0.02,
-    });
-    const path = new THREE.Mesh(pathGeo, pathMat);
+    const path = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.6, 10),
+      new THREE.MeshStandardMaterial({
+        color: 0x8b7a5a,
+        roughness: 0.9,
+        metalness: 0.02,
+      })
+    );
     path.rotation.x = -Math.PI / 2;
-    path.position.set(0, 0.01, 0);
+    path.position.y = 0.01;
     path.receiveShadow = true;
     this.scene.add(path);
 
-    const soilPositions: [number, number][] = [
-      [-4, -3],
-      [-1.5, -3.5],
-      [1.5, -3.2],
-      [4, -3],
-      [-2.5, 2.5],
-      [2.5, 2.8],
+    const plots: [number, number][] = [
+      [-4.2, -3.2],
+      [-1.4, -3.6],
+      [1.4, -3.4],
+      [4.2, -3.0],
+      [-2.8, 2.6],
+      [2.8, 3.0],
     ];
-    for (const [x, z] of soilPositions) {
-      const plotGeo = new THREE.CircleGeometry(1.1, 24);
-      const plotMat = new THREE.MeshStandardMaterial({
-        color: 0x4a3a25,
-        roughness: 0.98,
-        metalness: 0.0,
-      });
-      const plot = new THREE.Mesh(plotGeo, plotMat);
-      plot.rotation.x = -Math.PI / 2;
-      plot.position.set(x, 0.015, z);
-      plot.receiveShadow = true;
-      this.scene.add(plot);
+    for (const [x, z] of plots) {
+      const p = new THREE.Mesh(
+        new THREE.CircleGeometry(1.15, 28),
+        new THREE.MeshStandardMaterial({
+          color: 0x4a3a25,
+          roughness: 0.98,
+        })
+      );
+      p.rotation.x = -Math.PI / 2;
+      p.position.set(x, 0.015, z);
+      p.receiveShadow = true;
+      this.scene.add(p);
     }
 
-    const gridHelper = new THREE.GridHelper(18, 36, 0x4a6a4a, 0x3a5a3a);
-    (gridHelper.material as THREE.Material).opacity = 0.18;
-    (gridHelper.material as THREE.Material).transparent = true;
-    gridHelper.position.y = 0.005;
-    this.scene.add(gridHelper);
+    const grid = new THREE.GridHelper(18, 36, 0x4a6a4a, 0x3a5a3a);
+    (grid.material as THREE.Material).opacity = 0.16;
+    (grid.material as THREE.Material).transparent = true;
+    grid.position.y = 0.005;
+    this.scene.add(grid);
   }
 
-  private createDecorations(): void {
-    const decoGroup = new THREE.Group();
-
-    const tools = [
-      [-6.5, 0, 4, 0x2e7d32],
-      [6.5, 0, -4, 0x1565c0],
-      [-6.5, 0, -4, 0x6d4c41],
+  private buildDecorations(): void {
+    const boxes: [number, number, number, number][] = [
+      [-6.5, 0.4, 4, 0x2e7d32],
+      [6.5, 0.4, -4, 0x1565c0],
+      [-6.5, 0.4, -4, 0x6d4c41],
     ];
-    for (const [x, y, z, color] of tools) {
-      const boxGeo = new THREE.BoxGeometry(1, 0.8, 0.8);
-      const boxMat = new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.7,
-        metalness: 0.1,
-      });
-      const box = new THREE.Mesh(boxGeo, boxMat);
-      box.position.set(x, y + 0.4, z);
-      box.castShadow = true;
-      box.receiveShadow = true;
-      decoGroup.add(box);
+    for (const [x, y, z, color] of boxes) {
+      const b = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.8, 0.8),
+        new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.7,
+          metalness: 0.1,
+        })
+      );
+      b.position.set(x, y, z);
+      b.castShadow = true;
+      b.receiveShadow = true;
+      this.scene.add(b);
     }
 
-    for (let i = 0; i < 18; i++) {
-      const stoneGeo = new THREE.DodecahedronGeometry(0.12 + Math.random() * 0.1, 0);
-      const stoneMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color().setHSL(0.08 + Math.random() * 0.06, 0.15, 0.35),
-        roughness: 0.95,
-        metalness: 0.02,
-      });
-      const stone = new THREE.Mesh(stoneGeo, stoneMat);
-      const angle = (i / 18) * Math.PI * 2;
-      const r = 10 + Math.random() * 1.5;
-      stone.position.set(
-        Math.cos(angle) * r,
-        0.08,
-        Math.sin(angle) * r
+    for (let i = 0; i < 16; i++) {
+      const stone = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.1 + Math.random() * 0.12, 0),
+        new THREE.MeshStandardMaterial({
+          color: new THREE.Color().setHSL(
+            0.08 + Math.random() * 0.06,
+            0.15,
+            0.32 + Math.random() * 0.1
+          ),
+          roughness: 0.95,
+        })
       );
+      const a = (i / 16) * Math.PI * 2;
+      const r = 10 + Math.random() * 1.5;
+      stone.position.set(Math.cos(a) * r, 0.08, Math.sin(a) * r);
       stone.rotation.set(
         Math.random() * Math.PI,
         Math.random() * Math.PI,
@@ -337,74 +299,80 @@ class GreenhouseApp {
       );
       stone.castShadow = true;
       stone.receiveShadow = true;
-      decoGroup.add(stone);
+      this.scene.add(stone);
     }
-
-    this.scene.add(decoGroup);
   }
 
-  private setupControlsHint(): void {
+  private createControlsHint(): void {
     const hint = document.createElement('div');
     hint.className = 'controls-hint';
     hint.innerHTML = `
-      <div><kbd>拖动</kbd> 旋转视角 · <kbd>滚轮</kbd> 缩放</div>
-      <div><kbd>双击</kbd> 植物查看详情 · <kbd>拖动太阳</kbd> 调整光照方向</div>
+      <div><kbd>拖动</kbd> 旋转视角 · <kbd>滚轮</kbd> 缩放 · <kbd>右键拖动</kbd> 平移</div>
+      <div><kbd>双击植物</kbd> 查看详情 · <kbd>拖动太阳</kbd> 调整光照方向</div>
     `;
     document.getElementById('ui-overlay')?.appendChild(hint);
   }
 
-  private setupEventListeners(): void {
-    window.addEventListener('resize', this.onResize.bind(this));
+  private setupEvents(): void {
+    window.addEventListener('resize', this.onResize);
 
     const dom = this.renderer.domElement;
+    dom.addEventListener('pointerdown', this.onPointerDown);
+    dom.addEventListener('pointermove', this.onPointerMove);
+    dom.addEventListener('pointerup', this.onPointerUp);
+    dom.addEventListener('dblclick', this.onDoubleClick);
 
-    dom.addEventListener('pointerdown', this.onPointerDown.bind(this));
-    dom.addEventListener('pointermove', this.onPointerMove.bind(this));
-    dom.addEventListener('pointerup', this.onPointerUp.bind(this));
-    dom.addEventListener('dblclick', this.onDoubleClick.bind(this));
+    dom.addEventListener('start', () => {}, { passive: true });
   }
 
-  private setupPlaybackControls(): void {
-    if (this.playbackBtn) {
-      this.playbackBtn.addEventListener('click', () => {
-        this.togglePlayback();
-      });
+  private setupPlayback(): void {
+    const btn = document.getElementById('playback-btn');
+    if (btn) {
+      btn.addEventListener('click', () => this.togglePlayback());
     }
   }
 
   private togglePlayback(): void {
-    if (!this.isPlaying) {
-      this.startPlayback();
-    } else {
+    if (this.isPlaying) {
       this.stopPlayback();
+    } else {
+      this.startPlayback();
     }
   }
 
   private startPlayback(): void {
     const envHistory = this.envController.getHistory();
-    if (envHistory.length < 2) return;
+    const plantHistory = this.plantManager.getHistory();
+    if (envHistory.length < 2 || plantHistory.length < 2) return;
 
     this.isPlaying = true;
     this.playbackTime = 0;
-    this.originalEnv = { ...this.envController.getParams() };
+    this.savedEnv = { ...this.envController.getParams() };
 
-    const plantHistory = this.plantManager.getHistory();
-    if (plantHistory.length > 0) {
-      this.savedPlantState = plantHistory[plantHistory.length - 1].plantStates;
+    const state: Record<string, any> = {};
+    const allPlants = this.plantManager.getAllPlantPositions();
+    for (const p of allPlants) {
+      const latest = plantHistory[plantHistory.length - 1].plants[p.id];
+      if (latest) state[p.id] = { ...latest };
     }
+    this.savedPlantState = state;
 
-    if (this.playIcon) this.playIcon.textContent = '⏸';
+    const icon = document.getElementById('play-icon');
+    if (icon) icon.textContent = '⏸';
 
-    this.playbackTimeline?.classList.remove('timeline-hidden');
+    const timeline = document.getElementById('timeline-container');
+    timeline?.classList.remove('timeline-hidden');
+
     this.updateTimelineMarkers();
   }
 
   private stopPlayback(): void {
     this.isPlaying = false;
 
-    if (this.originalEnv) {
-      this.envController.setParamsFromHistory(this.originalEnv);
-      this.originalEnv = null;
+    if (this.savedEnv) {
+      this.envController.setParamsFromHistory(this.savedEnv);
+      this.plantManager.updateEnvironment(this.savedEnv);
+      this.savedEnv = null;
     }
 
     if (this.savedPlantState) {
@@ -412,30 +380,34 @@ class GreenhouseApp {
       this.savedPlantState = null;
     }
 
-    if (this.playIcon) this.playIcon.textContent = '▶';
+    const icon = document.getElementById('play-icon');
+    if (icon) icon.textContent = '▶';
   }
 
   private updateTimelineMarkers(): void {
-    if (!this.timelineMarkers) return;
-    this.timelineMarkers.innerHTML = '';
-    const envHistory = this.envController.getHistory();
-    const startTime = envHistory[0]?.time || 0;
-    const endTime = envHistory[envHistory.length - 1]?.time || startTime + 60000;
-    const span = Math.max(endTime - startTime, 1000);
+    const markers = document.getElementById('timeline-markers');
+    if (!markers) return;
+    markers.innerHTML = '';
 
-    for (let i = 1; i < envHistory.length - 1; i++) {
+    const envHistory = this.envController.getHistory();
+    if (envHistory.length < 2) return;
+
+    const t0 = envHistory[0].time;
+    const t1 = envHistory[envHistory.length - 1].time;
+    const span = Math.max(t1 - t0, 1000);
+
+    for (let i = 1; i < envHistory.length; i++) {
       const prev = envHistory[i - 1].params;
       const curr = envHistory[i].params;
       const changed =
-        Math.abs(curr.temperature - prev.temperature) > 3 ||
-        Math.abs(curr.humidity - prev.humidity) > 10 ||
-        Math.abs(curr.lightIntensity - prev.lightIntensity) > 20;
-
+        Math.abs(curr.temperature - prev.temperature) > 2.5 ||
+        Math.abs(curr.humidity - prev.humidity) > 8 ||
+        Math.abs(curr.lightIntensity - prev.lightIntensity) > 18;
       if (changed) {
-        const marker = document.createElement('div');
-        marker.className = 'timeline-marker';
-        marker.style.left = `${((envHistory[i].time - startTime) / span) * 100}%`;
-        this.timelineMarkers.appendChild(marker);
+        const m = document.createElement('div');
+        m.className = 'timeline-marker';
+        m.style.left = `${((envHistory[i].time - t0) / span) * 100}%`;
+        markers.appendChild(m);
       }
     }
   }
@@ -445,223 +417,246 @@ class GreenhouseApp {
 
     const envHistory = this.envController.getHistory();
     const plantHistory = this.plantManager.getHistory();
-
     if (envHistory.length < 2 || plantHistory.length < 2) {
       this.stopPlayback();
       return;
     }
 
-    const startTime = envHistory[0].time;
-    const endTime = envHistory[envHistory.length - 1].time;
-    const totalDuration = endTime - startTime;
+    const tStart = Math.min(envHistory[0].time, plantHistory[0].time);
+    const tEnd = Math.max(
+      envHistory[envHistory.length - 1].time,
+      plantHistory[plantHistory.length - 1].time
+    );
+    const totalMs = tEnd - tStart;
 
     this.playbackTime += delta * 1000 * this.playbackSpeed;
-    const currentTime = startTime + this.playbackTime;
+    const nowT = tStart + this.playbackTime;
 
-    if (this.playbackTime >= totalDuration) {
+    if (this.playbackTime >= totalMs) {
       this.stopPlayback();
       return;
     }
 
-    let envIdx = 0;
+    let eIdx = 0;
     for (let i = 0; i < envHistory.length - 1; i++) {
-      if (currentTime >= envHistory[i].time && currentTime < envHistory[i + 1].time) {
-        envIdx = i;
+      if (nowT >= envHistory[i].time && nowT < envHistory[i + 1].time) {
+        eIdx = i;
         break;
       }
     }
-
-    const curr = envHistory[envIdx];
-    const next = envHistory[Math.min(envIdx + 1, envHistory.length - 1)];
-    const t = clamp((currentTime - curr.time) / Math.max(next.time - curr.time, 1), 0, 1);
-    const easedT = easeInOutCubic(t);
-
+    const ec = envHistory[eIdx];
+    const en = envHistory[Math.min(eIdx + 1, envHistory.length - 1)];
+    const et = clamp(
+      (nowT - ec.time) / Math.max(en.time - ec.time, 1),
+      0,
+      1
+    );
+    const eEased = easeInOutCubic(et);
     const interpolatedEnv: EnvParams = {
-      temperature: lerp(curr.params.temperature, next.params.temperature, easedT),
-      humidity: lerp(curr.params.humidity, next.params.humidity, easedT),
-      lightIntensity: lerp(curr.params.lightIntensity, next.params.lightIntensity, easedT),
-      sunAngle: lerp(curr.params.sunAngle, next.params.sunAngle, easedT),
-      sunHeight: lerp(curr.params.sunHeight, next.params.sunHeight, easedT),
+      temperature: lerp(ec.params.temperature, en.params.temperature, eEased),
+      humidity: lerp(ec.params.humidity, en.params.humidity, eEased),
+      lightIntensity: lerp(ec.params.lightIntensity, en.params.lightIntensity, eEased),
+      sunAngle: lerp(ec.params.sunAngle, en.params.sunAngle, eEased),
+      sunHeight: lerp(ec.params.sunHeight, en.params.sunHeight, eEased),
     };
     this.envController.setParamsFromHistory(interpolatedEnv);
+    this.plantManager.updateEnvironment(interpolatedEnv);
 
-    let plantIdx = 0;
+    let pIdx = 0;
     for (let i = 0; i < plantHistory.length - 1; i++) {
-      if (currentTime >= plantHistory[i].time && currentTime < plantHistory[i + 1].time) {
-        plantIdx = i;
+      if (nowT >= plantHistory[i].time && nowT < plantHistory[i + 1].time) {
+        pIdx = i;
         break;
       }
     }
-    const pCurr = plantHistory[plantIdx];
-    const pNext = plantHistory[Math.min(plantIdx + 1, plantHistory.length - 1)];
-    const pt = clamp((currentTime - pCurr.time) / Math.max(pNext.time - pCurr.time, 1), 0, 1);
-    const peasedT = easeInOutCubic(pt);
+    const pc = plantHistory[pIdx];
+    const pn = plantHistory[Math.min(pIdx + 1, plantHistory.length - 1)];
+    const pt = clamp(
+      (nowT - pc.time) / Math.max(pn.time - pc.time, 1),
+      0,
+      1
+    );
+    const pEased = easeInOutCubic(pt);
 
-    const interpolatedState = new Map<string, { growthIndex: number; heightFactor: number; leafFactor: number; fruitFactor: number }>();
-    pCurr.plantStates.forEach((state, id) => {
-      const nextState = pNext.plantStates.get(id);
-      if (nextState) {
-        interpolatedState.set(id, {
-          growthIndex: lerp(state.growthIndex, nextState.growthIndex, peasedT),
-          heightFactor: lerp(state.heightFactor, nextState.heightFactor, peasedT),
-          leafFactor: lerp(state.leafFactor, nextState.leafFactor, peasedT),
-          fruitFactor: lerp(state.fruitFactor, nextState.fruitFactor, peasedT),
-        });
-      } else {
-        interpolatedState.set(id, { ...state });
-      }
-    });
-    this.plantManager.applyHistoryState(interpolatedState);
-
-    if (this.timelineProgress) {
-      this.timelineProgress.style.width = `${(this.playbackTime / totalDuration) * 100}%`;
+    const interpolated: Record<string, any> = {};
+    const allIds = new Set([
+      ...Object.keys(pc.plants),
+      ...Object.keys(pn.plants),
+    ]);
+    for (const id of allIds) {
+      const c = pc.plants[id];
+      const n = pn.plants[id];
+      if (!c || !n) continue;
+      interpolated[id] = {
+        growthIndex: lerp(c.growthIndex, n.growthIndex, pEased),
+        height: lerp(c.height, n.height, pEased),
+        leafCount: Math.round(lerp(c.leafCount, n.leafCount, pEased)),
+        fruitCount: Math.round(lerp(c.fruitCount, n.fruitCount, pEased)),
+        fruitSize: lerp(c.fruitSize, n.fruitSize, pEased),
+        healthScore: Math.round(lerp(c.healthScore, n.healthScore, pEased)),
+        leafCurl: lerp(c.leafCurl, n.leafCurl, pEased),
+        leafYellow: lerp(c.leafYellow, n.leafYellow, pEased),
+        stemThinness: lerp(c.stemThinness, n.stemThinness, pEased),
+        overallWilt: lerp(c.overallWilt, n.overallWilt, pEased),
+        effects: {
+          temperatureEffect: lerp(
+            c.effects.temperatureEffect,
+            n.effects.temperatureEffect,
+            pEased
+          ),
+          humidityEffect: lerp(
+            c.effects.humidityEffect,
+            n.effects.humidityEffect,
+            pEased
+          ),
+          lightEffect: lerp(
+            c.effects.lightEffect,
+            n.effects.lightEffect,
+            pEased
+          ),
+        },
+        status: pEased > 0.5 ? n.status : c.status,
+      };
     }
-    if (this.timelineTime) {
-      const totalSec = Math.floor(totalDuration / 1000);
-      const currSec = Math.floor(this.playbackTime / 1000);
-      this.timelineTime.textContent = `${this.formatTime(currSec)} / ${this.formatTime(totalSec)}`;
+    this.plantManager.applyHistoryState(interpolated);
+
+    const progressEl = document.getElementById('timeline-progress');
+    if (progressEl) {
+      progressEl.style.width = `${(this.playbackTime / totalMs) * 100}%`;
+    }
+    const timeEl = document.getElementById('timeline-time');
+    if (timeEl) {
+      const total = Math.floor(totalMs / 1000);
+      const curr = Math.floor(this.playbackTime / 1000);
+      timeEl.textContent = `${this.fmtTime(curr)} / ${this.fmtTime(total)}`;
     }
   }
 
-  private formatTime(sec: number): string {
+  private fmtTime(sec: number): string {
     const m = Math.floor(sec / 60).toString().padStart(2, '0');
     const s = (sec % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   }
 
-  private onPointerDown(e: PointerEvent): void {
+  private onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0) return;
     const handled = this.envController.onPointerDown(e, this.camera);
-    if (handled) {
-      this.controls.enabled = false;
-    }
-  }
+    if (handled) this.controls.enabled = false;
+  };
 
-  private onPointerMove(e: PointerEvent): void {
+  private onPointerMove = (e: PointerEvent): void => {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
     this.envController.onPointerMove(e, this.camera);
-  }
+  };
 
-  private onPointerUp(_e: PointerEvent): void {
+  private onPointerUp = (): void => {
     const handled = this.envController.onPointerUp();
     if (handled || !this.controls.enabled) {
       this.controls.enabled = true;
     }
-  }
+  };
 
-  private onDoubleClick(e: MouseEvent): void {
+  private onDoubleClick = (e: MouseEvent): void => {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+    const hits = this.raycaster.intersectObjects(
+      this.scene.children,
+      true
+    );
 
-    if (this.plantManager.handleRaycast(intersects)) {
+    if (this.plantManager.handleRaycast(hits)) {
       return;
     }
+  };
 
-    this.resetCameraFocus();
-  }
-
-  private focusCameraOn(position: THREE.Vector3, target: THREE.Vector3): void {
-    this.targetCameraPos.copy(position);
+  private focusCamera(pos: THREE.Vector3, target: THREE.Vector3): void {
+    this.targetCamPos.copy(pos);
     this.targetLookAt.copy(target);
-    this.isCameraTransitioning = true;
-    this.camVelX = { value: 0 };
-    this.camVelY = { value: 0 };
-    this.camVelZ = { value: 0 };
-    this.lookAtVelX = { value: 0 };
-    this.lookAtVelY = { value: 0 };
-    this.lookAtVelZ = { value: 0 };
+    this.camVelX.value = 0;
+    this.camVelY.value = 0;
+    this.camVelZ.value = 0;
+    this.lookVelX.value = 0;
+    this.lookVelY.value = 0;
+    this.lookVelZ.value = 0;
+    this.isCamTransitioning = true;
   }
 
-  private resetCameraFocus(): void {
-    this.targetCameraPos.set(6, 7, 10);
-    this.targetLookAt.set(0, 1, 0);
-    this.isCameraTransitioning = true;
-    this.camVelX = { value: 0 };
-    this.camVelY = { value: 0 };
-    this.camVelZ = { value: 0 };
-    this.lookAtVelX = { value: 0 };
-    this.lookAtVelY = { value: 0 };
-    this.lookAtVelZ = { value: 0 };
-  }
-
-  private onResize(): void {
+  private onResize = (): void => {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  }
+    this.plantManager.onResize(w, h);
+  };
 
   private updateCamera(delta: number): void {
-    if (this.isCameraTransitioning) {
-      const smoothTime = 0.6;
-      const maxSpeed = 20;
+    if (this.isCamTransitioning) {
+      const smooth = 0.55;
+      const maxS = 25;
 
-      const newX = smoothDamp(
+      const nx = smoothDamp(
         this.camera.position.x,
-        this.targetCameraPos.x,
+        this.targetCamPos.x,
         this.camVelX,
-        smoothTime,
-        maxSpeed,
+        smooth,
+        maxS,
         delta
       );
-      const newY = smoothDamp(
+      const ny = smoothDamp(
         this.camera.position.y,
-        this.targetCameraPos.y,
+        this.targetCamPos.y,
         this.camVelY,
-        smoothTime,
-        maxSpeed,
+        smooth,
+        maxS,
         delta
       );
-      const newZ = smoothDamp(
+      const nz = smoothDamp(
         this.camera.position.z,
-        this.targetCameraPos.z,
+        this.targetCamPos.z,
         this.camVelZ,
-        smoothTime,
-        maxSpeed,
+        smooth,
+        maxS,
         delta
       );
-      this.camera.position.set(newX, newY, newZ);
+      this.camera.position.set(nx, ny, nz);
 
-      const tX = smoothDamp(
+      const tx = smoothDamp(
         this.controls.target.x,
         this.targetLookAt.x,
-        this.lookAtVelX,
-        smoothTime,
-        maxSpeed,
+        this.lookVelX,
+        smooth,
+        maxS,
         delta
       );
-      const tY = smoothDamp(
+      const ty = smoothDamp(
         this.controls.target.y,
         this.targetLookAt.y,
-        this.lookAtVelY,
-        smoothTime,
-        maxSpeed,
+        this.lookVelY,
+        smooth,
+        maxS,
         delta
       );
-      const tZ = smoothDamp(
+      const tz = smoothDamp(
         this.controls.target.z,
         this.targetLookAt.z,
-        this.lookAtVelZ,
-        smoothTime,
-        maxSpeed,
+        this.lookVelZ,
+        smooth,
+        maxS,
         delta
       );
-      this.controls.target.set(tX, tY, tZ);
+      this.controls.target.set(tx, ty, tz);
 
-      const posDist = this.camera.position.distanceTo(this.targetCameraPos);
-      const tgtDist = this.controls.target.distanceTo(this.targetLookAt);
-
-      if (posDist < 0.05 && tgtDist < 0.05) {
-        this.isCameraTransitioning = false;
+      const pDist = this.camera.position.distanceTo(this.targetCamPos);
+      const tDist = this.controls.target.distanceTo(this.targetLookAt);
+      if (pDist < 0.04 && tDist < 0.04) {
+        this.isCamTransitioning = false;
       }
     }
 
@@ -669,29 +664,30 @@ class GreenhouseApp {
   }
 
   private animate = (): void => {
-    this.animationFrameId = requestAnimationFrame(this.animate);
+    this.animationId = requestAnimationFrame(this.animate);
     const delta = Math.min(this.clock.getDelta(), 0.1);
-    const elapsed = this.clock.getElapsedTime();
+    const time = this.clock.getElapsedTime();
+
+    this.envController.update(delta, time);
 
     if (this.isPlaying) {
       this.updatePlayback(delta);
     }
 
-    this.envController.update(delta, elapsed);
     this.plantManager.update(delta);
     this.updateCamera(delta);
     this.renderer.render(this.scene, this.camera);
   };
 
   dispose(): void {
-    if (this.animationFrameId !== null) {
-      cancelAnimationFrame(this.animationFrameId);
+    if (this.animationId !== null) {
+      cancelAnimationFrame(this.animationId);
     }
     this.plantManager.dispose();
     this.envController.dispose();
     this.controls.dispose();
     this.renderer.dispose();
-    window.removeEventListener('resize', this.onResize.bind(this));
+    window.removeEventListener('resize', this.onResize);
   }
 }
 

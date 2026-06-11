@@ -37,6 +37,8 @@ export class EnvController {
   private fogExpanded: THREE.FogExp2;
   private history: Array<{ time: number; params: EnvParams }> = [];
   private maxHistoryTime = 60000;
+  private lastHistoryRecord = 0;
+  private historyRecordInterval = 500;
 
   constructor(scene: THREE.Scene) {
     this.params = {
@@ -382,8 +384,10 @@ export class EnvController {
     const sunMat = this.sunMesh.material as THREE.MeshBasicMaterial;
     sunMat.opacity = 0.85 + Math.sin(time * 2) * 0.1;
 
-    if (time % 1 < delta * 2) {
+    const now = Date.now();
+    if (now - this.lastHistoryRecord > this.historyRecordInterval) {
       this.recordHistory();
+      this.lastHistoryRecord = now;
     }
   }
 
