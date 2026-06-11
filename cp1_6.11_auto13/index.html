@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>冰封地牢</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Iceberg&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Iceberg', cursive;
+      background: linear-gradient(135deg, #0b0f19 0%, #1a237e 100%);
+      color: #e0f7fa;
+      user-select: none;
+    }
+
+    #app {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1280px;
+      min-height: 720px;
+    }
+
+    .game-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 100vw;
+      max-height: 100vh;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(168, 216, 234, 0.3);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .status-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(168, 216, 234, 0.12);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(168, 216, 234, 0.25);
+      z-index: 10;
+    }
+
+    .status-left,
+    .status-right {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .status-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .status-label {
+      font-size: 12px;
+      color: #a8d8ea;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+
+    .status-value {
+      font-size: 24px;
+      color: #e0f7fa;
+      font-weight: bold;
+      text-shadow: 0 0 12px rgba(168, 216, 234, 0.6);
+    }
+
+    .status-value.crystal {
+      color: #4fc3f7;
+    }
+
+    .start-screen,
+    .level-clear-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(11, 15, 25, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 20;
+      gap: 28px;
+    }
+
+    .start-screen.hidden,
+    .level-clear-screen.hidden {
+      display: none;
+    }
+
+    .title {
+      font-size: 72px;
+      color: #e0f7fa;
+      text-shadow: 0 0 30px rgba(168, 216, 234, 0.8), 0 0 60px rgba(168, 216, 234, 0.4);
+      letter-spacing: 8px;
+    }
+
+    .subtitle {
+      font-size: 20px;
+      color: #a8d8ea;
+      letter-spacing: 4px;
+      opacity: 0.85;
+    }
+
+    .controls-hint {
+      display: flex;
+      gap: 48px;
+      margin-top: 20px;
+    }
+
+    .control-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 24px;
+      background: rgba(168, 216, 234, 0.08);
+      border: 1px solid rgba(168, 216, 234, 0.2);
+      border-radius: 12px;
+    }
+
+    .control-key {
+      font-size: 28px;
+      color: #4fc3f7;
+      font-weight: bold;
+    }
+
+    .control-desc {
+      font-size: 14px;
+      color: #a8d8ea;
+      letter-spacing: 1px;
+    }
+
+    .size-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .size-label {
+      font-size: 16px;
+      color: #a8d8ea;
+      letter-spacing: 2px;
+    }
+
+    .size-options {
+      display: flex;
+      gap: 12px;
+    }
+
+    .size-btn {
+      padding: 10px 24px;
+      background: rgba(168, 216, 234, 0.1);
+      border: 2px solid rgba(168, 216, 234, 0.35);
+      border-radius: 10px;
+      color: #e0f7fa;
+      font-family: 'Iceberg', cursive;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      letter-spacing: 1px;
+    }
+
+    .size-btn:hover {
+      background: rgba(168, 216, 234, 0.2);
+      border-color: rgba(224, 247, 250, 0.7);
+      box-shadow: 0 0 20px rgba(168, 216, 234, 0.4),
+                  inset 0 0 20px rgba(255, 255, 255, 0.1);
+      animation: breath 1.8s ease-in-out infinite;
+    }
+
+    .size-btn.active {
+      background: rgba(79, 195, 247, 0.25);
+      border-color: #4fc3f7;
+      box-shadow: 0 0 24px rgba(79, 195, 247, 0.6);
+    }
+
+    .start-btn,
+    .next-btn {
+      margin-top: 12px;
+      padding: 16px 56px;
+      background: linear-gradient(135deg, rgba(168, 216, 234, 0.25) 0%, rgba(79, 195, 247, 0.35) 100%);
+      border: 2px solid rgba(168, 216, 234, 0.6);
+      border-radius: 16px;
+      color: #e0f7fa;
+      font-family: 'Iceberg', cursive;
+      font-size: 26px;
+      cursor: pointer;
+      letter-spacing: 4px;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 30px rgba(168, 216, 234, 0.3),
+                  inset 0 0 20px rgba(255, 255, 255, 0.08);
+    }
+
+    .start-btn:hover,
+    .next-btn:hover {
+      transform: translateY(-2px);
+      background: linear-gradient(135deg, rgba(168, 216, 234, 0.35) 0%, rgba(79, 195, 247, 0.5) 100%);
+      box-shadow: 0 0 40px rgba(168, 216, 234, 0.5),
+                  inset 0 0 30px rgba(255, 255, 255, 0.15);
+      animation: breath 1.6s ease-in-out infinite;
+    }
+
+    .level-clear-title {
+      font-size: 56px;
+      color: #4fc3f7;
+      text-shadow: 0 0 40px rgba(79, 195, 247, 0.8);
+      letter-spacing: 6px;
+    }
+
+    .level-stats {
+      display: flex;
+      gap: 48px;
+      margin-top: 8px;
+    }
+
+    .stat-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: #a8d8ea;
+      letter-spacing: 2px;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      color: #e0f7fa;
+      font-weight: bold;
+    }
+
+    @keyframes breath {
+      0%, 100% {
+        box-shadow: 0 0 20px rgba(168, 216, 234, 0.4),
+                    inset 0 0 20px rgba(255, 255, 255, 0.1);
+      }
+      50% {
+        box-shadow: 0 0 40px rgba(255, 255, 255, 0.8),
+                    inset 0 0 30px rgba(255, 255, 255, 0.25);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="game-wrapper">
+      <canvas id="gameCanvas"></canvas>
+
+      <div class="status-bar">
+        <div class="status-left">
+          <div class="status-item">
+            <span class="status-label">层数</span>
+            <span class="status-value" id="floorValue">1</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">晶石</span>
+            <span class="status-value crystal"><span id="crystalValue">0</span> / 5</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">宝箱</span>
+            <span class="status-value" id="chestValue">0 / 3</span>
+          </div>
+        </div>
+        <div class="status-right">
+          <div class="status-item">
+            <span class="status-label">计时</span>
+            <span class="status-value" id="timerValue">00:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="start-screen" id="startScreen">
+        <h1 class="title">冰封地牢</h1>
+        <p class="subtitle">FROST DUNGEON MAZE</p>
+        <div class="controls-hint">
+          <div class="control-card">
+            <span class="control-key">↑</span>
+            <span class="control-desc">向上移动</span>
+          </div>
+          <div class="control-card">
+            <span class="control-key">↓</span>
+            <span class="control-desc">向下移动</span>
+          </div>
+          <div class="control-card">
+            <span class="control-key">←</span>
+            <span class="control-desc">向左移动</span>
+          </div>
+          <div class="control-card">
+            <span class="control-key">→</span>
+            <span class="control-desc">向右移动</span>
+          </div>
+        </div>
+        <div class="size-selector">
+          <span class="size-label">选择迷宫难度</span>
+          <div class="size-options" id="sizeOptions">
+            <button class="size-btn" data-size="5">简单 5×5</button>
+            <button class="size-btn active" data-size="9">普通 9×9</button>
+            <button class="size-btn" data-size="11">困难 11×11</button>
+            <button class="size-btn" data-size="15">地狱 15×15</button>
+          </div>
+        </div>
+        <button class="start-btn" id="startBtn">进入地牢</button>
+      </div>
+
+      <div class="level-clear-screen hidden" id="levelClearScreen">
+        <h2 class="level-clear-title">关卡通过！</h2>
+        <div class="level-stats">
+          <div class="stat-block">
+            <span class="stat-label">完成时间</span>
+            <span class="stat-value" id="clearTime">00:00</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-label">收集晶石</span>
+            <span class="stat-value" id="clearCrystals">5 / 5</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-label">宝箱收集</span>
+            <span class="stat-value" id="clearChests">3 / 3</span>
+          </div>
+        </div>
+        <button class="next-btn" id="nextBtn">下一层</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
