@@ -94,6 +94,8 @@ export class ObstacleManager {
   }
 
   private spawnObstacle(forwardSpeed: number): void {
+    const difficultyFactor = Math.min(1, this.difficultyTimer / 60);
+
     const rand = Math.random();
     let type: ObstacleType;
     if (rand < 0.6) {
@@ -106,18 +108,6 @@ export class ObstacleManager {
       type = type === 'spike' ? 'icicle' : 'spike';
     }
 
-    const difficultyFactor = Math.min(1, this.difficultyTimer / 60);
-
-    if (type === 'spike') {
-      this.spawnSpikeRow(forwardSpeed, difficultyFactor);
-    } else {
-      this.spawnIcicleRow(forwardSpeed, difficultyFactor);
-    }
-
-    this.lastSpawnType = type;
-  }
-
-  private spawnSpikeRow(forwardSpeed: number, difficultyFactor: number): void {
     const playAreaLeft = this.safeZoneWidth;
     const playAreaRight = this.config.canvasWidth - this.safeZoneWidth;
     const playWidth = playAreaRight - playAreaLeft;
@@ -139,6 +129,21 @@ export class ObstacleManager {
 
     const occupiedLanes = laneIndices.slice(0, occupiedCount).sort((a, b) => a - b);
 
+    if (type === 'spike') {
+      this.spawnSpikeInLanes(forwardSpeed, occupiedLanes, laneWidth, playAreaLeft);
+    } else {
+      this.spawnIcicleInLanes(forwardSpeed, occupiedLanes, laneWidth, playAreaLeft);
+    }
+
+    this.lastSpawnType = type;
+  }
+
+  private spawnSpikeInLanes(
+    forwardSpeed: number,
+    occupiedLanes: number[],
+    laneWidth: number,
+    playAreaLeft: number
+  ): void {
     const spawnX = this.config.canvasWidth + 60;
     const spikeWidth = 35 + Math.random() * 15;
     let maxX = spawnX;
@@ -154,25 +159,12 @@ export class ObstacleManager {
     this.lastSpawnX = maxX;
   }
 
-  private spawnIcicleRow(forwardSpeed: number, difficultyFactor: number): void {
-    const playAreaLeft = this.safeZoneWidth;
-    const playAreaRight = this.config.canvasWidth - this.safeZoneWidth;
-    const playWidth = playAreaRight - playAreaLeft;
-    const laneWidth = playWidth / this.laneCount;
-
-    const icicleCount = Math.min(this.laneCount - 1, Math.floor(2 + difficultyFactor * 2));
-
-    const laneIndices: number[] = [];
-    for (let i = 0; i < this.laneCount; i++) {
-      laneIndices.push(i);
-    }
-
-    for (let i = laneIndices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [laneIndices[i], laneIndices[j]] = [laneIndices[j], laneIndices[i]];
-    }
-
-    const occupiedLanes = laneIndices.slice(0, icicleCount);
+  private spawnIcicleInLanes(
+    forwardSpeed: number,
+    occupiedLanes: number[],
+    laneWidth: number,
+    playAreaLeft: number
+  ): void {
     const spawnX = this.config.canvasWidth + 40;
     let maxX = spawnX;
 

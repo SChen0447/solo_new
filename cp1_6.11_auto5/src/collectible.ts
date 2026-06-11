@@ -121,8 +121,9 @@ export class CollectibleManager {
 
       if (distance < hitbox.radius + c.radius) {
         c.isCollected = true;
+        const currentMultiplier = this.comboState.multiplier;
         this.addCombo();
-        const points = Math.floor(this.baseScore * this.comboState.multiplier);
+        const points = Math.floor(this.baseScore * Math.max(1, currentMultiplier));
         this.score += points;
         return c;
       }

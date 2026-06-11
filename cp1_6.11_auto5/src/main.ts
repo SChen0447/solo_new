@@ -204,20 +204,24 @@ class Game {
 
     this.scoreTimer += deltaTime;
     if (this.scoreTimer >= 0.1) {
-      this.distanceScore += Math.floor(this.player.state.forwardSpeed * 0.02);
+      this.distanceScore += Math.floor(this.player.state.speed * 0.02);
       this.scoreTimer = 0;
     }
 
-    const isFrozen = this.player.state.isFrozen;
+    const wasFrozen = this.player.state.isFrozen;
 
     this.player.update(deltaTime);
-    this.obstacleManager.update(deltaTime, this.player.state.forwardSpeed, isFrozen);
-    this.collectibleManager.update(deltaTime, this.player.state.forwardSpeed, isFrozen);
-    this.renderer.update(deltaTime, this.player.state.forwardSpeed);
+    this.obstacleManager.update(deltaTime, this.player.state.speed, this.player.state.isFrozen);
+    this.collectibleManager.update(deltaTime, this.player.state.speed, this.player.state.isFrozen);
+    this.renderer.update(deltaTime, this.player.state.speed);
 
-    this.renderer.setFrozen(isFrozen);
+    this.renderer.setFrozen(this.player.state.isFrozen);
 
-    if (this.player.state.isFrozen && this.player.state.freezeTimer >= 2.9) {
+    if (wasFrozen && !this.player.state.isFrozen) {
+      this.player.state.energy = 0;
+    }
+
+    if (this.player.state.isFrozen && this.player.state.freezeTimer >= 2.95) {
       this.renderer.spawnFreezeParticles();
     }
 
@@ -225,10 +229,12 @@ class Game {
 
     const collected = this.collectibleManager.checkCollection(hitbox);
     if (collected) {
-      this.player.collectEnergy();
+      if (!this.player.state.isFrozen) {
+        this.player.collectEnergy();
+      }
       this.renderer.spawnCollectParticles(collected.x, collected.y + collected.floatOffset, collected.color);
 
-      if (this.player.state.energy >= this.player.state.maxEnergy) {
+      if (this.player.state.energy >= this.player.state.maxEnergy && !this.player.state.isFrozen) {
         this.player.tryUseFreeze();
       }
     }

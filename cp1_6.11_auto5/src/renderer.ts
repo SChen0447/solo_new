@@ -252,19 +252,20 @@ export class Renderer {
     const ctx = this.ctx;
     const { x, y, radius, glowIntensity, trail, isShieldActive } = player;
 
-    const isFlashing = isShieldActive;
-    const flashIntensity = isFlashing ? 0.5 + Math.sin(Date.now() * 0.02) * 0.5 : 0;
+    const time = Date.now();
+    const flashWave = isShieldActive ? (Math.sin(time * 0.015) + 1) * 0.5 : 0;
+    const flashAlphaWave = isShieldActive ? 0.3 + flashWave * 0.7 : 0;
+    const colorMix = flashWave;
 
     for (let i = trail.length - 1; i >= 0; i--) {
       const t = trail[i];
       const trailRadius = radius * (1 - i / trail.length) * 0.7;
       ctx.save();
       ctx.globalAlpha = t.alpha * 0.3;
-      if (isFlashing) {
-        ctx.fillStyle = flashIntensity > 0.5 ? '#4fc3f7' : '#7cffcb';
-      } else {
-        ctx.fillStyle = '#7cffcb';
-      }
+      const r = Math.floor(124 + (79 - 124) * colorMix);
+      const g = Math.floor(255 + (195 - 255) * colorMix);
+      const b = Math.floor(203 + (247 - 203) * colorMix);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       ctx.beginPath();
       ctx.arc(t.x, t.y, trailRadius, 0, Math.PI * 2);
       ctx.fill();
@@ -272,15 +273,14 @@ export class Renderer {
     }
 
     for (let i = 3; i >= 0; i--) {
-      const glowRadius = radius + i * 12 * glowIntensity;
-      const glowAlpha = (0.15 - i * 0.03) * glowIntensity;
+      const glowRadius = radius + i * 12 * glowIntensity * (1 + flashWave * 0.3);
+      const glowAlpha = (0.15 - i * 0.03) * glowIntensity * (1 + flashWave * 0.5);
       ctx.save();
-      ctx.globalAlpha = glowAlpha * (1 + flashIntensity * 0.5);
-      if (isFlashing) {
-        ctx.fillStyle = '#4fc3f7';
-      } else {
-        ctx.fillStyle = '#7cffcb';
-      }
+      ctx.globalAlpha = glowAlpha;
+      const r = Math.floor(124 + (79 - 124) * colorMix);
+      const g = Math.floor(255 + (195 - 255) * colorMix);
+      const b = Math.floor(203 + (247 - 203) * colorMix);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       ctx.beginPath();
       ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
       ctx.fill();
@@ -291,11 +291,13 @@ export class Renderer {
       x - radius * 0.3, y - radius * 0.3, 0,
       x, y, radius
     );
-    if (isFlashing) {
-      bodyGradient.addColorStop(0, '#ffffff');
-      bodyGradient.addColorStop(0.3, '#b3e5fc');
-      bodyGradient.addColorStop(0.7, '#4fc3f7');
-      bodyGradient.addColorStop(1, '#0288d1');
+
+    if (isShieldActive) {
+      const brightness = 0.85 + flashWave * 0.15;
+      bodyGradient.addColorStop(0, `rgba(255, 255, 255, ${brightness})`);
+      bodyGradient.addColorStop(0.3, `rgba(179, 229, 252, ${brightness})`);
+      bodyGradient.addColorStop(0.7, `rgba(${Math.floor(79 * brightness)}, ${Math.floor(195 * brightness)}, ${Math.floor(247 * brightness)}, 1)`);
+      bodyGradient.addColorStop(1, `rgba(${Math.floor(2 * brightness)}, ${Math.floor(136 * brightness)}, ${Math.floor(209 * brightness)}, 1)`);
     } else {
       bodyGradient.addColorStop(0, '#ffffff');
       bodyGradient.addColorStop(0.3, '#aaffee');
@@ -308,29 +310,33 @@ export class Renderer {
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
 
-    if (isFlashing) {
-      const pulseRadius = radius + 5 + flashIntensity * 8;
-      ctx.save();
-      ctx.globalAlpha = 0.6 * flashIntensity;
-      ctx.strokeStyle = '#81d4fa';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+    if (isShieldActive) {
+      for (let i = 0; i < 3; i++) {
+        const pulsePhase = (time * 0.003 + i * 0.33) % 1;
+        const pulseRadius = radius + 5 + pulsePhase * 15;
+        const pulseAlpha = (1 - pulsePhase) * 0.5 * flashAlphaWave;
+        ctx.save();
+        ctx.globalAlpha = pulseAlpha;
+        ctx.strokeStyle = '#81d4fa';
+        ctx.lineWidth = 2 - i * 0.5;
+        ctx.beginPath();
+        ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     if (isShieldActive) {
-      const shieldAlpha = 0.4 + Math.sin(Date.now() * 0.025) * 0.3;
+      const shieldAlpha = 0.35 + flashWave * 0.35;
       ctx.save();
       ctx.globalAlpha = shieldAlpha;
       ctx.strokeStyle = '#4fc3f7';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3 + flashWave * 2;
       ctx.beginPath();
       ctx.arc(x, y, radius + 12, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.globalAlpha = shieldAlpha * 0.25;
+      ctx.globalAlpha = shieldAlpha * 0.3;
       ctx.fillStyle = '#b3e5fc';
       ctx.beginPath();
       ctx.arc(x, y, radius + 12, 0, Math.PI * 2);

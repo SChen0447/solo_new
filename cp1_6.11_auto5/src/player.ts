@@ -4,6 +4,7 @@ export interface PlayerState {
   radius: number;
   targetX: number;
   baseY: number;
+  speed: number;
   forwardSpeed: number;
   maxForwardSpeed: number;
   acceleration: number;
@@ -49,6 +50,7 @@ export class Player {
       radius,
       targetX: this.config.canvasWidth * 0.25,
       baseY: groundY - radius,
+      speed: 250,
       forwardSpeed: 250,
       maxForwardSpeed: 700,
       acceleration: 25,
@@ -120,11 +122,14 @@ export class Player {
 
     if (!s.isFrozen) {
       const timeFactor = Math.min(1, s.playTime / 45);
-      const targetSpeed = 250 + (s.maxForwardSpeed - 250) * timeFactor;
-      s.forwardSpeed += (targetSpeed - s.forwardSpeed) * Math.min(1, deltaTime * 2);
+      s.forwardSpeed = 250 + (s.maxForwardSpeed - 250) * timeFactor;
+      s.speed += (s.forwardSpeed - s.speed) * Math.min(1, deltaTime * 1.5);
 
-      if (s.forwardSpeed > s.maxForwardSpeed) {
-        s.forwardSpeed = s.maxForwardSpeed;
+      if (s.speed > s.maxForwardSpeed) {
+        s.speed = s.maxForwardSpeed;
+      }
+      if (s.speed < 250) {
+        s.speed = 250;
       }
     }
 
