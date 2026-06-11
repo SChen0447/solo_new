@@ -33,10 +33,12 @@ export const TRACKS: Track[] = [
   },
 ];
 
+const FIXED_DT = 1;
+
 export class BeatEngine {
   private track: Track;
   private beatTimes: number[] = [];
-  private startTime: number = 0;
+  private accumulatedMs: number = 0;
   private nextBeatIndex: number = 0;
   private running: boolean = false;
 
@@ -55,7 +57,7 @@ export class BeatEngine {
   }
 
   start(): void {
-    this.startTime = performance.now();
+    this.accumulatedMs = 0;
     this.nextBeatIndex = 0;
     this.running = true;
   }
@@ -64,18 +66,15 @@ export class BeatEngine {
     this.running = false;
   }
 
-  getElapsed(): number {
-    return performance.now() - this.startTime;
-  }
-
-  pollBeats(): BeatEvent[] {
+  update(dt: number): BeatEvent[] {
     if (!this.running) return [];
 
-    const elapsed = this.getElapsed();
+    this.accumulatedMs += dt;
+
     const events: BeatEvent[] = [];
 
     while (this.nextBeatIndex < this.beatTimes.length &&
-           this.beatTimes[this.nextBeatIndex] <= elapsed) {
+           this.beatTimes[this.nextBeatIndex] <= this.accumulatedMs) {
       events.push({
         time: this.beatTimes[this.nextBeatIndex],
         index: this.nextBeatIndex,
@@ -114,10 +113,14 @@ export class BeatEngine {
 
   getTimeToNextBeat(): number {
     if (this.nextBeatIndex >= this.beatTimes.length) return Infinity;
-    return this.beatTimes[this.nextBeatIndex] - this.getElapsed();
+    return this.beatTimes[this.nextBeatIndex] - this.accumulatedMs;
   }
 
   getBeatTime(index: number): number {
     return this.beatTimes[index] ?? 0;
+  }
+
+  getElapsed(): number {
+    return this.accumulatedMs;
   }
 }

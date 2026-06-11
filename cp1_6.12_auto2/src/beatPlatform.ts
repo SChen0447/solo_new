@@ -2,6 +2,8 @@ import { BeatEngine, BeatEvent } from './beatEngine';
 
 const PLATFORM_HUE_LIST = [0, 30, 60, 120, 180, 210, 270, 300];
 
+const BASE_SPEED_PX_PER_MS = 3 / 16.67;
+
 export class Platform {
   x: number;
   y: number;
@@ -63,14 +65,13 @@ export class BeatPlatformManager {
   private beatEngine: BeatEngine;
   private canvasWidth: number;
   private canvasHeight: number;
-  private baseSpeed: number = 3;
-  private scrollSpeed: number = 3;
+  private scrollSpeedPxPerMs: number = BASE_SPEED_PX_PER_MS;
   private platformWidth: number = 80;
   private platformHeight: number = 16;
   private groundY: number;
   private nextBeatToSpawn: number = 0;
-  private lastPulseTime: number = 0;
   private beatPulse: number = 0;
+  private pulseRemainingMs: number = 0;
   private particles: LandingParticle[] = [];
 
   constructor(beatEngine: BeatEngine, canvasWidth: number, canvasHeight: number) {
@@ -89,8 +90,10 @@ export class BeatPlatformManager {
   init(): void {
     this.platforms = [];
     this.nextBeatToSpawn = 0;
-    this.scrollSpeed = this.baseSpeed;
+    this.scrollSpeedPxPerMs = BASE_SPEED_PX_PER_MS;
     this.particles = [];
+    this.beatPulse = 0;
+    this.pulseRemainingMs = 0;
 
     const startPlatform = new Platform(
       this.canvasWidth * 0.15,
@@ -105,34 +108,38 @@ export class BeatPlatformManager {
   update(dt: number): void {
     const currentInterval = this.beatEngine.getCurrentSpeed();
     const speedMultiplier = 500 / Math.max(currentInterval, 200);
-    this.scrollSpeed = this.baseSpeed * speedMultiplier;
+    this.scrollSpeedPxPerMs = BASE_SPEED_PX_PER_MS * speedMultiplier;
 
-    const beatEvents = this.beatEngine.pollBeats();
+    const beatEvents = this.beatEngine.update(dt);
     for (const event of beatEvents) {
       this.spawnPlatform(event);
       this.beatPulse = 1.0;
-      this.lastPulseTime = performance.now();
+      this.pulseRemainingMs = 200;
     }
 
+    const deltaX = this.scrollSpeedPxPerMs * dt;
     for (const p of this.platforms) {
-      p.x -= this.scrollSpeed * (dt / 16.67);
+      p.x -= deltaX;
     }
 
     this.platforms = this.platforms.filter(p => p.x + p.width > -50);
 
-    const now = performance.now();
-    const pulseElapsed = now - this.lastPulseTime;
-    if (pulseElapsed < 200) {
-      this.beatPulse = 1.0 - pulseElapsed / 200;
-    } else {
-      this.beatPulse = 0;
+    if (this.pulseRemainingMs > 0) {
+      this.pulseRemainingMs -= dt;
+      if (this.pulseRemainingMs <= 0) {
+        this.pulseRemainingMs = 0;
+        this.beatPulse = 0;
+      } else {
+        this.beatPulse = this.pulseRemainingMs / 200;
+      }
     }
 
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const part = this.particles[i];
-      part.x += part.vx * (dt / 16.67);
-      part.y += part.vy * (dt / 16.67);
-      part.vy += 0.15 * (dt / 16.67);
+      const dtFactor = dt / 16.67;
+      part.x += part.vx * dtFactor;
+      part.y += part.vy * dtFactor;
+      part.vy += 0.15 * dtFactor;
       part.life -= dt / 600;
       if (part.life <= 0) {
         this.particles.splice(i, 1);
@@ -146,9 +153,9 @@ export class BeatPlatformManager {
 
     const interval = this.beatEngine.getCurrentSpeed();
     const speedMultiplier = 500 / Math.max(interval, 200);
-    const currentSpeed = this.baseSpeed * speedMultiplier;
+    const scrollSpeedPxPerMs = BASE_SPEED_PX_PER_MS * speedMultiplier;
 
-    const spacing = currentSpeed * (interval / 16.67);
+    const spacing = scrollSpeedPxPerMs * interval;
 
     const lastPlatform = this.platforms[this.platforms.length - 1];
     const newX = Math.max(this.canvasWidth + 20, lastPlatform.x + lastPlatform.width + spacing);
@@ -166,8 +173,8 @@ export class BeatPlatformManager {
     return this.platforms;
   }
 
-  getScrollSpeed(): number {
-    return this.scrollSpeed;
+  getScrollSpeedPxPerMs(): number {
+    return this.scrollSpeedPxPerMs;
   }
 
   getBeatPulse(): number {

@@ -1,7 +1,9 @@
 import { Platform } from './beatPlatform';
 
-const GRAVITY = 0.6;
-const JUMP_VELOCITY = -12;
+const BASE_SPEED_PX_PER_MS = 3 / 16.67;
+const MIN_HEIGHT_PX = 90;
+const MAX_HEIGHT_PX = 180;
+const AIR_TIME_RATIO = 0.9;
 
 export class Player {
   x: number;
@@ -10,6 +12,8 @@ export class Player {
   height: number = 30;
   vy: number = 0;
   vx: number = 0;
+  gravity: number = 0;
+  jumpVelocity: number = 0;
   isOnGround: boolean = true;
   isJumping: boolean = false;
   scaleX: number = 1;
@@ -23,11 +27,24 @@ export class Player {
 
   private squashTimer: number = 0;
   private stretchTimer: number = 0;
+  private prevBottomY: number = 0;
 
   constructor(canvasHeight: number) {
     this.x = 80;
     this.y = 0;
     this.canvasHeight = canvasHeight;
+    this.updatePhysicsForSpeed(BASE_SPEED_PX_PER_MS, 500);
+  }
+
+  private updatePhysicsForSpeed(scrollSpeedPxPerMs: number, beatIntervalMs: number): void {
+    const speedRatio = scrollSpeedPxPerMs / BASE_SPEED_PX_PER_MS;
+    const jumpHeight = MIN_HEIGHT_PX + (MAX_HEIGHT_PX - MIN_HEIGHT_PX) * Math.min(1, (speedRatio - 1) / 2);
+    const actualHeight = Math.max(MIN_HEIGHT_PX, Math.min(MAX_HEIGHT_PX, jumpHeight));
+
+    const airTimeMs = Math.max(200, beatIntervalMs * AIR_TIME_RATIO);
+
+    this.jumpVelocity = -(2 * actualHeight) / airTimeMs;
+    this.gravity = (2 * actualHeight) / (airTimeMs * airTimeMs);
   }
 
   reset(canvasHeight: number): void {
@@ -45,6 +62,8 @@ export class Player {
     this.jumpRequested = false;
     this.squashTimer = 0;
     this.stretchTimer = 0;
+    this.prevBottomY = 0;
+    this.updatePhysicsForSpeed(BASE_SPEED_PX_PER_MS, 500);
   }
 
   requestJump(): void {
@@ -54,7 +73,7 @@ export class Player {
   }
 
   private jump(): void {
-    this.vy = JUMP_VELOCITY;
+    this.vy = this.jumpVelocity;
     this.isOnGround = false;
     this.isJumping = true;
     this.currentPlatform = null;
@@ -65,23 +84,30 @@ export class Player {
     this.squashTimer = 0;
   }
 
-  update(dt: number, platforms: Platform[], scrollSpeed: number): { landed: boolean; platformHue: number } {
+  update(
+    dt: number,
+    platforms: Platform[],
+    scrollSpeedPxPerMs: number,
+    beatIntervalMs: number
+  ): { landed: boolean; platformHue: number } {
     if (this.isDead) return { landed: false, platformHue: 0 };
 
-    const dtFactor = dt / 16.67;
+    this.updatePhysicsForSpeed(scrollSpeedPxPerMs, beatIntervalMs);
 
     if (this.jumpRequested) {
       this.jump();
       this.jumpRequested = false;
     }
 
+    this.prevBottomY = this.y + this.height;
+
     if (this.isOnGround && this.currentPlatform) {
-      this.x -= scrollSpeed * dtFactor;
+      this.x -= scrollSpeedPxPerMs * dt;
     }
 
     if (!this.isOnGround) {
-      this.vy += GRAVITY * dtFactor;
-      this.y += this.vy * dtFactor;
+      this.vy += this.gravity * dt;
+      this.y += this.vy * dt;
     }
 
     let landed = false;
@@ -110,7 +136,9 @@ export class Player {
 
     if (this.isOnGround && this.currentPlatform) {
       const plat = this.currentPlatform;
-      if (this.x + this.width < plat.x || this.x > plat.x + plat.width) {
+      const overlapX = this.x + this.width > plat.x && this.x < plat.x + plat.width;
+      const nearTop = Math.abs((this.y + this.height) - plat.y) < 2;
+      if (!overlapX || !nearTop) {
         this.isOnGround = false;
         this.isJumping = false;
         this.currentPlatform = null;
@@ -134,8 +162,9 @@ export class Player {
     }
 
     const lerpSpeed = 0.15;
-    this.scaleX += (this.targetScaleX - this.scaleX) * lerpSpeed * dtFactor;
-    this.scaleY += (this.targetScaleY - this.scaleY) * lerpSpeed * dtFactor;
+    const lerpFactor = 1 - Math.pow(1 - lerpSpeed, dt / 16.67);
+    this.scaleX += (this.targetScaleX - this.scaleX) * lerpFactor;
+    this.scaleY += (this.targetScaleY - this.scaleY) * lerpFactor;
 
     if (this.y > this.canvasHeight + 50) {
       this.isDead = true;
@@ -145,16 +174,22 @@ export class Player {
   }
 
   private checkLanding(plat: Platform): boolean {
+    const playerLeft = this.x;
+    const playerRight = this.x + this.width;
+    const platLeft = plat.x;
+    const platRight = plat.x + plat.width;
+
+    const horizontalOverlap = playerRight > platLeft && playerLeft < platRight;
+    if (!horizontalOverlap) return false;
+
     const playerBottom = this.y + this.height;
-    const playerPrevBottom = playerBottom - this.vy * (16.67 / 16.67);
+    const platTop = plat.y;
 
-    if (playerPrevBottom <= plat.y + 4 && playerBottom >= plat.y - 2) {
-      if (this.x + this.width > plat.x + 4 && this.x < plat.x + plat.width - 4) {
-        return true;
-      }
-    }
+    const crossedFromAbove = this.prevBottomY <= platTop + 2 && playerBottom >= platTop - 1;
 
-    return false;
+    const withinPlatformBand = playerBottom >= platTop - 2 && playerBottom <= platTop + plat.height + 4;
+
+    return crossedFromAbove || withinPlatformBand;
   }
 
   draw(ctx: CanvasRenderingContext2D): void {

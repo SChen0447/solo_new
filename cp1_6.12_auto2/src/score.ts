@@ -15,14 +15,14 @@ export class ScoreManager {
   }
 
   onSuccessfulLand(): void {
-    this.combo++;
-    this.score += this.combo;
+    this.combo = this.combo + 1;
+    this.score = this.score + this.combo;
     this.comboAnimScale = 1.5;
     this.comboAnimTimer = 200;
   }
 
   onMiss(): void {
-    this.lives--;
+    this.lives = this.lives - 1;
     this.combo = 0;
   }
 

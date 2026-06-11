@@ -182,8 +182,9 @@ class Game {
     this.platformManager.update(dt);
 
     const platforms = this.platformManager.getPlatforms();
-    const scrollSpeed = this.platformManager.getScrollSpeed();
-    const result = this.player.update(dt, platforms, scrollSpeed);
+    const scrollSpeedPxPerMs = this.platformManager.getScrollSpeedPxPerMs();
+    const beatIntervalMs = this.beatEngine.getCurrentSpeed();
+    const result = this.player.update(dt, platforms, scrollSpeedPxPerMs, beatIntervalMs);
 
     if (result.landed) {
       this.scoreManager.onSuccessfulLand();
