@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Toolbar from './Toolbar';
-import ImageAnnotator from './ImageAnnotator';
+import ImageAnnotator, { ImageAnnotatorHandle } from './ImageAnnotator';
 import { Annotation, ImageItem, ToolState, PRESET_COLORS } from './types';
 import * as api from './api';
 
@@ -18,6 +18,8 @@ const App: React.FC = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [copied, setCopied] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const [tool, setTool] = useState<ToolState>({
     type: 'select',
@@ -25,10 +27,16 @@ const App: React.FC = () => {
     strokeWidth: 3,
   });
 
+  const annotatorRef = useRef<ImageAnnotatorHandle>(null);
+  const tickRef = useRef<number | null>(null);
+
   const getRoute = () => {
     const path = window.location.pathname;
     if (path.startsWith('/share/')) {
       return { view: 'share' as View, id: path.slice(7) };
+    }
+    if (path.startsWith('/s/')) {
+      return { view: 'share' as View, id: path.slice(3) };
     }
     return { view: 'list' as View, id: null };
   };
@@ -41,6 +49,19 @@ const App: React.FC = () => {
       loadImages();
     }
   }, []);
+
+  useEffect(() => {
+    if (view !== 'annotate') return;
+    const tick = () => {
+      setCanUndo(annotatorRef.current?.canUndo() ?? false);
+      setCanRedo(annotatorRef.current?.canRedo() ?? false);
+      tickRef.current = window.setTimeout(tick, 100);
+    };
+    tick();
+    return () => {
+      if (tickRef.current !== null) window.clearTimeout(tickRef.current);
+    };
+  }, [view]);
 
   const loadImages = async () => {
     try {
@@ -107,21 +128,19 @@ const App: React.FC = () => {
   }, []);
 
   const handleUndo = useCallback(() => {
-    (window as any).__annotatorUndo?.();
+    annotatorRef.current?.undo();
   }, []);
 
   const handleRedo = useCallback(() => {
-    (window as any).__annotatorRedo?.();
+    annotatorRef.current?.redo();
   }, []);
-
-  const canUndo = (window as any).__annotatorCanUndo?.() || false;
-  const canRedo = (window as any).__annotatorCanRedo?.() || false;
 
   const handleShare = async () => {
     if (!currentImage) return;
     try {
-      await api.saveAnnotations(currentImage.id, annotations);
-      const res = await api.createShare(currentImage.id, annotations);
+      const currentAnns = annotatorRef.current?.getAnnotations() ?? annotations;
+      await api.saveAnnotations(currentImage.id, currentAnns);
+      const res = await api.createShare(currentImage.id, currentAnns);
       const url = `${window.location.origin}${res.shareUrl}`;
       setShareUrl(url);
       setShowShareModal(true);
@@ -197,6 +216,7 @@ const App: React.FC = () => {
           />
           <div className="canvas-wrap">
             <ImageAnnotator
+              ref={annotatorRef}
               imageUrl={currentImage.url}
               initialAnnotations={annotations}
               tool={tool}

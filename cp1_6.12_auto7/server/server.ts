@@ -6,12 +6,13 @@ import fs from 'fs';
 
 const app = express();
 const PORT = 3001;
+export default app;
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-interface ImageData {
+export interface ImageData {
   id: string;
   filename: string;
   originalName: string;
@@ -19,7 +20,7 @@ interface ImageData {
   createdAt: number;
 }
 
-interface AnnotationData {
+export interface AnnotationData {
   id: string;
   type: 'rectangle' | 'circle' | 'arrow' | 'brush';
   x: number;
@@ -32,8 +33,9 @@ interface AnnotationData {
   note?: string;
 }
 
-interface ShareData {
+export interface ShareData {
   id: string;
+  shortId: string;
   imageId: string;
   annotations: AnnotationData[];
   createdAt: number;
@@ -68,9 +70,66 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-const imagesStore: Map<string, ImageData> = new Map();
-const annotationsStore: Map<string, AnnotationData[]> = new Map();
-const sharesStore: Map<string, ShareData> = new Map();
+export const imagesStore: Map<string, ImageData> = new Map();
+export const annotationsStore: Map<string, AnnotationData[]> = new Map();
+export const sharesStore: Map<string, ShareData> = new Map();
+export const shortIdToShareId: Map<string, string> = new Map();
+
+const SHORT_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const SHORT_LENGTH = 7;
+
+export function generateShortId(): string {
+  let id = '';
+  for (let i = 0; i < SHORT_LENGTH; i++) {
+    id += SHORT_CHARS[Math.floor(Math.random() * SHORT_CHARS.length)];
+  }
+  if (shortIdToShareId.has(id)) return generateShortId();
+  return id;
+}
+
+export function compressAnnotations(annotations: AnnotationData[]): any[] {
+  return annotations.map((a) => {
+    const compressed: any = {
+      _t: a.type[0],
+      _x: Math.round(a.x * 100) / 100,
+      _y: Math.round(a.y * 100) / 100,
+      _w: Math.round(a.width * 100) / 100,
+      _h: Math.round(a.height * 100) / 100,
+      _c: a.color,
+      _s: a.strokeWidth,
+    };
+    if (a.points) {
+      compressed._p = a.points.map((p) => [
+        Math.round(p.x * 100) / 100,
+        Math.round(p.y * 100) / 100,
+      ]);
+    }
+    if (a.note) compressed._n = a.note;
+    compressed._id = a.id;
+    return compressed;
+  });
+}
+
+export function decompressAnnotations(compressed: any[]): AnnotationData[] {
+  const typeMap: Record<string, AnnotationData['type']> = {
+    r: 'rectangle',
+    c: 'circle',
+    a: 'arrow',
+    b: 'brush',
+  };
+  return compressed.map((c) => ({
+    id: c._id,
+    type: typeMap[c._t] || 'rectangle',
+    x: c._x,
+    y: c._y,
+    width: c._w,
+    height: c._h,
+    points: c._p ? c._p.map((p: number[]) => ({ x: p[0], y: p[1] })) : undefined,
+    color: c._c,
+    strokeWidth: c._s,
+    note: c._n,
+  }));
+}
 
 app.post('/api/images', upload.single('image'), (req: Request, res: Response) => {
   try {
@@ -114,6 +173,10 @@ app.get('/api/images/:id/annotations', (req: Request, res: Response) => {
 });
 
 app.put('/api/images/:id/annotations', (req: Request, res: Response) => {
+  if (!imagesStore.has(req.params.id)) {
+    res.status(404).json({ error: '图片不存在' });
+    return;
+  }
   const annotations: AnnotationData[] = req.body.annotations || [];
   annotationsStore.set(req.params.id, annotations);
   res.json({ success: true });
@@ -126,24 +189,46 @@ app.post('/api/share', (req: Request, res: Response) => {
     return;
   }
   const shareId = uuidv4();
+  const shortId = generateShortId();
   const shareData: ShareData = {
     id: shareId,
+    shortId,
     imageId,
     annotations: annotations || [],
     createdAt: Date.now(),
   };
   sharesStore.set(shareId, shareData);
-  res.json({ shareId, shareUrl: `/share/${shareId}` });
+  shortIdToShareId.set(shortId, shareId);
+  res.json({ shareId, shortId, shareUrl: `/s/${shortId}` });
 });
 
 app.get('/api/share/:id', (req: Request, res: Response) => {
-  const share = sharesStore.get(req.params.id);
+  let share: ShareData | undefined;
+  if (req.params.id.length === SHORT_LENGTH) {
+    const fullId = shortIdToShareId.get(req.params.id);
+    share = fullId ? sharesStore.get(fullId) : undefined;
+  } else {
+    share = sharesStore.get(req.params.id);
+  }
   if (!share) {
     res.status(404).json({ error: '分享链接不存在或已过期' });
     return;
   }
   const image = imagesStore.get(share.imageId);
+  if (!image) {
+    res.status(404).json({ error: '关联图片不存在' });
+    return;
+  }
   res.json({ image, annotations: share.annotations });
+});
+
+app.get(['/s/:shortId', '/share/:id'], (req, res) => {
+  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+  }
 });
 
 app.get('*', (_req, res) => {
@@ -155,6 +240,8 @@ app.get('*', (_req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
