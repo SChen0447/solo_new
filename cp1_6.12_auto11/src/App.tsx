@@ -1,12 +1,17 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Home from "@/pages/Home";
+import { Designer } from "@/components/Designer";
+import { Viewer } from "@/components/Viewer";
+import { Statistics } from "@/components/Statistics";
+import SurveyList from "@/pages/SurveyList";
 
 export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/other" element={<div className="text-center text-xl">Other Page - Coming Soon</div>} />
+        <Route path="/" element={<SurveyList />} />
+        <Route path="/designer/:surveyId" element={<Designer />} />
+        <Route path="/viewer/:surveyId" element={<Viewer />} />
+        <Route path="/dashboard/:surveyId" element={<Statistics />} />
       </Routes>
     </Router>
   );

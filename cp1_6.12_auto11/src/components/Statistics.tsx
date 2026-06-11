@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ArrowLeft, Download, Edit, FileText, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
+import { ArrowLeft, Download, Edit, FileText, BarChart3, PieChart as PieChartIcon, List, Cloud } from 'lucide-react';
 import type { Survey, Answer, Question } from '../types';
 import { dataStore } from '../dataStore';
 
 const COLORS = ['#4F46E5', '#818CF8', '#A5B4FC', '#C7D2FE', '#E0E7FF', '#6366F1', '#7C3AED'];
+const WORD_COLORS = ['#4F46E5', '#6366F1', '#7C3AED', '#8B5CF6', '#A78BFA', '#818CF8', '#3730A3', '#4338CA', '#5B21B6', '#6D28D9'];
 
 interface StatCardProps {
   title: string;
@@ -136,6 +137,87 @@ const BarChartCard: React.FC<BarChartCardProps> = ({ question, data, delay }) =>
   );
 };
 
+interface WordCloudProps {
+  words: { text: string; count: number }[];
+}
+
+const WordCloud: React.FC<WordCloudProps> = ({ words }) => {
+  const maxCount = Math.max(...words.map(w => w.count), 1);
+  const minSize = 14;
+  const maxSize = 48;
+
+  const getSize = (count: number) => {
+    const ratio = count / maxCount;
+    return minSize + ratio * (maxSize - minSize);
+  };
+
+  const getColor = (index: number) => {
+    return WORD_COLORS[index % WORD_COLORS.length];
+  };
+
+  if (words.length === 0) {
+    return (
+      <div className="h-64 flex items-center justify-center text-gray-400">
+        暂无回答数据
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-64 flex flex-wrap items-center justify-center gap-3 content-center p-4 overflow-hidden">
+      {words.map((word, idx) => (
+        <span
+          key={idx}
+          className="inline-block transition-all duration-200 hover:scale-110 cursor-default"
+          style={{
+            fontSize: `${getSize(word.count)}px`,
+            color: getColor(idx),
+            fontWeight: word.count / maxCount > 0.5 ? 600 : 400,
+          }}
+          title={`出现 ${word.count} 次`}
+        >
+          {word.text}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+function extractWords(texts: string[]): { text: string; count: number }[] {
+  const wordCount: { [key: string]: number } = {};
+  
+  texts.forEach(text => {
+    if (!text) return;
+    
+    const cleaned = text.replace(/[^\w\u4e00-\u9fa5\s]/g, ' ');
+    
+    const chineseChars = cleaned.match(/[\u4e00-\u9fa5]+/g) || [];
+    chineseChars.forEach(chunk => {
+      for (let i = 0; i < chunk.length; i++) {
+        const char = chunk[i];
+        wordCount[char] = (wordCount[char] || 0) + 1;
+      }
+      for (let i = 0; i < chunk.length - 1; i++) {
+        const bigram = chunk.slice(i, i + 2);
+        wordCount[bigram] = (wordCount[bigram] || 0) + 1;
+      }
+    });
+    
+    const englishWords = cleaned.match(/[a-zA-Z]+/g) || [];
+    englishWords.forEach(word => {
+      const lower = word.toLowerCase();
+      if (lower.length > 2) {
+        wordCount[lower] = (wordCount[lower] || 0) + 1;
+      }
+    });
+  });
+  
+  return Object.entries(wordCount)
+    .map(([text, count]) => ({ text, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50);
+}
+
 interface TextListCardProps {
   question: Question;
   answers: string[];
@@ -143,25 +225,58 @@ interface TextListCardProps {
 }
 
 const TextListCard: React.FC<TextListCardProps> = ({ question, answers, delay }) => {
+  const [viewMode, setViewMode] = useState<'cloud' | 'list'>('cloud');
+  
+  const wordCloudData = useMemo(() => {
+    return extractWords(answers);
+  }, [answers]);
+
   return (
     <StatCard title={question.title} icon={<FileText size={20} />} delay={delay}>
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          onClick={() => setViewMode('cloud')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            viewMode === 'cloud'
+              ? 'bg-indigo-100 text-indigo-700'
+              : 'text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          <Cloud size={16} />
+          词云
+        </button>
+        <button
+          onClick={() => setViewMode('list')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            viewMode === 'list'
+              ? 'bg-indigo-100 text-indigo-700'
+              : 'text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          <List size={16} />
+          列表
+        </button>
+        <span className="ml-auto text-sm text-gray-400">
+          共 {answers.length} 条回答
+        </span>
+      </div>
+      
       {answers.length === 0 ? (
-        <div className="h-32 flex items-center justify-center text-gray-400">
+        <div className="h-64 flex items-center justify-center text-gray-400">
           暂无回答数据
         </div>
+      ) : viewMode === 'cloud' ? (
+        <WordCloud words={wordCloudData} />
       ) : (
-        <div className="max-h-80 overflow-y-auto space-y-3">
+        <div className="max-h-64 overflow-y-auto space-y-2">
           {answers.map((answer, idx) => (
             <div
               key={idx}
-              className="p-4 bg-gray-50 rounded-lg text-gray-700 text-sm"
+              className="p-3 bg-gray-50 rounded-lg text-gray-700 text-sm"
             >
               {answer}
             </div>
           ))}
-          <div className="text-sm text-gray-500 pt-2">
-            共 {answers.length} 条回答
-          </div>
         </div>
       )}
     </StatCard>
@@ -182,9 +297,13 @@ export const Statistics: React.FC = () => {
         dataStore.getSurvey(surveyId),
         dataStore.getAnswers(surveyId),
       ]).then(([s, a]) => {
-        setSurvey(s);
-        setAnswers(a);
-        setLoading(false);
+        if (s) {
+          setSurvey(s);
+          setAnswers(a);
+          setLoading(false);
+        } else {
+          navigate('/');
+        }
       }).catch(() => {
         navigate('/');
       });
@@ -204,7 +323,9 @@ export const Statistics: React.FC = () => {
         q.options?.forEach(opt => { counts[opt] = 0; });
         questionAnswers.forEach(a => {
           const val = a.value as string;
-          counts[val] = (counts[val] || 0) + 1;
+          if (val) {
+            counts[val] = (counts[val] || 0) + 1;
+          }
         });
         result[q.id] = Object.entries(counts).map(([name, value]) => ({ name, value }));
       } else if (q.type === 'multiple') {
@@ -212,40 +333,44 @@ export const Statistics: React.FC = () => {
         q.options?.forEach(opt => { counts[opt] = 0; });
         questionAnswers.forEach(a => {
           const vals = a.value as string[];
-          vals.forEach(v => {
-            counts[v] = (counts[v] || 0) + 1;
-          });
+          if (Array.isArray(vals)) {
+            vals.forEach(v => {
+              counts[v] = (counts[v] || 0) + 1;
+            });
+          }
         });
         result[q.id] = Object.entries(counts).map(([name, value]) => ({ name, value }));
       } else if (q.type === 'rating') {
         const counts: { [key: string]: number } = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
         questionAnswers.forEach(a => {
           const val = a.value as number;
-          counts[val.toString()] = (counts[val.toString()] || 0) + 1;
+          if (val && val >= 1 && val <= 5) {
+            counts[val.toString()] = (counts[val.toString()] || 0) + 1;
+          }
         });
         result[q.id] = [1, 2, 3, 4, 5].map(star => ({
           name: star.toString(),
           value: counts[star.toString()] || 0,
         }));
       } else if (q.type === 'text') {
-        result[q.id] = questionAnswers.map(a => a.value as string).filter(Boolean);
+        result[q.id] = questionAnswers
+          .map(a => a.value as string)
+          .filter(v => v && typeof v === 'string' && v.trim().length > 0);
       }
     });
     
     return result;
   }, [survey, answers]);
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (!surveyId) return;
     setExporting(true);
-    try {
-      await dataStore.exportSurvey(surveyId);
-    } catch (e) {
-      alert('导出失败，请重试');
-    } finally {
-      setExporting(false);
+    const success = await dataStore.exportSurvey(surveyId);
+    if (success) {
+      // 导出成功，无需额外处理
     }
-  };
+    setExporting(false);
+  }, [surveyId]);
 
   const submissionCount = useMemo(() => {
     if (answers.length === 0) return 0;

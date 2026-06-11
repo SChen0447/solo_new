@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
-import { GripVertical, Plus, Trash2, Eye, Save, ArrowLeft, Star, Type, List, CheckSquare, ChevronDown, CircleDot } from 'lucide-react';
+import { GripVertical, Plus, Trash2, Eye, Save, ArrowLeft, Star, Type, List, CheckSquare, ChevronDown, CircleDot, X, Send } from 'lucide-react';
 import type { Survey, Question, QuestionType } from '../types';
 import { QUESTION_TYPES } from '../types';
 import { dataStore } from '../dataStore';
@@ -19,9 +19,12 @@ interface QuestionCardProps {
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onPreview: () => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
   onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, targetId: string) => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
 }
 
 const QuestionCard: React.FC<QuestionCardProps> = React.memo(({
@@ -29,9 +32,12 @@ const QuestionCard: React.FC<QuestionCardProps> = React.memo(({
   isSelected,
   onSelect,
   onDelete,
+  onPreview,
   onDragStart,
   onDragOver,
   onDrop,
+  onDragEnd,
+  isDragging,
 }) => {
   const typeInfo = QUESTION_TYPES.find(t => t.value === question.type);
   return (
@@ -39,15 +45,19 @@ const QuestionCard: React.FC<QuestionCardProps> = React.memo(({
       draggable
       onDragStart={(e) => onDragStart(e, question.id)}
       onDragOver={onDragOver}
-      onDrop={(e) => onDrop(e, question.id)}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       onClick={onSelect}
+      data-question-id={question.id}
       className={`group flex items-center gap-3 p-4 rounded-lg cursor-pointer transition-all duration-200 ${
+        isDragging ? 'opacity-50 scale-95' : ''
+      } ${
         isSelected
           ? 'bg-indigo-50 border-2 border-indigo-500 shadow-md'
           : 'bg-white border-2 border-transparent hover:border-indigo-200 hover:shadow-sm'
       }`}
     >
-      <div className="cursor-grab text-gray-400 hover:text-indigo-500 transition-colors">
+      <div className="cursor-grab text-gray-400 hover:text-indigo-500 transition-colors active:cursor-grabbing">
         <GripVertical size={20} />
       </div>
       <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
@@ -62,12 +72,22 @@ const QuestionCard: React.FC<QuestionCardProps> = React.memo(({
           {question.required && <span className="ml-2 text-red-500">· 必填</span>}
         </div>
       </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-      >
-        <Trash2 size={18} />
-      </button>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); onPreview(); }}
+          className="p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all"
+          title="预览"
+        >
+          <Eye size={18} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+          title="删除"
+        >
+          <Trash2 size={18} />
+        </button>
+      </div>
     </div>
   );
 });
@@ -76,9 +96,10 @@ QuestionCard.displayName = 'QuestionCard';
 
 interface QuestionPreviewProps {
   question: Question;
+  demo?: boolean;
 }
 
-const QuestionPreview: React.FC<QuestionPreviewProps> = ({ question }) => {
+const QuestionPreviewRenderer: React.FC<QuestionPreviewProps> = ({ question, demo = false }) => {
   const [rating, setRating] = useState(0);
   const [singleValue, setSingleValue] = useState('');
   const [multiValue, setMultiValue] = useState<string[]>([]);
@@ -90,16 +111,19 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({ question }) => {
       return (
         <div className="space-y-2">
           {question.options?.map((opt, idx) => (
-            <label key={idx} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+            <label
+              key={idx}
+              className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-150 cursor-pointer group"
+            >
               <input
                 type="radio"
-                name={`preview-${question.id}`}
+                name={`preview-${question.id}-${demo ? 'demo' : 'edit'}`}
                 value={opt}
                 checked={singleValue === opt}
                 onChange={(e) => setSingleValue(e.target.value)}
-                className="w-4 h-4 text-indigo-600"
+                className="w-5 h-5 text-indigo-600 border-gray-300 focus:ring-indigo-500"
               />
-              <span className="text-gray-700">{opt}</span>
+              <span className="text-gray-700 group-hover:text-indigo-700 transition-colors">{opt}</span>
             </label>
           ))}
         </div>
@@ -108,7 +132,10 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({ question }) => {
       return (
         <div className="space-y-2">
           {question.options?.map((opt, idx) => (
-            <label key={idx} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+            <label
+              key={idx}
+              className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-150 cursor-pointer group"
+            >
               <input
                 type="checkbox"
                 value={opt}
@@ -120,9 +147,9 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({ question }) => {
                     setMultiValue(multiValue.filter(v => v !== opt));
                   }
                 }}
-                className="w-4 h-4 text-indigo-600 rounded"
+                className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              <span className="text-gray-700">{opt}</span>
+              <span className="text-gray-700 group-hover:text-indigo-700 transition-colors">{opt}</span>
             </label>
           ))}
         </div>
@@ -132,7 +159,7 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({ question }) => {
         <select
           value={dropdownValue}
           onChange={(e) => setDropdownValue(e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+          className="w-full p-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-gray-700 hover:border-indigo-300"
         >
           <option value="">请选择...</option>
           {question.options?.map((opt, idx) => (
@@ -142,20 +169,27 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({ question }) => {
       );
     case 'rating':
       return (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
               key={star}
               type="button"
               onClick={() => setRating(star)}
-              className="p-1 transition-transform hover:scale-110"
+              className="p-2 transition-all duration-150 hover:scale-110"
             >
               <Star
-                size={32}
-                className={`transition-colors ${star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+                size={36}
+                className={`transition-colors duration-150 ${
+                  star <= rating
+                    ? 'text-yellow-400 fill-yellow-400'
+                    : 'text-gray-300'
+                }`}
               />
             </button>
           ))}
+          {rating > 0 && (
+            <span className="ml-4 text-gray-600">{rating} 分</span>
+          )}
         </div>
       );
     case 'text':
@@ -164,8 +198,8 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({ question }) => {
           value={textValue}
           onChange={(e) => setTextValue(e.target.value)}
           placeholder="请输入您的回答..."
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none"
-          rows={3}
+          className="w-full p-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none hover:border-indigo-300"
+          rows={4}
         />
       );
     default:
@@ -173,12 +207,88 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({ question }) => {
   }
 };
 
+interface PreviewModalProps {
+  question: Question | null;
+  onClose: () => void;
+}
+
+const PreviewModal: React.FC<PreviewModalProps> = ({ question, onClose }) => {
+  if (!question) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        style={{ animation: 'modalIn 0.25s ease-out' }}
+      >
+        <style>{`
+          @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+          }
+        `}</style>
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+              {questionTypeIcons[question.type]}
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-800">问题预览</h3>
+              <p className="text-sm text-gray-500">
+                {QUESTION_TYPES.find(t => t.value === question.type)?.label}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          <div className="flex items-start gap-2 mb-6">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-sm flex items-center justify-center font-medium">
+              Q
+            </span>
+            <div className="flex-1">
+              <h4 className="font-medium text-gray-800 text-lg">
+                {question.title || '问题标题'}
+                {question.required && (
+                  <span className="text-red-500 ml-1">*</span>
+                )}
+              </h4>
+            </div>
+          </div>
+          <div className="ml-8">
+            <QuestionPreviewRenderer question={question} demo />
+          </div>
+        </div>
+        <div className="p-6 border-t border-gray-100 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-xl font-medium hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            <Eye size={18} />
+            关闭预览
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface EditPanelProps {
   question: Question | null;
   onUpdate: (question: Question) => void;
+  onPreview: () => void;
 }
 
-const EditPanel: React.FC<EditPanelProps> = ({ question, onUpdate }) => {
+const EditPanel: React.FC<EditPanelProps> = ({ question, onUpdate, onPreview }) => {
   if (!question) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -193,13 +303,30 @@ const EditPanel: React.FC<EditPanelProps> = ({ question, onUpdate }) => {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-800">编辑问题</h3>
+        <button
+          onClick={onPreview}
+          className="px-4 py-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+        >
+          <Eye size={16} />
+          预览效果
+        </button>
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">问题类型</label>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {QUESTION_TYPES.map((type) => (
             <button
               key={type.value}
-              onClick={() => onUpdate({ ...question, type: type.value, options: type.value === 'single' || type.value === 'multiple' || type.value === 'dropdown' ? (question.options || ['选项1', '选项2']) : undefined })}
+              onClick={() => onUpdate({
+                ...question,
+                type: type.value,
+                options: (type.value === 'single' || type.value === 'multiple' || type.value === 'dropdown')
+                  ? (question.options || ['选项1', '选项2'])
+                  : undefined,
+              })}
               className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
                 question.type === type.value
                   ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
@@ -279,14 +406,14 @@ const EditPanel: React.FC<EditPanelProps> = ({ question, onUpdate }) => {
       <div className="pt-4 border-t border-gray-200">
         <h4 className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
           <Eye size={16} />
-          预览效果
+          实时预览
         </h4>
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="font-medium text-gray-800 mb-3">
             {question.title || '问题标题'}
             {question.required && <span className="text-red-500 ml-1">*</span>}
           </div>
-          <QuestionPreview question={question} />
+          <QuestionPreviewRenderer question={question} />
         </div>
       </div>
     </div>
@@ -299,19 +426,36 @@ export const Designer: React.FC = () => {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const dragOverIdRef = useRef<string | null>(null);
-  const rafRef = useRef<number | null>(null);
+  
+  const dragStateRef = useRef({
+    draggedIdx: -1,
+    lastUpdateTime: 0,
+    pendingTargetIdx: -1,
+    rafId: null as number | null,
+  });
+  const questionsRef = useRef<Question[]>([]);
+
+  useEffect(() => {
+    if (survey) {
+      questionsRef.current = survey.questions;
+    }
+  }, [survey]);
 
   useEffect(() => {
     if (surveyId) {
       dataStore.getSurvey(surveyId).then((s) => {
-        setSurvey(s);
-        if (s.questions.length > 0) {
-          setSelectedQuestionId(s.questions[0].id);
+        if (s) {
+          setSurvey(s);
+          if (s.questions.length > 0) {
+            setSelectedQuestionId(s.questions[0].id);
+          }
+          setLoading(false);
+        } else {
+          navigate('/');
         }
-        setLoading(false);
       }).catch(() => {
         navigate('/');
       });
@@ -364,58 +508,135 @@ export const Designer: React.FC = () => {
     setSurvey(updated);
   }, [survey]);
 
+  const performReorder = useCallback((targetIdx: number) => {
+    const state = dragStateRef.current;
+    const questions = questionsRef.current;
+    
+    if (state.draggedIdx === -1 || targetIdx === -1 || state.draggedIdx === targetIdx) {
+      return;
+    }
+
+    const reordered = [...questions];
+    const [removed] = reordered.splice(state.draggedIdx, 1);
+    reordered.splice(targetIdx, 0, removed);
+    
+    const finalQuestions = reordered.map((q, idx) => ({ ...q, order: idx }));
+    
+    setSurvey(prev => prev ? { ...prev, questions: finalQuestions } : null);
+    state.draggedIdx = targetIdx;
+    questionsRef.current = finalQuestions;
+  }, []);
+
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
     setDraggedId(id);
+    const idx = questionsRef.current.findIndex(q => q.id === id);
+    dragStateRef.current.draggedIdx = idx;
+    dragStateRef.current.lastUpdateTime = 0;
+    dragStateRef.current.pendingTargetIdx = -1;
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    const target = e.currentTarget as HTMLElement;
-    const questionId = target.getAttribute('data-question-id') || target.closest('[data-question-id]')?.getAttribute('data-question-id');
     
-    if (questionId && questionId !== dragOverIdRef.current) {
-      dragOverIdRef.current = questionId;
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
+    const state = dragStateRef.current;
+    const now = performance.now();
+    
+    if (state.draggedIdx === -1) return;
+    
+    const target = e.currentTarget as HTMLElement;
+    const questionEl = target.closest('[data-question-id]') as HTMLElement | null;
+    if (!questionEl) return;
+    
+    const questionId = questionEl.getAttribute('data-question-id');
+    if (!questionId) return;
+    
+    const targetIdx = questionsRef.current.findIndex(q => q.id === questionId);
+    if (targetIdx === -1 || targetIdx === state.draggedIdx) return;
+    
+    const THROTTLE_MS = 50;
+    
+    if (now - state.lastUpdateTime >= THROTTLE_MS) {
+      state.lastUpdateTime = now;
+      state.pendingTargetIdx = -1;
+      performReorder(targetIdx);
+    } else {
+      state.pendingTargetIdx = targetIdx;
+      
+      if (state.rafId === null) {
+        state.rafId = requestAnimationFrame(() => {
+          state.rafId = null;
+          if (state.pendingTargetIdx !== -1 && state.pendingTargetIdx !== state.draggedIdx) {
+            state.lastUpdateTime = performance.now();
+            performReorder(state.pendingTargetIdx);
+            state.pendingTargetIdx = -1;
+          }
+        });
       }
-      rafRef.current = requestAnimationFrame(() => {
-        if (!survey || !draggedId || draggedId === questionId) return;
-        
-        const questions = [...survey.questions];
-        const draggedIdx = questions.findIndex(q => q.id === draggedId);
-        const targetIdx = questions.findIndex(q => q.id === questionId);
-        
-        if (draggedIdx === -1 || targetIdx === -1) return;
-        
-        const [removed] = questions.splice(draggedIdx, 1);
-        questions.splice(targetIdx, 0, removed);
-        
-        const reordered = questions.map((q, idx) => ({ ...q, order: idx }));
-        setSurvey({ ...survey, questions: reordered });
-      });
     }
-  }, [survey, draggedId]);
+  }, [performReorder]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setDraggedId(null);
-    dragOverIdRef.current = null;
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+    e.stopPropagation();
+    
+    const state = dragStateRef.current;
+    
+    if (state.rafId !== null) {
+      cancelAnimationFrame(state.rafId);
+      state.rafId = null;
     }
+    
+    if (state.pendingTargetIdx !== -1 && state.pendingTargetIdx !== state.draggedIdx) {
+      performReorder(state.pendingTargetIdx);
+    }
+    
+    setDraggedId(null);
+    state.draggedIdx = -1;
+    state.pendingTargetIdx = -1;
+    state.lastUpdateTime = 0;
+  }, [performReorder]);
+
+  const handleDragEnd = useCallback(() => {
+    const state = dragStateRef.current;
+    
+    if (state.rafId !== null) {
+      cancelAnimationFrame(state.rafId);
+      state.rafId = null;
+    }
+    
+    setDraggedId(null);
+    state.draggedIdx = -1;
+    state.pendingTargetIdx = -1;
+    state.lastUpdateTime = 0;
   }, []);
 
   const handleSave = useCallback(async () => {
     if (!survey) return;
     setSaving(true);
     try {
-      await dataStore.updateSurvey(survey);
-      alert('保存成功！');
+      const result = await dataStore.updateSurvey(survey);
+      if (result) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+          position: fixed; top: 20px; right: 20px;
+          background: #10B981; color: white;
+          padding: 12px 20px; border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 9999; font-size: 14px;
+          animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = '保存成功！';
+        document.body.appendChild(toast);
+        setTimeout(() => {
+          toast.style.animation = 'slideOut 0.3s ease forwards';
+          setTimeout(() => toast.remove(), 300);
+        }, 2000);
+      }
     } catch (e) {
-      alert('保存失败，请重试');
+      // 错误已在 dataStore 中处理
     } finally {
       setSaving(false);
     }
@@ -431,9 +652,17 @@ export const Designer: React.FC = () => {
     setSurvey({ ...survey, description });
   }, [survey]);
 
+  const handlePreview = useCallback((question: Question) => {
+    setPreviewQuestion(question);
+  }, []);
+
+  const closePreview = useCallback(() => {
+    setPreviewQuestion(null);
+  }, []);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen bg-[#F0F4F8]">
         <div className="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
       </div>
     );
@@ -475,7 +704,7 @@ export const Designer: React.FC = () => {
               className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
             >
               <Eye size={18} />
-              预览
+              填写预览
             </button>
             <button
               onClick={() => navigate(`/dashboard/${survey.id}`)}
@@ -527,17 +756,19 @@ export const Designer: React.FC = () => {
               ) : (
                 <div className="space-y-2">
                   {survey.questions.map((question) => (
-                    <div key={question.id} data-question-id={question.id}>
-                      <QuestionCard
-                        question={question}
-                        isSelected={selectedQuestionId === question.id}
-                        onSelect={() => setSelectedQuestionId(question.id)}
-                        onDelete={() => deleteQuestion(question.id)}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
-                        onDrop={handleDrop}
-                      />
-                    </div>
+                    <QuestionCard
+                      key={question.id}
+                      question={question}
+                      isSelected={selectedQuestionId === question.id}
+                      onSelect={() => setSelectedQuestionId(question.id)}
+                      onDelete={() => deleteQuestion(question.id)}
+                      onPreview={() => handlePreview(question)}
+                      onDragStart={handleDragStart}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggedId === question.id}
+                    />
                   ))}
                 </div>
               )}
@@ -548,10 +779,13 @@ export const Designer: React.FC = () => {
             <EditPanel
               question={selectedQuestion}
               onUpdate={updateQuestion}
+              onPreview={() => selectedQuestion && handlePreview(selectedQuestion)}
             />
           </div>
         </div>
       </main>
+
+      <PreviewModal question={previewQuestion} onClose={closePreview} />
     </div>
   );
 };
