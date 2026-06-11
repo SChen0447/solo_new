@@ -17,18 +17,31 @@ export interface Particle {
 }
 
 export interface ParticleSystemConfig {
-  maxParticles: number;
+  maxParticles?: number;
+  targetFPS?: number;
 }
 
 export class ParticleSystem {
   private particles: Particle[];
   private pool: Particle[];
   private maxParticles: number;
+  private targetFPS: number;
+  private currentFPS: number;
+  private frameTimes: number[];
+  private lastFrameTime: number;
+  private spawnMultiplier: number;
+  private degraded: boolean;
 
-  constructor(config: ParticleSystemConfig = { maxParticles: 1000 }) {
-    this.maxParticles = config.maxParticles;
+  constructor(config: ParticleSystemConfig = {}) {
+    this.maxParticles = config.maxParticles ?? 1000;
+    this.targetFPS = config.targetFPS ?? 60;
     this.particles = [];
     this.pool = [];
+    this.currentFPS = 60;
+    this.frameTimes = [];
+    this.lastFrameTime = performance.now();
+    this.spawnMultiplier = 1;
+    this.degraded = false;
     this.initPool();
   }
 
@@ -70,8 +83,69 @@ export class ParticleSystem {
     return null;
   }
 
+  private getScaledCount(baseCount: number): number {
+    const scaled = Math.max(1, Math.round(baseCount * this.spawnMultiplier));
+    const freeSlots = this.maxParticles - this.getActiveCount();
+    return Math.min(scaled, freeSlots);
+  }
+
+  public recordFrame(): void {
+    const now = performance.now();
+    const delta = now - this.lastFrameTime;
+    this.lastFrameTime = now;
+
+    this.frameTimes.push(delta);
+    if (this.frameTimes.length > 30) {
+      this.frameTimes.shift();
+    }
+
+    if (this.frameTimes.length >= 10) {
+      const avgDelta = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
+      this.currentFPS = 1000 / avgDelta;
+      this.adjustPerformanceLevel();
+    }
+  }
+
+  private adjustPerformanceLevel(): void {
+    const activeRatio = this.getActiveCount() / this.maxParticles;
+
+    if (this.currentFPS < this.targetFPS * 0.75) {
+      if (!this.degraded) {
+        this.degraded = true;
+        console.warn(
+          `[ParticleSystem] FPS 降至 ${this.currentFPS.toFixed(1)}，启用性能降级模式`
+        );
+      }
+      this.spawnMultiplier = Math.max(0.25, this.spawnMultiplier - 0.1);
+      this.trimLowPriorityParticles();
+    } else if (this.currentFPS >= this.targetFPS * 0.9 && activeRatio < 0.75) {
+      this.spawnMultiplier = Math.min(1, this.spawnMultiplier + 0.05);
+      if (this.spawnMultiplier >= 0.95 && this.degraded) {
+        this.degraded = false;
+        console.info('[ParticleSystem] 性能已恢复，退出降级模式');
+      }
+    }
+  }
+
+  private trimLowPriorityParticles(): void {
+    const priorityOrder: ParticleType[] = ['frost', 'wallHit', 'sparkle', 'mist'];
+    let trimmed = 0;
+    const targetRemove = Math.floor(this.particles.length * 0.2);
+
+    for (const type of priorityOrder) {
+      if (trimmed >= targetRemove) break;
+      for (let i = this.particles.length - 1; i >= 0 && trimmed < targetRemove; i--) {
+        const p = this.particles[i];
+        if (p.active && p.type === type && p.life < p.maxLife * 0.5) {
+          p.life *= 0.5;
+          trimmed++;
+        }
+      }
+    }
+  }
+
   public emitFrostTrail(x: number, y: number, direction: { x: number; y: number }): void {
-    const count = 3 + Math.floor(Math.random() * 3);
+    const count = this.getScaledCount(3 + Math.floor(Math.random() * 3));
     for (let i = 0; i < count; i++) {
       const p = this.getFromPool();
       if (!p) break;
@@ -83,7 +157,7 @@ export class ParticleSystem {
       p.y = y + (Math.random() - 0.5) * 8;
       p.vx = Math.cos(angle) * speed - direction.x * 0.3;
       p.vy = Math.sin(angle) * speed - direction.y * 0.3;
-      p.life = 400 + Math.random() * 300;
+      p.life = (400 + Math.random() * 300) * (this.degraded ? 0.6 : 1);
       p.maxLife = p.life;
       p.size = 2 + Math.random() * 4;
       p.color = Math.random() > 0.5 ? '#a8d8ea' : '#e0f7fa';
@@ -98,7 +172,7 @@ export class ParticleSystem {
   }
 
   public emitWallHit(x: number, y: number): void {
-    const count = 12;
+    const count = this.getScaledCount(12);
     for (let i = 0; i < count; i++) {
       const p = this.getFromPool();
       if (!p) break;
@@ -110,7 +184,7 @@ export class ParticleSystem {
       p.y = y;
       p.vx = Math.cos(angle) * speed;
       p.vy = Math.sin(angle) * speed;
-      p.life = 250 + Math.random() * 150;
+      p.life = (250 + Math.random() * 150) * (this.degraded ? 0.7 : 1);
       p.maxLife = p.life;
       p.size = 3 + Math.random() * 4;
       p.color = '#ef5350';
@@ -125,7 +199,7 @@ export class ParticleSystem {
   }
 
   public emitCrystalCollect(x: number, y: number): void {
-    const count = 20;
+    const count = this.getScaledCount(20);
     for (let i = 0; i < count; i++) {
       const p = this.getFromPool();
       if (!p) break;
@@ -137,7 +211,7 @@ export class ParticleSystem {
       p.y = y;
       p.vx = Math.cos(angle) * speed;
       p.vy = Math.sin(angle) * speed;
-      p.life = 500 + Math.random() * 300;
+      p.life = (500 + Math.random() * 300) * (this.degraded ? 0.7 : 1);
       p.maxLife = p.life;
       p.size = 2 + Math.random() * 5;
       p.color = Math.random() > 0.3 ? '#4fc3f7' : '#81d4fa';
@@ -152,7 +226,7 @@ export class ParticleSystem {
   }
 
   public emitChestCollect(x: number, y: number): void {
-    const count = 30;
+    const count = this.getScaledCount(30);
     for (let i = 0; i < count; i++) {
       const p = this.getFromPool();
       if (!p) break;
@@ -164,7 +238,7 @@ export class ParticleSystem {
       p.y = y;
       p.vx = Math.cos(angle) * speed;
       p.vy = Math.sin(angle) * speed - 1;
-      p.life = 600 + Math.random() * 400;
+      p.life = (600 + Math.random() * 400) * (this.degraded ? 0.7 : 1);
       p.maxLife = p.life;
       p.size = 3 + Math.random() * 6;
       p.color = Math.random() > 0.5 ? '#ffd54f' : '#ffecb3';
@@ -179,7 +253,7 @@ export class ParticleSystem {
   }
 
   public emitPortalBurst(centerX: number, centerY: number, width: number, height: number): void {
-    const count = 200;
+    const count = this.getScaledCount(200);
     for (let i = 0; i < count; i++) {
       const p = this.getFromPool();
       if (!p) break;
@@ -192,7 +266,7 @@ export class ParticleSystem {
       p.y = centerY + Math.sin(angle) * dist * 0.2;
       p.vx = Math.cos(angle) * speed;
       p.vy = Math.sin(angle) * speed;
-      p.life = 800 + Math.random() * 400;
+      p.life = (800 + Math.random() * 400) * (this.degraded ? 0.65 : 1);
       p.maxLife = p.life;
       p.size = 4 + Math.random() * 10;
       p.color = this.randomMistColor();
@@ -212,6 +286,8 @@ export class ParticleSystem {
   }
 
   public update(deltaTime: number): void {
+    const step = this.degraded ? deltaTime * 1.4 : deltaTime;
+
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       if (!p.active) {
@@ -219,7 +295,7 @@ export class ParticleSystem {
         continue;
       }
 
-      p.life -= deltaTime;
+      p.life -= step;
       if (p.life <= 0) {
         p.active = false;
         this.particles.splice(i, 1);
@@ -259,6 +335,8 @@ export class ParticleSystem {
   }
 
   public render(ctx: CanvasRenderingContext2D): void {
+    const drawShadows = !this.degraded && this.currentFPS >= this.targetFPS * 0.85;
+
     for (const p of this.particles) {
       if (!p.active) continue;
 
@@ -268,11 +346,11 @@ export class ParticleSystem {
       ctx.globalAlpha = p.alpha;
 
       if (p.type === 'frost' || p.type === 'wallHit') {
-        this.drawDiamond(ctx, p.size, p.color);
+        this.drawDiamond(ctx, p.size, p.color, drawShadows);
       } else if (p.type === 'mist') {
         this.drawMist(ctx, p.size, p.color);
       } else if (p.type === 'sparkle') {
-        this.drawStar(ctx, p.size, p.color);
+        this.drawStar(ctx, p.size, p.color, drawShadows);
       }
 
       ctx.restore();
@@ -280,7 +358,12 @@ export class ParticleSystem {
     ctx.globalAlpha = 1;
   }
 
-  private drawDiamond(ctx: CanvasRenderingContext2D, size: number, color: string): void {
+  private drawDiamond(
+    ctx: CanvasRenderingContext2D,
+    size: number,
+    color: string,
+    withShadow: boolean
+  ): void {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(0, -size);
@@ -290,10 +373,12 @@ export class ParticleSystem {
     ctx.closePath();
     ctx.fill();
 
-    ctx.shadowColor = color;
-    ctx.shadowBlur = size * 1.5;
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    if (withShadow) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = size * 1.5;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
   }
 
   private drawMist(ctx: CanvasRenderingContext2D, size: number, color: string): void {
@@ -307,10 +392,17 @@ export class ParticleSystem {
     ctx.fill();
   }
 
-  private drawStar(ctx: CanvasRenderingContext2D, size: number, color: string): void {
+  private drawStar(
+    ctx: CanvasRenderingContext2D,
+    size: number,
+    color: string,
+    withShadow: boolean
+  ): void {
     ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = size * 2;
+    if (withShadow) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = size * 2;
+    }
 
     ctx.beginPath();
     for (let i = 0; i < 4; i++) {
@@ -331,7 +423,23 @@ export class ParticleSystem {
   }
 
   public getActiveCount(): number {
-    return this.particles.filter((p) => p.active).length;
+    let count = 0;
+    for (const p of this.particles) {
+      if (p.active) count++;
+    }
+    return count;
+  }
+
+  public getSpawnMultiplier(): number {
+    return this.spawnMultiplier;
+  }
+
+  public isDegraded(): boolean {
+    return this.degraded;
+  }
+
+  public getCurrentFPS(): number {
+    return this.currentFPS;
   }
 
   public clear(): void {

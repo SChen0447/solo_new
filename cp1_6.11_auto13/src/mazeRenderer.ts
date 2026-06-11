@@ -17,10 +17,121 @@ export interface Chest {
   collected: boolean;
 }
 
+export interface CrackSegment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  depth: number;
+  width: number;
+  broken: boolean;
+}
+
 export interface TrailCell {
   x: number;
   y: number;
-  cracks: Array<{ x1: number; y1: number; x2: number; y2: number; depth: number }>;
+  cracks: CrackSegment[];
+  seed: number;
+}
+
+export function generateIceCracks(cellX: number, cellY: number, entryDir: { x: number; y: number }): CrackSegment[] {
+  const cracks: CrackSegment[] = [];
+  const seed = (cellX * 127 + cellY * 211) % 10000;
+  const rand = (offset: number): number => {
+    const v = Math.sin(seed + offset * 37.17) * 10000;
+    return v - Math.floor(v);
+  };
+
+  const centerX = 0.5 + (rand(1) - 0.5) * 0.2;
+  const centerY = 0.5 + (rand(2) - 0.5) * 0.2;
+
+  const entryBias = Math.atan2(entryDir.y, entryDir.x);
+  const mainCount = 3 + Math.floor(rand(3) * 3);
+
+  for (let m = 0; m < mainCount; m++) {
+    const baseAngle = entryBias + ((m - (mainCount - 1) / 2) / mainCount) * Math.PI * 1.3 + (rand(10 + m) - 0.5) * 0.5;
+    const length = 0.2 + rand(20 + m) * 0.4;
+
+    let prevX = centerX;
+    let prevY = centerY;
+    const segments = 2 + Math.floor(rand(30 + m) * 2);
+    for (let s = 0; s < segments; s++) {
+      const t = (s + 1) / segments;
+      const wobble = (rand(100 + m * 10 + s) - 0.5) * 0.15;
+      const angle = baseAngle + wobble;
+      const nextX = centerX + Math.cos(angle) * length * t;
+      const nextY = centerY + Math.sin(angle) * length * t;
+
+      if (nextX >= 0.05 && nextX <= 0.95 && nextY >= 0.05 && nextY <= 0.95) {
+        cracks.push({
+          x1: prevX,
+          y1: prevY,
+          x2: nextX,
+          y2: nextY,
+          depth: 0.9 - t * 0.5,
+          width: 1.8 - t * 1.0,
+          broken: rand(200 + m * 10 + s) > 0.75
+        });
+      }
+      prevX = nextX;
+      prevY = nextY;
+    }
+
+    if (length > 0.25) {
+      const branchCount = 1 + Math.floor(rand(40 + m) * 2);
+      for (let b = 0; b < branchCount; b++) {
+        const bt = 0.3 + rand(50 + m * 5 + b) * 0.4;
+        const bx = centerX + Math.cos(baseAngle) * length * bt;
+        const by = centerY + Math.sin(baseAngle) * length * bt;
+        const bAngle = baseAngle + (rand(60 + b) > 0.5 ? 1 : -1) * (0.4 + rand(70 + b) * 0.6);
+        const bLen = 0.08 + rand(80 + b) * 0.18;
+
+        let bpX = bx;
+        let bpY = by;
+        const bSegs = 1 + Math.floor(rand(90 + b) * 2);
+        for (let bs = 0; bs < bSegs; bs++) {
+          const bst = (bs + 1) / bSegs;
+          const bWobble = (rand(150 + b * 10 + bs) - 0.5) * 0.2;
+          const nx = bx + Math.cos(bAngle + bWobble) * bLen * bst;
+          const ny = by + Math.sin(bAngle + bWobble) * bLen * bst;
+
+          if (nx >= 0.05 && nx <= 0.95 && ny >= 0.05 && ny <= 0.95) {
+            cracks.push({
+              x1: bpX,
+              y1: bpY,
+              x2: nx,
+              y2: ny,
+              depth: (0.6 - bt * 0.3) * (1 - bst * 0.4),
+              width: 1.2 - bst * 0.6,
+              broken: rand(250 + b * 10 + bs) > 0.6
+            });
+          }
+          bpX = nx;
+          bpY = ny;
+        }
+      }
+    }
+  }
+
+  const microCrackCount = 4 + Math.floor(rand(5) * 6);
+  for (let mc = 0; mc < microCrackCount; mc++) {
+    const sx = 0.2 + rand(300 + mc) * 0.6;
+    const sy = 0.2 + rand(400 + mc) * 0.6;
+    const sAngle = rand(500 + mc) * Math.PI * 2;
+    const sLen = 0.03 + rand(600 + mc) * 0.08;
+
+    cracks.push({
+      x1: sx,
+      y1: sy,
+      x2: sx + Math.cos(sAngle) * sLen,
+      y2: sy + Math.sin(sAngle) * sLen,
+      depth: 0.25 + rand(700 + mc) * 0.25,
+      width: 0.5,
+      broken: false
+    });
+  }
+
+  return cracks;
 }
 
 export interface RendererState {
@@ -68,9 +179,18 @@ export class MazeRenderer {
     const dpr = window.devicePixelRatio || 1;
     this.canvas.width = rect.width * dpr;
     this.canvas.height = rect.height * dpr;
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(dpr, dpr);
     this.layout.canvasWidth = rect.width;
     this.layout.canvasHeight = rect.height;
+  }
+
+  public getContext(): CanvasRenderingContext2D {
+    return this.ctx;
+  }
+
+  public getCanvas(): HTMLCanvasElement {
+    return this.canvas;
   }
 
   private generateStars(): void {
@@ -124,7 +244,6 @@ export class MazeRenderer {
 
   public render(state: RendererState): void {
     const ctx = this.ctx;
-    const { layout } = this;
 
     let shakeX = 0;
     let shakeY = 0;
@@ -191,7 +310,6 @@ export class MazeRenderer {
   }
 
   private drawMazeWalls(maze: MazeData): void {
-    const ctx = this.ctx;
     const { offsetX, offsetY, cellSize } = this.layout;
 
     for (let y = 0; y < maze.size; y++) {
@@ -304,14 +422,19 @@ export class MazeRenderer {
       const { x, y } = this.gridToWorld(trail.x, trail.y, false);
 
       ctx.save();
-      ctx.fillStyle = 'rgba(79, 195, 247, 0.12)';
-      ctx.fillRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+      const cellGrad = ctx.createRadialGradient(
+        x + cellSize / 2, y + cellSize / 2, cellSize * 0.1,
+        x + cellSize / 2, y + cellSize / 2, cellSize * 0.7
+      );
+      cellGrad.addColorStop(0, 'rgba(79, 195, 247, 0.22)');
+      cellGrad.addColorStop(1, 'rgba(79, 195, 247, 0)');
+      ctx.fillStyle = cellGrad;
+      ctx.fillRect(x, y, cellSize, cellSize);
       ctx.restore();
 
       ctx.save();
-      ctx.strokeStyle = 'rgba(129, 212, 250, 0.65)';
-      ctx.lineWidth = 1.5;
       ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
 
       for (const crack of trail.cracks) {
         const cx1 = x + crack.x1 * cellSize;
@@ -319,20 +442,76 @@ export class MazeRenderer {
         const cx2 = x + crack.x2 * cellSize;
         const cy2 = y + crack.y2 * cellSize;
 
-        ctx.globalAlpha = crack.depth;
+        ctx.lineWidth = crack.width;
+        ctx.globalAlpha = crack.depth * 0.85;
+        ctx.strokeStyle = 'rgba(224, 247, 250, 0.9)';
+        ctx.shadowColor = 'rgba(168, 216, 234, 0.8)';
+        ctx.shadowBlur = crack.width * 2;
+
         ctx.beginPath();
         ctx.moveTo(cx1, cy1);
 
+        if (crack.broken) {
+          const steps = 3;
+          let lastX = cx1;
+          let lastY = cy1;
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const gapChance = (crack.x1 + crack.y1 + t) * 17.3;
+            const shouldGap = Math.abs(Math.sin(gapChance)) > 0.82 && i < steps;
+            if (shouldGap) {
+              ctx.stroke();
+              ctx.beginPath();
+              const gapT = t + 0.05;
+              lastX = cx1 + (cx2 - cx1) * gapT + (Math.sin(t * 12 + crack.x1 * 50) - 0.5) * 3;
+              lastY = cy1 + (cy2 - cy1) * gapT + (Math.cos(t * 10 + crack.y1 * 50) - 0.5) * 3;
+              ctx.moveTo(lastX, lastY);
+            } else {
+              const mx = cx1 + (cx2 - cx1) * t + (Math.sin(t * 12 + crack.x1 * 80) - 0.5) * 3.5;
+              const my = cy1 + (cy2 - cy1) * t + (Math.cos(t * 10 + crack.y1 * 80) - 0.5) * 3.5;
+              ctx.lineTo(mx, my);
+            }
+          }
+          ctx.stroke();
+        } else {
+          const steps = 4;
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const mx = cx1 + (cx2 - cx1) * t + (Math.sin(t * 12 + crack.x1 * 80) - 0.5) * 3.5;
+            const my = cy1 + (cy2 - cy1) * t + (Math.cos(t * 10 + crack.y1 * 80) - 0.5) * 3.5;
+            ctx.lineTo(mx, my);
+          }
+          ctx.stroke();
+        }
+      }
+
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      ctx.save();
+      for (const crack of trail.cracks) {
+        if (crack.width < 1.2) continue;
+        const cx1 = x + crack.x1 * cellSize;
+        const cy1 = y + crack.y1 * cellSize;
+        const cx2 = x + crack.x2 * cellSize;
+        const cy2 = y + crack.y2 * cellSize;
+
+        ctx.lineWidth = crack.width * 0.35;
+        ctx.globalAlpha = crack.depth * 0.55;
+        ctx.strokeStyle = 'rgba(79, 195, 247, 0.8)';
+        ctx.lineCap = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(cx1, cy1);
         const steps = 3;
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
-          const mx = cx1 + (cx2 - cx1) * t + (Math.sin(t * 10 + crack.x1 * 100) - 0.5) * 4;
-          const my = cy1 + (cy2 - cy1) * t + (Math.cos(t * 8 + crack.y1 * 100) - 0.5) * 4;
+          const mx = cx1 + (cx2 - cx1) * t + (Math.sin(t * 12 + crack.x1 * 80) - 0.5) * 2.5;
+          const my = cy1 + (cy2 - cy1) * t + (Math.cos(t * 10 + crack.y1 * 80) - 0.5) * 2.5;
           ctx.lineTo(mx, my);
         }
         ctx.stroke();
       }
-
       ctx.restore();
     }
   }
@@ -468,23 +647,25 @@ export class MazeRenderer {
     const { cellSize } = this.layout;
     const { x, y } = this.gridToWorld(portal.x, portal.y, true);
 
-    const blink = Math.sin(time * 0.012) > 0 ? 1 : 0.55;
+    const baseR = cellSize * 0.44;
+    const breathPulse = 1 + 0.18 * Math.sin(time * 0.005);
+    const blink = 0.55 + 0.45 * (Math.sin(time * 0.012) * 0.5 + 0.5);
     const swirl = time * 0.003;
-
-    const r = cellSize * 0.42;
+    const ringPhase = (time * 0.0015) % 1;
 
     ctx.save();
     ctx.shadowColor = '#ce93d8';
-    ctx.shadowBlur = 35 * blink;
+    ctx.shadowBlur = (30 + 20 * blink) * breathPulse;
 
-    for (let layer = 3; layer >= 1; layer--) {
-      const lr = r * (layer / 3) * blink;
-      const alpha = (0.15 + layer * 0.08) * blink;
+    for (let layer = 4; layer >= 1; layer--) {
+      const lr = baseR * (layer / 4) * breathPulse * blink;
+      const alpha = (0.12 + layer * 0.07) * blink;
 
       const gradient = ctx.createRadialGradient(x, y, 0, x, y, lr);
       gradient.addColorStop(0, `rgba(225, 190, 231, ${alpha})`);
-      gradient.addColorStop(0.5, `rgba(186, 104, 200, ${alpha * 0.7})`);
-      gradient.addColorStop(1, 'rgba(123, 31, 162, 0)');
+      gradient.addColorStop(0.4, `rgba(186, 104, 200, ${alpha * 0.75})`);
+      gradient.addColorStop(0.75, `rgba(103, 58, 183, ${alpha * 0.4})`);
+      gradient.addColorStop(1, 'rgba(49, 27, 146, 0)');
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
@@ -492,24 +673,58 @@ export class MazeRenderer {
       ctx.fill();
     }
 
-    ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * blink})`;
-    ctx.lineWidth = 2;
+    for (let ring = 0; ring < 3; ring++) {
+      const ringT = (ringPhase + ring / 3) % 1;
+      const ringR = baseR * (0.4 + ringT * 0.9) * breathPulse;
+      const ringAlpha = (1 - ringT) * 0.6 * blink;
+      const ringWidth = 2 + ringT * 3;
+
+      ctx.strokeStyle = `rgba(206, 147, 216, ${ringAlpha})`;
+      ctx.lineWidth = ringWidth;
+      ctx.shadowColor = '#e1bee7';
+      ctx.shadowBlur = 12 * (1 - ringT);
+      ctx.beginPath();
+      ctx.arc(x, y, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+
+    const swirlR = baseR * 0.8 * breathPulse * blink;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.75 * blink})`;
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
     for (let i = 0; i < 3; i++) {
       const angle = swirl + (i * Math.PI * 2) / 3;
       ctx.beginPath();
-      ctx.arc(x, y, r * 0.75 * blink, angle, angle + Math.PI * 0.6);
+      ctx.arc(x, y, swirlR, angle, angle + Math.PI * 0.7);
       ctx.stroke();
     }
 
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * blink})`;
+    ctx.strokeStyle = `rgba(186, 104, 200, ${0.5 * blink})`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 2; i++) {
+      const angle = -swirl * 1.5 + (i * Math.PI * 2) / 2 + 0.3;
+      ctx.beginPath();
+      ctx.arc(x, y, swirlR * 0.55, angle, angle + Math.PI * 0.9);
+      ctx.stroke();
+    }
+
+    const coreSize = baseR * 0.22 * breathPulse * blink;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 25 * blink;
+    const coreGrad = ctx.createRadialGradient(x, y, 0, x, y, coreSize);
+    coreGrad.addColorStop(0, `rgba(255, 255, 255, ${blink})`);
+    coreGrad.addColorStop(0.5, `rgba(225, 190, 231, ${0.8 * blink})`);
+    coreGrad.addColorStop(1, `rgba(186, 104, 200, 0)`);
+    ctx.fillStyle = coreGrad;
     ctx.beginPath();
-    ctx.arc(x, y, r * 0.18 * blink, 0, Math.PI * 2);
+    ctx.arc(x, y, coreSize, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.shadowBlur = 0;
 
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.9 * blink})`;
-    ctx.font = `bold ${Math.floor(cellSize * 0.2)}px Iceberg, sans-serif`;
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * blink})`;
+    ctx.font = `bold ${Math.floor(cellSize * 0.22 * breathPulse)}px Iceberg, "Microsoft YaHei", "PingFang SC", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⤴', x, y);

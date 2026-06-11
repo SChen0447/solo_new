@@ -19,15 +19,34 @@ export class MazeGenerator {
   private pathCells: Array<{ x: number; y: number }>;
 
   constructor(size: number) {
-    if (size < 5 || size > 15) {
-      throw new Error('迷宫尺寸必须在 5 到 15 之间');
-    }
-    if (size % 2 === 0) {
-      size += 1;
-    }
-    this.size = size;
+    this.size = this.validateAndNormalizeSize(size);
     this.grid = [];
     this.pathCells = [];
+  }
+
+  private validateAndNormalizeSize(size: number): number {
+    if (typeof size !== 'number' || !isFinite(size) || isNaN(size)) {
+      console.warn('[MazeGenerator] 无效的迷宫尺寸，已自动修正为 9');
+      return 9;
+    }
+
+    let normalized = Math.round(size);
+
+    if (normalized < 5) {
+      console.warn(`[MazeGenerator] 迷宫尺寸 ${size} 小于最小值 5，已自动修正为 5`);
+      normalized = 5;
+    } else if (normalized > 15) {
+      console.warn(`[MazeGenerator] 迷宫尺寸 ${size} 大于最大值 15，已自动修正为 15`);
+      normalized = 15;
+    }
+
+    if (normalized % 2 === 0) {
+      const adjusted = normalized + 1 > 15 ? normalized - 1 : normalized + 1;
+      console.warn(`[MazeGenerator] 迷宫尺寸必须为奇数，${normalized} 已自动修正为 ${adjusted}`);
+      normalized = adjusted;
+    }
+
+    return normalized;
   }
 
   public generate(): MazeData {
