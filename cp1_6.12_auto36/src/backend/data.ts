@@ -10,13 +10,19 @@ class DataStore {
   }
 
   private seedData() {
+    const q1RadioId = uuidv4();
+    const q1OptBadId = uuidv4();
+    const q2CheckId = uuidv4();
+    const q3RatingId = uuidv4();
+    const q4TextId = uuidv4();
+
     const sampleTemplate: FormTemplate = {
       id: uuidv4(),
       title: '用户满意度调查问卷',
       description: '感谢您抽出宝贵时间参与我们的满意度调查，您的反馈对我们非常重要！',
       questions: [
         {
-          id: uuidv4(),
+          id: q1RadioId,
           type: 'radio',
           title: '您对我们产品的整体满意度如何？',
           required: true,
@@ -24,12 +30,24 @@ class DataStore {
             { id: uuidv4(), label: '非常满意' },
             { id: uuidv4(), label: '满意' },
             { id: uuidv4(), label: '一般' },
-            { id: uuidv4(), label: '不满意' },
+            { id: q1OptBadId, label: '不满意' },
             { id: uuidv4(), label: '非常不满意' },
           ],
         },
         {
-          id: uuidv4(),
+          id: q4TextId,
+          type: 'text',
+          title: '请告诉我们不满意的原因，我们会努力改进：',
+          required: true,
+          placeholder: '请详细描述您遇到的问题...',
+          condition: {
+            questionId: q1RadioId,
+            operator: 'equals',
+            value: q1OptBadId,
+          },
+        },
+        {
+          id: q2CheckId,
           type: 'checkbox',
           title: '您最喜欢我们产品的哪些功能？（可多选）',
           required: false,
@@ -42,7 +60,7 @@ class DataStore {
           ],
         },
         {
-          id: uuidv4(),
+          id: q3RatingId,
           type: 'rating',
           title: '请为我们的客服服务打分',
           required: true,
@@ -66,13 +84,14 @@ class DataStore {
         id: uuidv4(),
         templateId: sampleTemplate.id,
         answers: {
-          [sampleTemplate.questions[0].id]: sampleTemplate.questions[0].options![0].id,
-          [sampleTemplate.questions[1].id]: [
-            sampleTemplate.questions[1].options![0].id,
-            sampleTemplate.questions[1].options![2].id,
+          [q1RadioId]: sampleTemplate.questions[0].options![0].id,
+          [q2CheckId]: [
+            sampleTemplate.questions[2].options![0].id,
+            sampleTemplate.questions[2].options![2].id,
           ],
-          [sampleTemplate.questions[2].id]: 5,
-          [sampleTemplate.questions[3].id]: '产品非常好用，继续加油！',
+          [q3RatingId]: 5,
+          [q4TextId]: '',
+          [sampleTemplate.questions[4].id]: '产品非常好用，继续加油！',
         },
         submittedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
       },
@@ -80,14 +99,15 @@ class DataStore {
         id: uuidv4(),
         templateId: sampleTemplate.id,
         answers: {
-          [sampleTemplate.questions[0].id]: sampleTemplate.questions[0].options![1].id,
-          [sampleTemplate.questions[1].id]: [
-            sampleTemplate.questions[1].options![1].id,
-            sampleTemplate.questions[1].options![3].id,
-            sampleTemplate.questions[1].options![4].id,
+          [q1RadioId]: sampleTemplate.questions[0].options![1].id,
+          [q2CheckId]: [
+            sampleTemplate.questions[2].options![1].id,
+            sampleTemplate.questions[2].options![3].id,
+            sampleTemplate.questions[2].options![4].id,
           ],
-          [sampleTemplate.questions[2].id]: 4,
-          [sampleTemplate.questions[3].id]: '希望增加更多自定义功能。',
+          [q3RatingId]: 4,
+          [q4TextId]: '',
+          [sampleTemplate.questions[4].id]: '希望增加更多自定义功能。',
         },
         submittedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
       },
@@ -95,15 +115,138 @@ class DataStore {
         id: uuidv4(),
         templateId: sampleTemplate.id,
         answers: {
-          [sampleTemplate.questions[0].id]: sampleTemplate.questions[0].options![2].id,
-          [sampleTemplate.questions[1].id]: [sampleTemplate.questions[1].options![0].id],
-          [sampleTemplate.questions[2].id]: 3,
-          [sampleTemplate.questions[3].id]: '',
+          [q1RadioId]: q1OptBadId,
+          [q2CheckId]: [sampleTemplate.questions[2].options![4].id],
+          [q3RatingId]: 2,
+          [q4TextId]: '客服响应速度太慢，希望能改进。',
+          [sampleTemplate.questions[4].id]: '希望加强客服培训。',
         },
         submittedAt: new Date(Date.now() - 86400000).toISOString(),
       },
+      {
+        id: uuidv4(),
+        templateId: sampleTemplate.id,
+        answers: {
+          [q1RadioId]: sampleTemplate.questions[0].options![0].id,
+          [q2CheckId]: [
+            sampleTemplate.questions[2].options![0].id,
+            sampleTemplate.questions[2].options![1].id,
+          ],
+          [q3RatingId]: 5,
+          [q4TextId]: '',
+          [sampleTemplate.questions[4].id]: '整体体验很棒！',
+        },
+        submittedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      },
+      {
+        id: uuidv4(),
+        templateId: sampleTemplate.id,
+        answers: {
+          [q1RadioId]: sampleTemplate.questions[0].options![2].id,
+          [q2CheckId]: [
+            sampleTemplate.questions[2].options![2].id,
+            sampleTemplate.questions[2].options![3].id,
+          ],
+          [q3RatingId]: 3,
+          [q4TextId]: '',
+          [sampleTemplate.questions[4].id]: '',
+        },
+        submittedAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+      },
     ];
     this.responses.set(sampleTemplate.id, sampleResponses);
+
+    const regQ1Id = uuidv4();
+    const regQ1OptStudent = uuidv4();
+    const regQ2Id = uuidv4();
+    const regQ3Id = uuidv4();
+    const regQ4Id = uuidv4();
+    const regQ5Id = uuidv4();
+
+    const registrationTemplate: FormTemplate = {
+      id: uuidv4(),
+      title: '活动报名登记表',
+      description: '请填写以下信息完成活动报名，我们期待您的参与！',
+      questions: [
+        {
+          id: regQ1Id,
+          type: 'radio',
+          title: '您的身份是？',
+          required: true,
+          options: [
+            { id: regQ1OptStudent, label: '在校学生' },
+            { id: uuidv4(), label: '职场人士' },
+            { id: uuidv4(), label: '自由职业者' },
+            { id: uuidv4(), label: '其他' },
+          ],
+        },
+        {
+          id: regQ2Id,
+          type: 'text',
+          title: '请输入您的学校名称：',
+          required: true,
+          placeholder: '例如：某某大学',
+          condition: {
+            questionId: regQ1Id,
+            operator: 'equals',
+            value: regQ1OptStudent,
+          },
+        },
+        {
+          id: regQ3Id,
+          type: 'text',
+          title: '您的姓名',
+          required: true,
+          placeholder: '请输入真实姓名',
+        },
+        {
+          id: regQ4Id,
+          type: 'dropdown',
+          title: '您所在的城市',
+          required: true,
+          options: [
+            { id: uuidv4(), label: '北京' },
+            { id: uuidv4(), label: '上海' },
+            { id: uuidv4(), label: '广州' },
+            { id: uuidv4(), label: '深圳' },
+            { id: uuidv4(), label: '杭州' },
+            { id: uuidv4(), label: '成都' },
+            { id: uuidv4(), label: '其他城市' },
+          ],
+        },
+        {
+          id: regQ5Id,
+          type: 'date',
+          title: '您期望的参与日期',
+          required: false,
+        },
+        {
+          id: uuidv4(),
+          type: 'rating',
+          title: '您对本次活动的期待程度',
+          required: false,
+          ratingMax: 5,
+        },
+      ],
+      createdAt: new Date(Date.now() - 86400000 * 14).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+    };
+    this.templates.set(registrationTemplate.id, registrationTemplate);
+    this.responses.set(registrationTemplate.id, [
+      {
+        id: uuidv4(),
+        templateId: registrationTemplate.id,
+        answers: {
+          [regQ1Id]: regQ1OptStudent,
+          [regQ2Id]: '清华大学',
+          [regQ3Id]: '张三',
+          [regQ4Id]: registrationTemplate.questions[3].options![0].id,
+          [regQ5Id]: '2025-07-20',
+          [registrationTemplate.questions[5].id]: 5,
+        },
+        submittedAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+      },
+    ]);
   }
 
   createTemplate(template: Omit<FormTemplate, 'id' | 'createdAt' | 'updatedAt'>): FormTemplate {
