@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import { createEditor, Editor as SlateEditor, Transforms, Element as SlateElement, Text, Range, Path } from 'slate';
 import { Slate, Editable, withReact, ReactEditor } from 'slate-react';
 import { withHistory } from 'slate-history';
@@ -76,32 +76,32 @@ function Toolbar({ editor }: ToolbarProps) {
       <div style={styles.divider} />
       <ToolbarButton
         label="H1"
-        title="标题1"
+        title="标题1 (Ctrl+1)"
         active={isBlockActive(editor, 'heading-one')}
         onClick={() => toggleBlock(editor, 'heading-one')}
       />
       <ToolbarButton
         label="H2"
-        title="标题2"
+        title="标题2 (Ctrl+2)"
         active={isBlockActive(editor, 'heading-two')}
         onClick={() => toggleBlock(editor, 'heading-two')}
       />
       <ToolbarButton
         label="H3"
-        title="标题3"
+        title="标题3 (Ctrl+3)"
         active={isBlockActive(editor, 'heading-three')}
         onClick={() => toggleBlock(editor, 'heading-three')}
       />
       <div style={styles.divider} />
       <ToolbarButton
         label="• 列表"
-        title="无序列表"
+        title="无序列表 (Ctrl+Shift+8)"
         active={isBlockActive(editor, 'bulleted-list')}
         onClick={() => toggleBlock(editor, 'bulleted-list')}
       />
       <ToolbarButton
         label="1. 列表"
-        title="有序列表"
+        title="有序列表 (Ctrl+Shift+7)"
         active={isBlockActive(editor, 'numbered-list')}
         onClick={() => toggleBlock(editor, 'numbered-list')}
       />
@@ -227,17 +227,55 @@ export default function Editor({ docTitle }: EditorProps) {
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return;
+      const isMod = event.ctrlKey || event.metaKey;
+      const isShift = event.shiftKey;
 
-      switch (event.key) {
-        case 'b':
-          event.preventDefault();
-          toggleMark(editor, 'bold');
-          break;
-        case 'i':
-          event.preventDefault();
-          toggleMark(editor, 'italic');
-          break;
+      if (isMod) {
+        switch (event.key) {
+          case 'b':
+          case 'B':
+            event.preventDefault();
+            event.stopPropagation();
+            toggleMark(editor, 'bold');
+            return;
+          case 'i':
+          case 'I':
+            event.preventDefault();
+            event.stopPropagation();
+            toggleMark(editor, 'italic');
+            return;
+          case '1':
+            event.preventDefault();
+            event.stopPropagation();
+            toggleBlock(editor, 'heading-one');
+            return;
+          case '2':
+            event.preventDefault();
+            event.stopPropagation();
+            toggleBlock(editor, 'heading-two');
+            return;
+          case '3':
+            event.preventDefault();
+            event.stopPropagation();
+            toggleBlock(editor, 'heading-three');
+            return;
+          case '8':
+            if (isShift) {
+              event.preventDefault();
+              event.stopPropagation();
+              toggleBlock(editor, 'bulleted-list');
+              return;
+            }
+            break;
+          case '7':
+            if (isShift) {
+              event.preventDefault();
+              event.stopPropagation();
+              toggleBlock(editor, 'numbered-list');
+              return;
+            }
+            break;
+        }
       }
     },
     [editor]
