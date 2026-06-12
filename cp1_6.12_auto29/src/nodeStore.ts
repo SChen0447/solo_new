@@ -209,6 +209,7 @@ export function moveNode(id: string, x: number, y: number) {
   moveChildren(id);
 
   notifyListeners();
+  scheduleSave();
 }
 
 export function forceSave() {
