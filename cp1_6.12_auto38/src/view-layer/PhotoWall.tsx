@@ -50,9 +50,11 @@ const PhotoWall: React.FC = () => {
   }, [displayPhotos]);
 
   useEffect(() => {
-    if (filterTag) return;
+    if (filterTag) {
+      return () => {};
+    }
 
-    intersectionObserverRef.current = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading) {
           loadMorePhotos();
@@ -61,13 +63,19 @@ const PhotoWall: React.FC = () => {
       { threshold: 0.1 }
     );
 
-    if (observerRef.current) {
-      intersectionObserverRef.current.observe(observerRef.current);
+    intersectionObserverRef.current = observer;
+
+    const targetEl = observerRef.current;
+    if (targetEl) {
+      observer.observe(targetEl);
     }
 
     return () => {
-      if (intersectionObserverRef.current) {
-        intersectionObserverRef.current.disconnect();
+      if (targetEl) {
+        observer.unobserve(targetEl);
+      }
+      observer.disconnect();
+      if (intersectionObserverRef.current === observer) {
         intersectionObserverRef.current = null;
       }
     };
