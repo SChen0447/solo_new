@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { MindMapNode, ViewportState, GenerateResponse } from './types';
 import MapView from './MapView';
 import Toolbar from './Toolbar';
@@ -14,9 +15,10 @@ const App: React.FC = () => {
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [isExporting, setIsExporting] = useState(false);
   const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
-  const mapViewRef = useRef<HTMLDivElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -42,15 +44,16 @@ const App: React.FC = () => {
     }
   }, [rootNode, viewport]);
 
-  const showToastMessage = useCallback((message: string) => {
+  const showToastMessage = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToastMessage(message);
+    setToastType(type);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 2000);
   }, []);
 
   const generateMindMap = useCallback(async () => {
     if (!inputTopic.trim()) {
-      showToastMessage('请输入主题');
+      showToastMessage('请输入主题', 'error');
       return;
     }
 
@@ -70,11 +73,13 @@ const App: React.FC = () => {
       if (data.success) {
         setRootNode(data.data);
         setViewport({ x: 0, y: 0, scale: 1 });
-        showToastMessage('思维导图生成成功');
+        setSearchKeyword('');
+        setHighlightedNodeIds(new Set());
+        showToastMessage('思维导图生成成功', 'success');
       }
     } catch (error) {
       console.error('Generate failed:', error);
-      showToastMessage('生成失败，请重试');
+      showToastMessage('生成失败，请重试', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +101,7 @@ const App: React.FC = () => {
 
       return updateRecursive(prev);
     });
-    showToastMessage('已保存');
+    showToastMessage('已保存', 'success');
   }, [showToastMessage]);
 
   const toggleCollapse = useCallback((nodeId: string) => {
@@ -129,7 +134,7 @@ const App: React.FC = () => {
 
       return expandRecursive(prev);
     });
-    showToastMessage('已展开所有节点');
+    showToastMessage('已展开所有节点', 'success');
   }, [showToastMessage]);
 
   const collapseAll = useCallback(() => {
@@ -144,45 +149,48 @@ const App: React.FC = () => {
 
       return collapseRecursive(prev);
     });
-    showToastMessage('已收起所有节点');
+    showToastMessage('已收起所有节点', 'success');
   }, [showToastMessage]);
 
   const searchNodes = useCallback((keyword: string) => {
     setSearchKeyword(keyword);
+    const trimmedKeyword = keyword.trim().toLowerCase();
 
-    if (!keyword.trim() || !rootNode) {
+    if (!trimmedKeyword || !rootNode) {
       setHighlightedNodeIds(new Set());
       return;
     }
 
     const matchedIds = new Set<string>();
-    const pathIds = new Set<string>();
+    const pathIds: string[] = [];
 
-    const searchRecursive = (node: MindMapNode, path: string[] = []): boolean => {
-      const isMatch = node.text.toLowerCase().includes(keyword.toLowerCase());
-      let hasMatchingChild = false;
+    const searchRecursive = (node: MindMapNode, currentPath: string[] = []): boolean => {
+      const isMatch = node.text.toLowerCase().includes(trimmedKeyword);
+      let hasMatchingDescendant = false;
 
       for (const child of node.children) {
-        if (searchRecursive(child, [...path, node.id])) {
-          hasMatchingChild = true;
+        if (searchRecursive(child, [...currentPath, node.id])) {
+          hasMatchingDescendant = true;
         }
       }
 
       if (isMatch) {
         matchedIds.add(node.id);
-        path.forEach((id) => pathIds.add(id));
+        currentPath.forEach((id) => pathIds.push(id));
       }
 
-      return isMatch || hasMatchingChild;
+      return isMatch || hasMatchingDescendant;
     };
 
     searchRecursive(rootNode);
+
+    const allPathIds = new Set(pathIds);
 
     setRootNode((prev) => {
       if (!prev) return prev;
 
       const expandRecursive = (node: MindMapNode): MindMapNode => {
-        const shouldExpand = matchedIds.has(node.id) || pathIds.has(node.id);
+        const shouldExpand = matchedIds.has(node.id) || allPathIds.has(node.id);
         return {
           ...node,
           collapsed: shouldExpand ? false : node.collapsed,
@@ -194,7 +202,13 @@ const App: React.FC = () => {
     });
 
     setHighlightedNodeIds(matchedIds);
-  }, [rootNode]);
+
+    if (matchedIds.size === 0) {
+      showToastMessage('未找到匹配的节点', 'error');
+    } else {
+      showToastMessage(`找到 ${matchedIds.size} 个匹配节点`, 'success');
+    }
+  }, [rootNode, showToastMessage]);
 
   const moveNode = useCallback((sourceId: string, targetId: string, position: 'inside' | 'before' | 'after') => {
     if (sourceId === targetId) return;
@@ -213,6 +227,18 @@ const App: React.FC = () => {
         return null;
       };
 
+      const isDescendant = (node: MindMapNode, target: string): boolean => {
+        if (node.id === target) return true;
+        return node.children.some((child) => isDescendant(child, target));
+      };
+
+      const sourceNodeData = findNode(prev);
+      if (!sourceNodeData) return prev;
+      if (isDescendant(sourceNodeData, targetId)) {
+        showToastMessage('不能将节点移动到其子节点下', 'error');
+        return prev;
+      }
+
       const removeSource = (node: MindMapNode): MindMapNode => {
         if (node.children.some((c) => c.id === sourceId)) {
           sourceNode = node.children.find((c) => c.id === sourceId) || null;
@@ -226,15 +252,6 @@ const App: React.FC = () => {
           children: node.children.map(removeSource),
         };
       };
-
-      const isDescendant = (node: MindMapNode, targetId: string): boolean => {
-        if (node.id === targetId) return true;
-        return node.children.some((child) => isDescendant(child, targetId));
-      };
-
-      if (isDescendant(findNode(prev)!, targetId)) {
-        return prev;
-      }
 
       const rootWithoutSource = removeSource(prev);
 
@@ -272,161 +289,64 @@ const App: React.FC = () => {
       return insertNode(rootWithoutSource);
     });
 
-    showToastMessage('节点已移动');
+    showToastMessage('节点已移动', 'success');
   }, [showToastMessage]);
 
   const exportToPNG = useCallback(async () => {
-    if (!rootNode || !mapViewRef.current) {
-      showToastMessage('没有可导出的内容');
+    if (!rootNode || !canvasContainerRef.current) {
+      showToastMessage('没有可导出的内容', 'error');
       return;
     }
 
     setIsExporting(true);
 
     try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Canvas not supported');
+      const mapCanvas = canvasContainerRef.current.querySelector('.map-canvas') as HTMLElement;
+      if (!mapCanvas) {
+        throw new Error('找不到导图元素');
       }
 
-      const nodePositions: Map<string, { x: number; y: number; width: number; height: number; depth: number; text: string; note?: string }> = new Map();
+      const toolbar = document.querySelector('.toolbar') as HTMLElement;
+      const mobileToggleBtn = document.querySelector('.mobile-toggle-btn') as HTMLElement;
+      const zoomIndicator = document.querySelector('.zoom-indicator') as HTMLElement;
+      const viewportCoords = document.querySelector('.viewport-coords') as HTMLElement;
 
-      const calculatePositions = (
-        node: MindMapNode,
-        x: number,
-        y: number,
-        depth: number = 0
-      ): { height: number; positions: Array<{ id: string; x: number; y: number; width: number; height: number; depth: number; text: string; note?: string }> } => {
-        const nodeWidth = Math.max(120, node.text.length * 14 + 40);
-        const nodeHeight = 44;
-        const hGap = 80;
-        const vGap = 20;
+      const elementsToHide = [toolbar, mobileToggleBtn, zoomIndicator, viewportCoords];
+      const originalDisplays: string[] = [];
 
-        if (node.collapsed || node.children.length === 0) {
-          return {
-            height: nodeHeight,
-            positions: [{ id: node.id, x, y, width: nodeWidth, height: nodeHeight, depth, text: node.text, note: node.note }],
-          };
+      elementsToHide.forEach((el) => {
+        if (el) {
+          originalDisplays.push(el.style.display);
+          el.style.display = 'none';
         }
+      });
 
-        const childResults = node.children.map((child, index) => {
-          const childY = y + index * (nodeHeight + vGap);
-          return calculatePositions(child, x + nodeWidth + hGap, childY, depth + 1);
+      try {
+        const canvas = await html2canvas(mapCanvas, {
+          backgroundColor: '#f0f4f8',
+          scale: 2,
+          useCORS: true,
+          logging: false,
         });
 
-        const totalHeight = childResults.reduce((sum, r) => sum + r.height + vGap, -vGap);
-        const rootY = y + totalHeight / 2 - nodeHeight / 2;
+        const link = document.createElement('a');
+        link.download = `mindmap-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-        const allPositions = [
-          { id: node.id, x, y: rootY, width: nodeWidth, height: nodeHeight, depth, text: node.text, note: node.note },
-          ...childResults.flatMap((r) => r.positions),
-        ];
-
-        return { height: Math.max(nodeHeight, totalHeight), positions: allPositions };
-      };
-
-      const result = calculatePositions(rootNode, 60, 60, 0);
-      result.positions.forEach((p) => nodePositions.set(p.id, p));
-
-      let maxX = 0;
-      let maxY = 0;
-      nodePositions.forEach((pos) => {
-        maxX = Math.max(maxX, pos.x + pos.width);
-        maxY = Math.max(maxY, pos.y + pos.height);
-      });
-
-      canvas.width = maxX + 60;
-      canvas.height = maxY + 60;
-
-      ctx.fillStyle = '#f0f4f8';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const getNodeColor = (depth: number) => {
-        const colors = ['#1a3a5c', '#4a7c9f', '#7fa9c7', '#a8c4d9'];
-        return colors[Math.min(depth, colors.length - 1)];
-      };
-
-      const getTextColor = (depth: number) => {
-        return depth === 0 ? '#ffffff' : '#1a3a5c';
-      };
-
-      const drawConnection = (
-        x1: number, y1: number, x2: number, y2: number
-      ) => {
-        ctx.strokeStyle = '#b0c4d9';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        const midX = (x1 + x2) / 2;
-        ctx.moveTo(x1, y1);
-        ctx.bezierCurveTo(midX, y1, midX, y2, x2, y2);
-        ctx.stroke();
-      };
-
-      const drawConnections = (node: MindMapNode, parentPos?: { x: number; y: number; width: number; height: number }) => {
-        const pos = nodePositions.get(node.id);
-        if (!pos) return;
-
-        if (parentPos) {
-          drawConnection(
-            parentPos.x + parentPos.width,
-            parentPos.y + parentPos.height / 2,
-            pos.x,
-            pos.y + pos.height / 2
-          );
-        }
-
-        if (!node.collapsed) {
-          node.children.forEach((child) => drawConnections(child, pos));
-        }
-      };
-
-      drawConnections(rootNode);
-
-      nodePositions.forEach((pos, id) => {
-        const node: MindMapNode | null = (() => {
-          const findNode = (n: MindMapNode): MindMapNode | null => {
-            if (n.id === id) return n;
-            for (const child of n.children) {
-              const found = findNode(child);
-              if (found) return found;
-            }
-            return null;
-          };
-          return findNode(rootNode);
-        })();
-
-        if (!node) return;
-
-        const radius = 8;
-        ctx.fillStyle = getNodeColor(pos.depth);
-        ctx.beginPath();
-        ctx.roundRect(pos.x, pos.y, pos.width, pos.height, radius);
-        ctx.fill();
-
-        ctx.fillStyle = getTextColor(pos.depth);
-        ctx.font = '14px system-ui, -apple-system, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(pos.text, pos.x + pos.width / 2, pos.y + pos.height / 2);
-
-        if (pos.note) {
-          ctx.fillStyle = '#ffd700';
-          ctx.beginPath();
-          ctx.arc(pos.x + pos.width - 8, pos.y + 8, 6, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-
-      const link = document.createElement('a');
-      link.download = `mindmap-${Date.now()}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-
-      showToastMessage('导出成功');
+        showToastMessage('导出成功', 'success');
+      } finally {
+        elementsToHide.forEach((el, index) => {
+          if (el) {
+            el.style.display = originalDisplays[index] || '';
+          }
+        });
+      }
     } catch (error) {
       console.error('Export failed:', error);
-      showToastMessage('导出失败，请重试');
+      showToastMessage('导出失败，请重试', 'error');
     } finally {
       setIsExporting(false);
     }
@@ -447,7 +367,7 @@ const App: React.FC = () => {
         onToggleMobilePanel={() => setIsMobilePanelOpen(!isMobilePanelOpen)}
       />
 
-      <div className="canvas-container" ref={mapViewRef}>
+      <div className="canvas-container" ref={canvasContainerRef}>
         {rootNode ? (
           <MapView
             rootNode={rootNode}
@@ -469,6 +389,7 @@ const App: React.FC = () => {
 
         {isExporting && (
           <div className="export-overlay">
+            <div className="export-spinner"></div>
             <div className="export-text">导出中...</div>
           </div>
         )}
@@ -482,7 +403,7 @@ const App: React.FC = () => {
       )}
 
       {showToast && (
-        <div className="toast toast-success">
+        <div className={`toast toast-${toastType}`}>
           <span>{toastMessage}</span>
         </div>
       )}

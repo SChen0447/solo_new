@@ -30,6 +30,7 @@ const H_GAP = 80;
 const V_GAP = 20;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
+const DRAG_THRESHOLD = 5;
 
 const MapView: React.FC<MapViewProps> = ({
   rootNode,
@@ -42,15 +43,21 @@ const MapView: React.FC<MapViewProps> = ({
   searchKeyword,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, viewportX: 0, viewportY: 0 });
   const [editingNode, setEditingNode] = useState<string | null>(null);
   const [draggingNode, setDraggingNode] = useState<string | null>(null);
+  const [isActuallyDragging, setIsActuallyDragging] = useState(false);
   const [dragOverNode, setDragOverNode] = useState<string | null>(null);
   const [dragPosition, setDragPosition] = useState<'inside' | 'before' | 'after' | null>(null);
   const [hoveredNoteNode, setHoveredNoteNode] = useState<string | null>(null);
-  const dragStartRef = useRef({ x: 0, y: 0, nodeId: '' });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [currentDragPos, setCurrentDragPos] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0, nodeId: '', nodeX: 0, nodeY: 0 });
+  const mouseMoveHandlerRef = useRef<((e: MouseEvent) => void) | null>(null);
+  const mouseUpHandlerRef = useRef<((e: MouseEvent) => void) | null>(null);
 
   const nodePositions = useMemo(() => {
     const positions = new Map<string, NodePosition>();
@@ -148,9 +155,11 @@ const MapView: React.FC<MapViewProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat) {
-        e.preventDefault();
-        setSpacePressed(true);
+      if (e.code === 'Space' && !e.repeat && !e.target || (e.target as HTMLElement).tagName !== 'INPUT') {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          setSpacePressed(true);
+        }
       }
     };
 
@@ -169,12 +178,25 @@ const MapView: React.FC<MapViewProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (mouseMoveHandlerRef.current) {
+        window.removeEventListener('mousemove', mouseMoveHandlerRef.current);
+      }
+      if (mouseUpHandlerRef.current) {
+        window.removeEventListener('mouseup', mouseUpHandlerRef.current);
+      }
+    };
+  }, []);
+
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
 
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
       const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewport.scale + delta));
+
+      if (newScale === viewport.scale) return;
 
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -197,7 +219,7 @@ const MapView: React.FC<MapViewProps> = ({
     [viewport, onViewportChange]
   );
 
-  const handleMouseDown = useCallback(
+  const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button === 1 || (e.button === 0 && spacePressed)) {
         e.preventDefault();
@@ -213,7 +235,7 @@ const MapView: React.FC<MapViewProps> = ({
     [spacePressed, viewport]
   );
 
-  const handleMouseMove = useCallback(
+  const handleCanvasMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (isPanning) {
         const dx = e.clientX - panStartRef.current.x;
@@ -224,86 +246,119 @@ const MapView: React.FC<MapViewProps> = ({
           y: panStartRef.current.viewportY + dy,
         });
       }
-
-      if (draggingNode) {
-        // Drag logic handled on node elements
-      }
     },
-    [isPanning, viewport, onViewportChange, draggingNode]
+    [isPanning, viewport, onViewportChange]
   );
 
-  const handleMouseUp = useCallback(() => {
+  const handleCanvasMouseUp = useCallback(() => {
     setIsPanning(false);
-    setDraggingNode(null);
-    setDragOverNode(null);
-    setDragPosition(null);
   }, []);
-
-  const getNodeColor = (depth: number) => {
-    const colors = ['#1a3a5c', '#4a7c9f', '#7fa9c7', '#a8c4d9'];
-    return colors[Math.min(depth, colors.length - 1)];
-  };
-
-  const getTextColor = (depth: number) => {
-    return depth === 0 ? '#ffffff' : '#1a3a5c';
-  };
 
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     if (spacePressed) return;
     if (editingNode === nodeId) return;
+    if (e.button !== 0) return;
 
     e.stopPropagation();
-    setDraggingNode(nodeId);
-    dragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      nodeId,
-    };
-  };
-
-  const handleNodeDragOver = (e: React.DragEvent, nodeId: string) => {
-    // Not using HTML5 drag and drop
-  };
-
-  const handleNodeMouseMove = (e: React.MouseEvent, nodeId: string) => {
-    if (!draggingNode || draggingNode === nodeId) return;
+    e.preventDefault();
 
     const nodePos = nodePositions.get(nodeId);
     if (!nodePos) return;
 
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
-    const relY = e.clientY - rect.top;
-    const height = rect.height;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
 
-    if (relY < height * 0.25) {
-      setDragPosition('before');
-    } else if (relY > height * 0.75) {
-      setDragPosition('after');
-    } else {
-      setDragPosition('inside');
-    }
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      nodeId,
+      nodeX: nodePos.x,
+      nodeY: nodePos.y,
+    };
 
-    setDragOverNode(nodeId);
-  };
+    setDraggingNode(nodeId);
+    setIsActuallyDragging(false);
+    setDragOffset({
+      x: e.clientX - rect.left - viewport.x - nodePos.x * viewport.scale,
+      y: e.clientY - rect.top - viewport.y - nodePos.y * viewport.scale,
+    });
 
-  const handleNodeMouseUp = (e: React.MouseEvent, nodeId: string) => {
-    if (!draggingNode || draggingNode === nodeId) {
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - dragStartRef.current.x;
+      const dy = moveEvent.clientY - dragStartRef.current.y;
+
+      if (!isActuallyDragging && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        setIsActuallyDragging(true);
+      }
+
+      if (isActuallyDragging || Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        setCurrentDragPos({
+          x: dragStartRef.current.nodeX + dx / viewport.scale,
+          y: dragStartRef.current.nodeY + dy / viewport.scale,
+        });
+      }
+
+      if (containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const screenX = moveEvent.clientX - containerRect.left;
+        const screenY = moveEvent.clientY - containerRect.top;
+
+        const worldX = (screenX - viewport.x) / viewport.scale;
+        const worldY = (screenY - viewport.y) / viewport.scale;
+
+        let found: { id: string; pos: NodePosition } | null = null;
+        nodePositions.forEach((pos, id) => {
+          if (id !== nodeId &&
+              worldX >= pos.x && worldX <= pos.x + pos.width &&
+              worldY >= pos.y && worldY <= pos.y + pos.height) {
+            if (!found || pos.depth > found.pos.depth) {
+              found = { id, pos };
+            }
+          }
+        });
+
+        if (found) {
+          setDragOverNode(found.id);
+          const relY = worldY - found.pos.y;
+          const height = found.pos.height;
+          if (relY < height * 0.25) {
+            setDragPosition('before');
+          } else if (relY > height * 0.75) {
+            setDragPosition('after');
+          } else {
+            setDragPosition('inside');
+          }
+        } else {
+          setDragOverNode(null);
+          setDragPosition(null);
+        }
+      }
+    };
+
+    const handleMouseUp = (_upEvent: MouseEvent) => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      mouseMoveHandlerRef.current = null;
+      mouseUpHandlerRef.current = null;
+
+      if (isActuallyDragging && dragOverNode && dragPosition) {
+        onMoveNode(nodeId, dragOverNode, dragPosition);
+      }
+
       setDraggingNode(null);
+      setIsActuallyDragging(false);
       setDragOverNode(null);
       setDragPosition(null);
-      return;
-    }
+    };
 
-    if (dragOverNode && dragPosition) {
-      onMoveNode(draggingNode, dragOverNode, dragPosition);
-    }
-
-    setDraggingNode(null);
-    setDragOverNode(null);
-    setDragPosition(null);
+    mouseMoveHandlerRef.current = handleMouseMove;
+    mouseUpHandlerRef.current = handleMouseUp;
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
   };
 
   const handleNodeDoubleClick = (nodeId: string) => {
+    if (isActuallyDragging) return;
     setEditingNode(nodeId);
   };
 
@@ -316,24 +371,60 @@ const MapView: React.FC<MapViewProps> = ({
     setEditingNode(null);
   };
 
+  const getNodeColor = (depth: number) => {
+    const colors = ['#1a3a5c', '#4a7c9f', '#7fa9c7', '#a8c4d9'];
+    return colors[Math.min(depth, colors.length - 1)];
+  };
+
+  const getTextColor = (depth: number) => {
+    return depth === 0 ? '#ffffff' : '#1a3a5c';
+  };
+
   const scalePercent = Math.round(viewport.scale * 100);
+
+  const renderDraggedNode = () => {
+    if (!draggingNode || !isActuallyDragging) return null;
+    const pos = nodePositions.get(draggingNode);
+    if (!pos) return null;
+
+    return (
+      <div
+        className="mindmap-node dragging-preview"
+        style={{
+          left: currentDragPos.x,
+          top: currentDragPos.y,
+          width: pos.width,
+          height: pos.height,
+          backgroundColor: getNodeColor(pos.depth),
+          color: getTextColor(pos.depth),
+          opacity: 0.8,
+          pointerEvents: 'none',
+          zIndex: 9999,
+          transform: 'none',
+        }}
+      >
+        <span className="node-text">{pos.node.text}</span>
+      </div>
+    );
+  };
 
   return (
     <div
       ref={containerRef}
-      className={`map-view ${spacePressed ? 'panning-cursor' : ''}`}
+      className={`map-view ${spacePressed && !isPanning ? 'pannable-cursor' : ''} ${isPanning ? 'panning-cursor' : ''}`}
       onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseDown={handleCanvasMouseDown}
+      onMouseMove={handleCanvasMouseMove}
+      onMouseUp={handleCanvasMouseUp}
+      onMouseLeave={handleCanvasMouseUp}
     >
       <div
+        ref={canvasRef}
         className="map-canvas"
         style={{
           transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
           transformOrigin: '0 0',
-          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+          transition: isPanning || isActuallyDragging ? 'none' : 'transform 0.1s ease-out',
         }}
       >
         <svg className="connections-svg">
@@ -359,7 +450,7 @@ const MapView: React.FC<MapViewProps> = ({
 
         {Array.from(nodePositions.values()).map((pos) => {
           const isHighlighted = highlightedNodeIds.has(pos.id);
-          const isDragging = draggingNode === pos.id;
+          const isDragging = draggingNode === pos.id && isActuallyDragging;
           const isDragOver = dragOverNode === pos.id;
           const hasChildren = pos.node.children.length > 0;
           const hasNote = !!pos.node.note;
@@ -370,9 +461,9 @@ const MapView: React.FC<MapViewProps> = ({
               key={pos.id}
               className={`mindmap-node node-depth-${pos.depth} ${isHighlighted ? 'highlighted' : ''} ${
                 isDragging ? 'dragging' : ''
-              } ${isDragOver ? 'drag-over' : ''} ${isDragOver && dragPosition === 'before' ? 'drag-before' : ''} ${
-                isDragOver && dragPosition === 'after' ? 'drag-after' : ''
-              }`}
+              } ${isDragOver && dragPosition === 'inside' ? 'drag-over' : ''} ${
+                isDragOver && dragPosition === 'before' ? 'drag-before' : ''
+              } ${isDragOver && dragPosition === 'after' ? 'drag-after' : ''}`}
               style={{
                 left: pos.x,
                 top: pos.y,
@@ -382,8 +473,6 @@ const MapView: React.FC<MapViewProps> = ({
                 color: getTextColor(pos.depth),
               }}
               onMouseDown={(e) => handleNodeMouseDown(e, pos.id)}
-              onMouseMove={(e) => handleNodeMouseMove(e, pos.id)}
-              onMouseUp={(e) => handleNodeMouseUp(e, pos.id)}
               onDoubleClick={() => handleNodeDoubleClick(pos.id)}
             >
               {hasChildren && (
@@ -393,6 +482,7 @@ const MapView: React.FC<MapViewProps> = ({
                     e.stopPropagation();
                     onToggleCollapse(pos.id);
                   }}
+                  onMouseDown={(e) => e.stopPropagation()}
                 >
                   {pos.node.collapsed ? '+' : '−'}
                 </button>
@@ -412,8 +502,9 @@ const MapView: React.FC<MapViewProps> = ({
                       className="note-indicator"
                       onMouseEnter={() => setHoveredNoteNode(pos.id)}
                       onMouseLeave={() => setHoveredNoteNode(null)}
+                      onMouseDown={(e) => e.stopPropagation()}
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
                       </svg>
                       {hoveredNoteNode === pos.id && (
@@ -426,6 +517,50 @@ const MapView: React.FC<MapViewProps> = ({
             </div>
           );
         })}
+
+        {renderDraggedNode()}
+
+        {draggingNode && isActuallyDragging && dragOverNode && (
+          <svg className="drag-preview-svg" style={{ pointerEvents: 'none' }}>
+            {(() => {
+              const sourcePos = nodePositions.get(draggingNode);
+              const targetPos = nodePositions.get(dragOverNode);
+              if (!sourcePos || !targetPos) return null;
+
+              let lineX1: number, lineY1: number, lineX2: number, lineY2: number;
+
+              if (dragPosition === 'inside') {
+                lineX1 = currentDragPos.x + sourcePos.width / 2;
+                lineY1 = currentDragPos.y + sourcePos.height / 2;
+                lineX2 = targetPos.x + targetPos.width / 2;
+                lineY2 = targetPos.y + targetPos.height / 2;
+              } else if (dragPosition === 'before') {
+                lineX1 = currentDragPos.x + sourcePos.width;
+                lineY1 = currentDragPos.y + sourcePos.height / 2;
+                lineX2 = targetPos.x;
+                lineY2 = targetPos.y - 2;
+              } else {
+                lineX1 = currentDragPos.x + sourcePos.width;
+                lineY1 = currentDragPos.y + sourcePos.height / 2;
+                lineX2 = targetPos.x;
+                lineY2 = targetPos.y + targetPos.height + 2;
+              }
+
+              const midX = (lineX1 + lineX2) / 2;
+
+              return (
+                <path
+                  d={`M ${lineX1} ${lineY1} C ${midX} ${lineY1}, ${midX} ${lineY2}, ${lineX2} ${lineY2}`}
+                  fill="none"
+                  stroke="#1a3a5c"
+                  strokeWidth={2}
+                  strokeDasharray="6,4"
+                  className="drag-preview-line"
+                />
+              );
+            })()}
+          </svg>
+        )}
       </div>
 
       <div className="zoom-indicator">{scalePercent}%</div>

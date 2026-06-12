@@ -12,6 +12,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({ node, onSubmit, onCancel }) => 
   const [note, setNote] = useState(node.note || '');
   const [showNoteInput, setShowNoteInput] = useState(!!node.note);
   const textInputRef = useRef<HTMLInputElement>(null);
+  const noteInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (textInputRef.current) {
@@ -20,10 +21,28 @@ const NodeEditor: React.FC<NodeEditorProps> = ({ node, onSubmit, onCancel }) => 
     }
   }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  useEffect(() => {
+    if (showNoteInput && noteInputRef.current) {
+      noteInputRef.current.focus();
+    }
+  }, [showNoteInput]);
+
+  const handleSubmit = () => {
+    const finalText = text.trim() || node.text;
+    const finalNote = note.trim() || undefined;
+    onSubmit(finalText, finalNote);
+  };
+
+  const handleTextKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      onSubmit(text.trim() || node.text, note.trim() || undefined);
+      if (!showNoteInput && !node.note) {
+        handleSubmit();
+      } else if (showNoteInput && noteInputRef.current) {
+        noteInputRef.current.focus();
+      } else {
+        handleSubmit();
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       onCancel();
@@ -31,36 +50,53 @@ const NodeEditor: React.FC<NodeEditorProps> = ({ node, onSubmit, onCancel }) => 
   };
 
   const handleNoteKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      onSubmit(text.trim() || node.text, note.trim() || undefined);
+      handleSubmit();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       onCancel();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      textInputRef.current?.focus();
     }
   };
 
+  const handleContainerMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <div className="node-editor" onClick={(e) => e.stopPropagation()}>
+    <div className="node-editor" onMouseDown={handleContainerMouseDown}>
       <input
         ref={textInputRef}
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
+        onKeyDown={handleTextKeyDown}
+        onBlur={() => {}}
         className="node-text-input"
-        placeholder="输入节点文字"
+        placeholder="输入节点文字，按回车继续"
       />
       {showNoteInput ? (
-        <input
-          type="text"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          onKeyDown={handleNoteKeyDown}
-          className="node-note-input"
-          placeholder="输入备注，按回车保存"
-          autoFocus
-        />
+        <div className="note-input-container">
+          <input
+            ref={noteInputRef}
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={handleNoteKeyDown}
+            className="node-note-input"
+            placeholder="输入备注，按回车保存"
+          />
+          <button
+            className="save-note-btn"
+            onClick={handleSubmit}
+            onMouseDown={handleContainerMouseDown}
+          >
+            ✓
+          </button>
+        </div>
       ) : (
         <button
           className="add-note-btn"
@@ -68,6 +104,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({ node, onSubmit, onCancel }) => 
             e.stopPropagation();
             setShowNoteInput(true);
           }}
+          onMouseDown={handleContainerMouseDown}
         >
           + 添加备注
         </button>
