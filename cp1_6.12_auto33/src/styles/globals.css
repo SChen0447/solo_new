@@ -148,3 +148,81 @@ input, textarea {
     height: 180px !important;
   }
 }
+
+.diff-added {
+  background: var(--added-bg);
+  color: var(--added-color);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.diff-removed {
+  background: var(--removed-bg);
+  color: var(--removed-color);
+  text-decoration: line-through;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.diff-modified-old {
+  background: var(--modified-bg);
+  color: var(--removed-color);
+  text-decoration: line-through;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.diff-modified-new {
+  background: var(--modified-bg);
+  color: var(--added-color);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.diff-placeholder {
+  display: inline;
+}
+
+.diff-stat-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.diff-stat-added {
+  background: var(--added-bg);
+  color: var(--added-color);
+}
+
+.diff-stat-removed {
+  background: var(--removed-bg);
+  color: var(--removed-color);
+}
+
+.diff-stat-modified {
+  background: var(--modified-bg);
+  color: var(--modified-color);
+}
+
+.diff-legend-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.diff-legend-added {
+  background: var(--added-bg);
+  border: 1px solid var(--added-color);
+}
+
+.diff-legend-removed {
+  background: var(--removed-bg);
+  border: 1px solid var(--removed-color);
+}
+
+.diff-legend-modified {
+  background: var(--modified-bg);
+  border: 1px solid var(--modified-color);
+}

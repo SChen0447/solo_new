@@ -22,68 +22,40 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
 
     segments.forEach((seg, idx) => {
       const key = `seg-${idx}`;
-      if (seg.type === 'added') {
-        left.push(<span key={key} />);
-        right.push(
-          <span
-            key={key}
-            style={{
-              background: 'var(--added-bg)',
-              color: 'var(--added-color)',
-              padding: '0 2px',
-              borderRadius: '2px',
-            }}
-          >
-            {seg.value}
-          </span>
-        );
-      } else if (seg.type === 'removed') {
-        left.push(
-          <span
-            key={key}
-            style={{
-              background: 'var(--removed-bg)',
-              color: 'var(--removed-color)',
-              textDecoration: 'line-through',
-              padding: '0 2px',
-              borderRadius: '2px',
-            }}
-          >
-            {seg.value}
-          </span>
-        );
-        right.push(<span key={key} />);
-      } else if (seg.type === 'modified') {
-        left.push(
-          <span
-            key={`${key}-old`}
-            style={{
-              background: 'var(--modified-bg)',
-              color: 'var(--removed-color)',
-              textDecoration: 'line-through',
-              padding: '0 2px',
-              borderRadius: '2px',
-            }}
-          >
-            {seg.oldValue}
-          </span>
-        );
-        right.push(
-          <span
-            key={`${key}-new`}
-            style={{
-              background: 'var(--modified-bg)',
-              color: 'var(--added-color)',
-              padding: '0 2px',
-              borderRadius: '2px',
-            }}
-          >
-            {seg.value}
-          </span>
-        );
-      } else {
-        left.push(<span key={key}>{seg.value}</span>);
-        right.push(<span key={key}>{seg.value}</span>);
+
+      switch (seg.type) {
+        case 'added':
+          left.push(
+            <span key={key} className="diff-placeholder" />
+          );
+          right.push(
+            <span key={key} className="diff-added">{seg.value}</span>
+          );
+          break;
+
+        case 'removed':
+          left.push(
+            <span key={key} className="diff-removed">{seg.value}</span>
+          );
+          right.push(
+            <span key={key} className="diff-placeholder" />
+          );
+          break;
+
+        case 'modified':
+          left.push(
+            <span key={`${key}-old`} className="diff-modified-old">{seg.oldValue}</span>
+          );
+          right.push(
+            <span key={`${key}-new`} className="diff-modified-new">{seg.value}</span>
+          );
+          break;
+
+        case 'unchanged':
+        default:
+          left.push(<span key={key}>{seg.value}</span>);
+          right.push(<span key={key}>{seg.value}</span>);
+          break;
       }
     });
 
@@ -96,7 +68,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
     let modified = 0;
 
     segments.forEach((seg) => {
-      const count = seg.value.trim().split(/\s+/).filter(Boolean).length;
+      const text = seg.type === 'modified' ? (seg.oldValue || '') + seg.value : seg.value;
+      const count = text.trim().split(/\s+/).filter(Boolean).length;
       if (seg.type === 'added') added += count;
       else if (seg.type === 'removed') removed += count;
       else if (seg.type === 'modified') modified += count;
@@ -111,15 +84,9 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
         <div style={styles.headerLeft}>
           <h3 style={styles.title}>🔍 差异对比</h3>
           <div style={styles.stats}>
-            <span style={{ ...styles.statBadge, background: 'var(--added-bg)', color: 'var(--added-color)' }}>
-              +{stats.added} 新增
-            </span>
-            <span style={{ ...styles.statBadge, background: 'var(--removed-bg)', color: 'var(--removed-color)' }}>
-              -{stats.removed} 删除
-            </span>
-            <span style={{ ...styles.statBadge, background: 'var(--modified-bg)', color: 'var(--modified-color)' }}>
-              ~{stats.modified} 修改
-            </span>
+            <span className="diff-stat-badge diff-stat-added">+{stats.added} 新增</span>
+            <span className="diff-stat-badge diff-stat-removed">-{stats.removed} 删除</span>
+            <span className="diff-stat-badge diff-stat-modified">~{stats.modified} 修改</span>
           </div>
         </div>
         <div style={styles.headerRight}>
@@ -134,16 +101,16 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
 
       <div style={styles.legend}>
         <div style={styles.legendItem}>
-          <span style={{ ...styles.legendColor, background: 'var(--added-bg)', border: '1px solid var(--added-color)' }} />
-          <span style={styles.legendText}>新增</span>
+          <span className="diff-legend-swatch diff-legend-added" />
+          <span style={styles.legendText}>新增（绿色高亮）</span>
         </div>
         <div style={styles.legendItem}>
-          <span style={{ ...styles.legendColor, background: 'var(--removed-bg)', border: '1px solid var(--removed-color)' }} />
-          <span style={styles.legendText}>删除（带删除线）</span>
+          <span className="diff-legend-swatch diff-legend-removed" />
+          <span style={styles.legendText}>删除（红色 + 删除线）</span>
         </div>
         <div style={styles.legendItem}>
-          <span style={{ ...styles.legendColor, background: 'var(--modified-bg)', border: '1px solid var(--modified-color)' }} />
-          <span style={styles.legendText}>修改</span>
+          <span className="diff-legend-swatch diff-legend-modified" />
+          <span style={styles.legendText}>修改（黄色背景）</span>
         </div>
       </div>
 
@@ -206,12 +173,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '8px',
   },
-  statBadge: {
-    padding: '3px 10px',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: 600,
-  },
   headerRight: {
     display: 'flex',
     alignItems: 'center',
@@ -243,11 +204,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-  },
-  legendColor: {
-    width: '16px',
-    height: '16px',
-    borderRadius: '3px',
   },
   legendText: {
     fontSize: '12px',

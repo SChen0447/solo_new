@@ -116,27 +116,19 @@ app.get('/api/diff', (req: Request, res: Response) => {
   while (i < differences.length) {
     const diff = differences[i];
 
+    if (diff.removed && i + 1 < differences.length && differences[i + 1].added) {
+      segments.push({
+        type: 'modified',
+        value: differences[i + 1].value,
+        oldValue: diff.value,
+      });
+      i += 2;
+      continue;
+    }
+
     if (diff.added) {
-      if (i + 1 < differences.length && differences[i + 1].removed) {
-        segments.push({
-          type: 'modified',
-          value: diff.value,
-          oldValue: differences[i + 1].value,
-        });
-        i += 2;
-        continue;
-      }
       segments.push({ type: 'added', value: diff.value });
     } else if (diff.removed) {
-      if (i + 1 < differences.length && differences[i + 1].added) {
-        segments.push({
-          type: 'modified',
-          value: differences[i + 1].value,
-          oldValue: diff.value,
-        });
-        i += 2;
-        continue;
-      }
       segments.push({ type: 'removed', value: diff.value });
     } else {
       segments.push({ type: 'unchanged', value: diff.value });
