@@ -11,11 +11,19 @@ export default function CapsuleList({ refreshKey }: CapsuleListProps) {
   const [capsules, setCapsules] = useState<Capsule[]>([]);
   const [selectedCapsule, setSelectedCapsule] = useState<Capsule | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [cardsVisible, setCardsVisible] = useState(false);
   const [, setTick] = useState(0);
 
   useEffect(() => {
     setCapsules(listCapsules());
   }, [refreshKey]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCardsVisible(true);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [capsules.length]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -68,10 +76,10 @@ export default function CapsuleList({ refreshKey }: CapsuleListProps) {
           return (
             <div
               key={capsule.id}
-              className="capsule-card"
+              className={`capsule-card ${cardsVisible ? 'visible' : ''}`}
               style={{
                 background: `linear-gradient(135deg, ${capsule.coverColor.from}, ${capsule.coverColor.to})`,
-                animationDelay: `${index * 0.08}s`,
+                transitionDelay: `${index * 0.08}s`,
               }}
             >
               <div className="card-content">

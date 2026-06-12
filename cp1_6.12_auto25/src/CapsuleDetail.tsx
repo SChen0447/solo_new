@@ -8,21 +8,11 @@ interface CapsuleDetailProps {
 }
 
 export default function CapsuleDetail({ capsule, isFlipped, onClose }: CapsuleDetailProps) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [clues, setClues] = useState<string[]>([]);
   const [highlightedContentId, setHighlightedContentId] = useState<string | null>(null);
-  const imageContainerRef = useRef<HTMLDivElement>(null);
+  const imageScrollRef = useRef<HTMLDivElement>(null);
   const contentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  useEffect(() => {
-    const allTags = capsule.contents.flatMap(c => c.tags);
-    const uniqueTags = [...new Set(allTags)];
-    const shuffled = uniqueTags.sort(() => Math.random() - 0.5);
-    const selectedClues = shuffled.slice(0, Math.min(3, shuffled.length));
-    setClues(selectedClues);
-    setHighlightedContentId(null);
-    setCurrentImageIndex(0);
-  }, [capsule.id]);
+  const clues = capsule.clues && capsule.clues.length > 0 ? capsule.clues : [];
 
   const handleClueClick = (clue: string) => {
     const matchingContent = capsule.contents.find(c => c.tags.includes(clue));
@@ -32,27 +22,6 @@ export default function CapsuleDetail({ capsule, isFlipped, onClose }: CapsuleDe
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTimeout(() => setHighlightedContentId(null), 2000);
-      }
-    }
-  };
-
-  const handleImageScroll = (direction: 'left' | 'right') => {
-    if (direction === 'left' && currentImageIndex > 0) {
-      setCurrentImageIndex(currentImageIndex - 1);
-    } else if (direction === 'right' && currentImageIndex < capsule.images.length - 1) {
-      setCurrentImageIndex(currentImageIndex + 1);
-    }
-  };
-
-  const handleTouchStart = useRef<number>(0);
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const touchEnd = e.changedTouches[0].clientX;
-    const diff = handleTouchStart.current - touchEnd;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
-        handleImageScroll('right');
-      } else {
-        handleImageScroll('left');
       }
     }
   };
@@ -103,50 +72,17 @@ export default function CapsuleDetail({ capsule, isFlipped, onClose }: CapsuleDe
               {capsule.images.length > 0 && (
                 <div className="image-gallery">
                   <div
-                    className="image-container"
-                    ref={imageContainerRef}
-                    onTouchStart={e => { handleTouchStart.current = e.touches[0].clientX; }}
-                    onTouchEnd={handleTouchEnd}
+                    className="image-scroll-container"
+                    ref={imageScrollRef}
                   >
-                    <div
-                      className="image-slider"
-                      style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
-                    >
-                      {capsule.images.map((img, index) => (
-                        <div key={index} className="image-slide">
-                          <img src={img} alt={`图片 ${index + 1}`} loading="lazy" />
-                        </div>
-                      ))}
-                    </div>
-                    {capsule.images.length > 1 && (
-                      <>
-                        <button
-                          className="gallery-arrow left"
-                          onClick={() => handleImageScroll('left')}
-                          disabled={currentImageIndex === 0}
-                        >
-                          ‹
-                        </button>
-                        <button
-                          className="gallery-arrow right"
-                          onClick={() => handleImageScroll('right')}
-                          disabled={currentImageIndex === capsule.images.length - 1}
-                        >
-                          ›
-                        </button>
-                      </>
-                    )}
+                    {capsule.images.map((img, index) => (
+                      <div key={index} className="image-scroll-item">
+                        <img src={img} alt={`图片 ${index + 1}`} loading="lazy" />
+                      </div>
+                    ))}
                   </div>
                   {capsule.images.length > 1 && (
-                    <div className="image-dots">
-                      {capsule.images.map((_, index) => (
-                        <button
-                          key={index}
-                          className={`dot ${index === currentImageIndex ? 'active' : ''}`}
-                          onClick={() => setCurrentImageIndex(index)}
-                        />
-                      ))}
-                    </div>
+                    <p className="image-scroll-hint">← 左右滑动查看更多 →</p>
                   )}
                 </div>
               )}

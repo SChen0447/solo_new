@@ -14,8 +14,7 @@ export default function CapsuleForm({ onCreated, onCancel }: CapsuleFormProps) {
   const [images, setImages] = useState<string[]>(['']);
   const [openDate, setOpenDate] = useState('');
   const [tagInputs, setTagInputs] = useState<string[]>(['']);
-
-  const [imageErrors, setImageErrors] = useState<string[]>([]);
+  const [imageErrors, setImageErrors] = useState<string[]>(['']);
 
   const IMAGE_URL_PATTERN = /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i;
 
@@ -83,6 +82,7 @@ export default function CapsuleForm({ onCreated, onCancel }: CapsuleFormProps) {
 
   const handleAddImage = () => {
     setImages([...images, '']);
+    setImageErrors([...imageErrors, '']);
   };
 
   const handleImageChange = (index: number, url: string) => {
@@ -95,12 +95,13 @@ export default function CapsuleForm({ onCreated, onCancel }: CapsuleFormProps) {
   };
 
   const handleRemoveImage = (index: number) => {
-    setImages(images.filter((_, i) => i !== index));
-    setImageErrors(imageErrors.filter((_, i) => i !== index));
     if (images.length <= 1) {
       setImages(['']);
       setImageErrors(['']);
+      return;
     }
+    setImages(images.filter((_, i) => i !== index));
+    setImageErrors(imageErrors.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
