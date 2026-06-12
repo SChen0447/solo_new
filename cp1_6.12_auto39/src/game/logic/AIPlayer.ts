@@ -3,7 +3,6 @@ import {
   Action,
   Unit,
   Position,
-  PlayerSide,
   BOARD_SIZE,
   manhattanDistance,
 } from '../types';
@@ -12,6 +11,7 @@ import {
   getValidMovePositions,
   getValidAttackTargets,
   getUnitAt,
+  getUnit,
 } from './GameEngine';
 
 export interface AIActionStep {
@@ -22,18 +22,30 @@ export interface AIActionStep {
 }
 
 function scoreTarget(attacker: Unit, target: Unit): number {
-  const damage = Math.max(1, attacker.attack - target.defense);
-  const killBonus = target.hp <= damage ? 100 : 0;
-  const lowHpBonus = (target.maxHp - target.hp) * 2;
-  const lowDefBonus = (10 - target.defense) * 3;
-  const proximityBonus = attacker.attackRange >= manhattanDistance(attacker.pos, target.pos) ? 50 : 0;
-  return killBonus + lowHpBonus + lowDefBonus + proximityBonus + damage;
+  const estimatedDamage = Math.max(1, attacker.attack - target.defense);
+  let score = 0;
+
+  if (target.hp <= estimatedDamage) {
+    score += 200;
+  }
+
+  score += (target.maxHp - target.hp) * 5;
+
+  score += (10 - target.defense) * 8;
+
+  score += estimatedDamage * 3;
+
+  if (attacker.isAoe) {
+    score += 30;
+  }
+
+  return score;
 }
 
 function findBestMoveToward(
   state: GameState,
   unit: Unit,
-  target: Unit
+  primaryTarget: Unit
 ): Position | null {
   const moves = getValidMovePositions(state, unit.id);
   if (moves.length === 0) return null;
@@ -41,25 +53,33 @@ function findBestMoveToward(
   let bestPos: Position | null = null;
   let bestScore = -Infinity;
 
-  const currentDist = manhattanDistance(unit.pos, target.pos);
-
   for (const pos of moves) {
-    const dist = manhattanDistance(pos, target.pos);
-    const closeness = currentDist - dist;
+    if (getUnitAt(state, pos)) continue;
 
-    const unitAtPos = getUnitAt(state, pos);
-    if (unitAtPos) continue;
+    const distToTarget = manhattanDistance(pos, primaryTarget.pos);
+    let score = -distToTarget * 10;
 
-    let score = closeness * 10;
+    if (distToTarget <= unit.attackRange) {
+      score += 100;
 
-    if (dist <= unit.attackRange) {
-      score += 50;
+      const allEnemies = getAliveUnits(state, 'blue');
+      const targetsInRange = allEnemies.filter(
+        (e) => manhattanDistance(pos, e.pos) <= unit.attackRange
+      );
+      score += targetsInRange.length * 15;
+
+      let bestTargetScore = 0;
+      for (const t of targetsInRange) {
+        const ts = scoreTarget(unit, t);
+        if (ts > bestTargetScore) bestTargetScore = ts;
+      }
+      score += bestTargetScore * 0.5;
     }
 
-    const blueUnits = getAliveUnits(state, 'blue');
-    for (const bu of blueUnits) {
-      if (manhattanDistance(pos, bu.pos) <= bu.attackRange) {
-        score -= 5;
+    const playerUnits = getAliveUnits(state, 'blue');
+    for (const pu of playerUnits) {
+      if (manhattanDistance(pos, pu.pos) <= pu.attackRange) {
+        score -= 10;
       }
     }
 
@@ -73,80 +93,102 @@ function findBestMoveToward(
 }
 
 export function computeAIActions(state: GameState): AIActionStep[] {
-  const aiUnits = getAliveUnits(state, 'red').filter((u) => !u.hasMoved || !u.hasAttacked);
+  const aiUnits = getAliveUnits(state, 'red').filter(
+    (u) => !u.hasMoved || !u.hasAttacked
+  );
   const playerUnits = getAliveUnits(state, 'blue');
 
-  if (playerUnits.length === 0) return [];
+  if (playerUnits.length === 0 || aiUnits.length === 0) return [];
 
-  const steps: AIActionStep[] = [];
-
-  const sortedTargets = [...playerUnits].sort((a, b) => {
-    const scoreA = a.hp + a.defense * 2;
-    const scoreB = b.hp + b.defense * 2;
+  const prioritizedTargets = [...playerUnits].sort((a, b) => {
+    const scoreA = a.hp + a.defense * 3;
+    const scoreB = b.hp + b.defense * 3;
     return scoreA - scoreB;
   });
 
+  const steps: AIActionStep[] = [];
+  const simulatedKills = new Set<string>();
+
   for (const unit of aiUnits) {
-    const mutableUnit = { ...unit };
-    let tempState = state;
+    if (unit.hasMoved && unit.hasAttacked) continue;
 
-    const attackTargets = getValidAttackTargets(tempState, mutableUnit.id);
+    const attackTargets = getValidAttackTargets(state, unit.id).filter(
+      (t) => !simulatedKills.has(t.id)
+    );
 
-    if (attackTargets.length > 0 && !mutableUnit.hasAttacked) {
+    if (attackTargets.length > 0 && !unit.hasAttacked) {
       const scored = attackTargets.map((t) => ({
         target: t,
-        score: scoreTarget(mutableUnit, t),
+        score: scoreTarget(unit, t),
       }));
       scored.sort((a, b) => b.score - a.score);
 
       const best = scored[0].target;
-
       steps.push({
-        action: { type: 'attack', unitId: mutableUnit.id, targetId: best.id },
-        unit: mutableUnit,
+        action: { type: 'attack', unitId: unit.id, targetId: best.id },
+        unit,
       });
+
+      const estimatedDamage = Math.max(1, unit.attack - best.defense);
+      if (best.hp <= estimatedDamage) {
+        simulatedKills.add(best.id);
+      }
       continue;
     }
 
-    if (!mutableUnit.hasMoved) {
-      const primaryTarget = sortedTargets[0];
-      const bestMove = findBestMoveToward(tempState, mutableUnit, primaryTarget);
+    if (!unit.hasMoved) {
+      let bestTarget = prioritizedTargets.find((t) => !simulatedKills.has(t.id));
+      if (!bestTarget) bestTarget = prioritizedTargets[0];
+
+      const bestMove = findBestMoveToward(state, unit, bestTarget);
 
       if (bestMove) {
         steps.push({
-          action: { type: 'move', unitId: mutableUnit.id, targetPos: bestMove },
-          unit: mutableUnit,
-          moveFrom: { ...mutableUnit.pos },
+          action: { type: 'move', unitId: unit.id, targetPos: bestMove },
+          unit,
+          moveFrom: { ...unit.pos },
           moveTo: bestMove,
         });
 
-        const movedPos = bestMove;
         const postMoveTargets = playerUnits.filter(
-          (t) => t.isAlive && manhattanDistance(movedPos, t.pos) <= mutableUnit.attackRange
+          (t) =>
+            !simulatedKills.has(t.id) &&
+            t.isAlive &&
+            manhattanDistance(bestMove, t.pos) <= unit.attackRange
         );
 
-        if (postMoveTargets.length > 0 && !mutableUnit.hasAttacked) {
+        if (postMoveTargets.length > 0 && !unit.hasAttacked) {
+          const movedUnit = { ...unit, pos: bestMove };
           const scored = postMoveTargets.map((t) => ({
             target: t,
-            score: scoreTarget({ ...mutableUnit, pos: movedPos }, t),
+            score: scoreTarget(movedUnit, t),
           }));
           scored.sort((a, b) => b.score - a.score);
 
           steps.push({
-            action: { type: 'attack', unitId: mutableUnit.id, targetId: scored[0].target.id },
-            unit: { ...mutableUnit, pos: movedPos },
+            action: {
+              type: 'attack',
+              unitId: unit.id,
+              targetId: scored[0].target.id,
+            },
+            unit: movedUnit,
           });
+
+          const estDmg = Math.max(1, movedUnit.attack - scored[0].target.defense);
+          if (scored[0].target.hp <= estDmg) {
+            simulatedKills.add(scored[0].target.id);
+          }
         }
       } else {
         steps.push({
-          action: { type: 'skip', unitId: mutableUnit.id },
-          unit: mutableUnit,
+          action: { type: 'skip', unitId: unit.id },
+          unit,
         });
       }
     } else {
       steps.push({
-        action: { type: 'skip', unitId: mutableUnit.id },
-        unit: mutableUnit,
+        action: { type: 'skip', unitId: unit.id },
+        unit,
       });
     }
   }
