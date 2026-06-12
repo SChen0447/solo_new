@@ -1,11 +1,9 @@
-import { useCallback, useMemo, memo } from 'react';
+import { useCallback, useMemo, memo, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
-  useNodesState,
-  useEdgesState,
   addEdge,
   Connection,
   Edge,
@@ -15,6 +13,8 @@ import {
   MarkerType,
   NodeProps,
   BackgroundVariant,
+  NodeChange,
+  applyNodeChanges,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Trash2 } from 'lucide-react';
@@ -34,8 +34,8 @@ const CustomNode = memo(({ data, selected, id }: NodeProps<{
   return (
     <div
       className={`
-        relative min-w-[180px] max-w-[240px] rounded-node border-2 bg-white
-        transition-all duration-200 ease-out cursor-pointer
+        relative min-w-[180px] max-w-[240px] rounded-node border-2
+        transition-all duration-200 ease-out cursor-grab active:cursor-grabbing
         ${selected
           ? 'border-primary shadow-node-selected scale-[1.02]'
           : 'border-editor-border hover:shadow-node-hover hover:scale-[1.01]'
@@ -52,7 +52,7 @@ const CustomNode = memo(({ data, selected, id }: NodeProps<{
         className="!w-3 !h-3 !bg-primary !border-2 !border-white"
       />
 
-      <div className="p-3">
+      <div className="p-3 pointer-events-none">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-mono font-bold text-editor-text/60">
             {id.slice(0, 6)}
@@ -62,7 +62,7 @@ const CustomNode = memo(({ data, selected, id }: NodeProps<{
               e.stopPropagation();
               data.onDelete(id);
             }}
-            className="p-1 rounded-full hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
+            className="pointer-events-auto p-1 rounded-full hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
           >
             <Trash2 size={14} />
           </button>
@@ -107,11 +107,13 @@ const EditorCanvas = () => {
     custom: CustomNode,
   }), []);
 
-  const nodes: Node[] = useMemo(() => {
+  const internalNodes: Node[] = useMemo(() => {
     return gameNodes.map((node: GameNodeType) => ({
       id: node.id,
       type: 'custom',
       position: node.position,
+      draggable: true,
+      selectable: true,
       data: {
         label: node.id,
         description: node.description,
@@ -123,7 +125,7 @@ const EditorCanvas = () => {
     }));
   }, [gameNodes, selectedNodeId, deleteNode]);
 
-  const edges: Edge[] = useMemo(() => {
+  const internalEdges: Edge[] = useMemo(() => {
     return gameEdges.map((edge) => ({
       id: edge.id,
       source: edge.source,
@@ -144,12 +146,30 @@ const EditorCanvas = () => {
     }));
   }, [gameEdges]);
 
-  const [, setNodes, onNodesChange] = useNodesState(nodes);
-  const [, setEdges, onEdgesChange] = useEdgesState(edges);
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const updatedNodes = applyNodeChanges(changes, internalNodes);
+
+    changes.forEach((change) => {
+      if (change.type === 'position' && change.position && !change.dragging) {
+        updateNodePosition(change.id, change.position);
+        useGameStore.getState().saveToStorage();
+      }
+      if (change.type === 'position' && change.position && change.dragging) {
+        updateNodePosition(change.id, change.position);
+      }
+      if (change.type === 'select') {
+        if (change.selected) {
+          selectNode(change.id);
+        }
+      }
+    });
+
+    void updatedNodes;
+  }, [internalNodes, updateNodePosition, selectNode]);
 
   const onConnect = useCallback((params: Connection) => {
     if (params.source && params.target) {
-      setEdges((eds) => addEdge({
+      addEdge({
         ...params,
         type: 'smoothstep',
         animated: true,
@@ -160,40 +180,38 @@ const EditorCanvas = () => {
           width: 20,
           height: 20,
         },
-      }, eds));
+      }, internalEdges);
 
       storeAddEdge(params.source, params.target, params.sourceHandle || undefined);
     }
-  }, [setEdges, storeAddEdge]);
-
-  const onNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
-    updateNodePosition(node.id, node.position);
-    useGameStore.getState().saveToStorage();
-  }, [updateNodePosition]);
-
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    selectNode(node.id);
-  }, [selectNode]);
+  }, [internalEdges, storeAddEdge]);
 
   const onPaneClick = useCallback(() => {
     selectNode(null);
   }, [selectNode]);
 
+  useEffect(() => {
+    void 0;
+  }, [gameNodes]);
+
   return (
     <div className="flex-1 h-full bg-editor-bg">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={internalNodes}
+        edges={internalEdges}
         onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeDragStop={onNodeDragStop}
-        onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         fitView
-        snapToGrid
-        snapGrid={[15, 15]}
+        fitViewOptions={{ padding: 0.3 }}
+        nodesDraggable={true}
+        nodesConnectable={true}
+        elementsSelectable={true}
+        panOnDrag={true}
+        selectionOnDrag={false}
+        snapToGrid={true}
+        snapGrid={[20, 20]}
         minZoom={0.5}
         maxZoom={2}
         defaultEdgeOptions={{
@@ -206,18 +224,21 @@ const EditorCanvas = () => {
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
-          size={1}
+          size={1.5}
           color="#d1d5db"
         />
         <Controls
-          className="bg-white rounded-lg shadow-lg border border-editor-border"
+          className="bg-white rounded-lg shadow-lg border border-editor-border overflow-hidden"
           position="bottom-left"
+          showInteractive={false}
         />
         <MiniMap
-          className="bg-white rounded-lg shadow-lg border border-editor-border !w-32 !h-32"
+          className="bg-white rounded-lg shadow-lg border border-editor-border !w-40 !h-40"
           nodeColor="#6c63ff"
           maskColor="rgba(0, 0, 0, 0.1)"
           position="bottom-right"
+          pannable
+          zoomable
         />
       </ReactFlow>
     </div>
