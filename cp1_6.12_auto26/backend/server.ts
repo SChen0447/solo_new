@@ -4,6 +4,7 @@ import {
   addEntry,
   getEntries,
   deleteEntry,
+  updateEntry,
   getSummary,
   addCompletedItem,
   getCompletedItems,
@@ -40,6 +41,15 @@ app.post('/api/entries', (req, res) => {
 app.delete('/api/entries/:id', (req, res) => {
   const ok = deleteEntry(req.params.id)
   res.json({ success: ok })
+})
+
+app.put('/api/entries/:id', (req, res) => {
+  const entry = updateEntry(req.params.id, req.body)
+  if (!entry) {
+    res.status(404).json({ success: false, error: 'Not found' })
+    return
+  }
+  res.json({ success: true, entry })
 })
 
 app.get('/api/summary', (req, res) => {

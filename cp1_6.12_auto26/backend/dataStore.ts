@@ -124,6 +124,14 @@ export function deleteEntry(id: string): boolean {
   return entries.delete(id)
 }
 
+export function updateEntry(id: string, updates: Partial<TimeEntry>): TimeEntry | null {
+  const entry = entries.get(id)
+  if (!entry) return null
+  const updated = { ...entry, ...updates }
+  entries.set(id, updated)
+  return updated
+}
+
 export function addCompletedItem(item: Omit<CompletedItem, 'id'>): CompletedItem {
   const id = uuidv4()
   const newItem = { ...item, id }
