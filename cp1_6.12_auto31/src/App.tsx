@@ -4,7 +4,6 @@ import ChartPanel from './ChartPanel';
 import {
   MatrixData,
   Alternative,
-  Criterion,
   generateMatrixData,
   calculateWeightedScore,
 } from './utils/generateMatrixData';
