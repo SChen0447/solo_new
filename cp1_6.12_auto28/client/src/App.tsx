@@ -300,9 +300,11 @@ const App: React.FC = () => {
 
     setIsExporting(true);
 
+    await new Promise((r) => setTimeout(r, 50));
+
     try {
-      const mapCanvas = canvasContainerRef.current.querySelector('.map-canvas') as HTMLElement;
-      if (!mapCanvas) {
+      const mapCanvasEl = canvasContainerRef.current.querySelector('.map-canvas') as HTMLElement;
+      if (!mapCanvasEl) {
         throw new Error('找不到导图元素');
       }
 
@@ -321,8 +323,11 @@ const App: React.FC = () => {
         }
       });
 
+      const originalTransform = mapCanvasEl.style.transform;
+      mapCanvasEl.style.transform = 'none';
+
       try {
-        const canvas = await html2canvas(mapCanvas, {
+        const canvas = await html2canvas(mapCanvasEl, {
           backgroundColor: '#f0f4f8',
           scale: 2,
           useCORS: true,
@@ -338,6 +343,7 @@ const App: React.FC = () => {
 
         showToastMessage('导出成功', 'success');
       } finally {
+        mapCanvasEl.style.transform = originalTransform;
         elementsToHide.forEach((el, index) => {
           if (el) {
             el.style.display = originalDisplays[index] || '';

@@ -48,16 +48,16 @@ const MapView: React.FC<MapViewProps> = ({
   const [spacePressed, setSpacePressed] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, viewportX: 0, viewportY: 0 });
   const [editingNode, setEditingNode] = useState<string | null>(null);
-  const [draggingNode, setDraggingNode] = useState<string | null>(null);
-  const [isActuallyDragging, setIsActuallyDragging] = useState(false);
-  const [dragOverNode, setDragOverNode] = useState<string | null>(null);
-  const [dragPosition, setDragPosition] = useState<'inside' | 'before' | 'after' | null>(null);
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean;
+    sourceId: string | null;
+    overId: string | null;
+    position: 'inside' | 'before' | 'after' | null;
+    currentX: number;
+    currentY: number;
+  }>({ isDragging: false, sourceId: null, overId: null, position: null, currentX: 0, currentY: 0 });
   const [hoveredNoteNode, setHoveredNoteNode] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [currentDragPos, setCurrentDragPos] = useState({ x: 0, y: 0 });
-  const dragStartRef = useRef({ x: 0, y: 0, nodeId: '', nodeX: 0, nodeY: 0 });
-  const mouseMoveHandlerRef = useRef<((e: MouseEvent) => void) | null>(null);
-  const mouseUpHandlerRef = useRef<((e: MouseEvent) => void) | null>(null);
+  const dragStartRef = useRef({ x: 0, y: 0, nodeX: 0, nodeY: 0 });
 
   const nodePositions = useMemo(() => {
     const positions = new Map<string, NodePosition>();
@@ -155,11 +155,11 @@ const MapView: React.FC<MapViewProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat && !e.target || (e.target as HTMLElement).tagName !== 'INPUT') {
-        if (e.code === 'Space') {
-          e.preventDefault();
-          setSpacePressed(true);
-        }
+      if (e.code === 'Space' && !e.repeat) {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
+        e.preventDefault();
+        setSpacePressed(true);
       }
     };
 
@@ -178,25 +178,15 @@ const MapView: React.FC<MapViewProps> = ({
     };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (mouseMoveHandlerRef.current) {
-        window.removeEventListener('mousemove', mouseMoveHandlerRef.current);
-      }
-      if (mouseUpHandlerRef.current) {
-        window.removeEventListener('mouseup', mouseUpHandlerRef.current);
-      }
-    };
-  }, []);
-
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
 
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewport.scale + delta));
+      const step = 0.1;
+      const delta = e.deltaY > 0 ? -step : step;
+      const newScale = Math.round(Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewport.scale + delta)) * 10) / 10;
 
-      if (newScale === viewport.scale) return;
+      if (Math.abs(newScale - viewport.scale) < 0.001) return;
 
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -265,38 +255,34 @@ const MapView: React.FC<MapViewProps> = ({
     const nodePos = nodePositions.get(nodeId);
     if (!nodePos) return;
 
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
 
     dragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      nodeId,
+      x: startX,
+      y: startY,
       nodeX: nodePos.x,
       nodeY: nodePos.y,
     };
 
-    setDraggingNode(nodeId);
-    setIsActuallyDragging(false);
-    setDragOffset({
-      x: e.clientX - rect.left - viewport.x - nodePos.x * viewport.scale,
-      y: e.clientY - rect.top - viewport.y - nodePos.y * viewport.scale,
-    });
+    let hasExceededThreshold = false;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      const dx = moveEvent.clientX - dragStartRef.current.x;
-      const dy = moveEvent.clientY - dragStartRef.current.y;
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (!isActuallyDragging && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-        setIsActuallyDragging(true);
+      if (!hasExceededThreshold && dist > DRAG_THRESHOLD) {
+        hasExceededThreshold = true;
       }
 
-      if (isActuallyDragging || Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-        setCurrentDragPos({
-          x: dragStartRef.current.nodeX + dx / viewport.scale,
-          y: dragStartRef.current.nodeY + dy / viewport.scale,
-        });
-      }
+      if (!hasExceededThreshold) return;
+
+      const newX = dragStartRef.current.nodeX + dx / viewport.scale;
+      const newY = dragStartRef.current.nodeY + dy / viewport.scale;
+
+      let overId: string | null = null;
+      let position: 'inside' | 'before' | 'after' | null = null;
 
       if (containerRef.current) {
         const containerRect = containerRef.current.getBoundingClientRect();
@@ -318,47 +304,47 @@ const MapView: React.FC<MapViewProps> = ({
         });
 
         if (found) {
-          setDragOverNode(found.id);
+          overId = found.id;
           const relY = worldY - found.pos.y;
-          const height = found.pos.height;
-          if (relY < height * 0.25) {
-            setDragPosition('before');
-          } else if (relY > height * 0.75) {
-            setDragPosition('after');
+          const h = found.pos.height;
+          if (relY < h * 0.25) {
+            position = 'before';
+          } else if (relY > h * 0.75) {
+            position = 'after';
           } else {
-            setDragPosition('inside');
+            position = 'inside';
           }
-        } else {
-          setDragOverNode(null);
-          setDragPosition(null);
         }
       }
+
+      setDragState({
+        isDragging: true,
+        sourceId: nodeId,
+        overId,
+        position,
+        currentX: newX,
+        currentY: newY,
+      });
     };
 
-    const handleMouseUp = (_upEvent: MouseEvent) => {
+    const handleMouseUp = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
-      mouseMoveHandlerRef.current = null;
-      mouseUpHandlerRef.current = null;
 
-      if (isActuallyDragging && dragOverNode && dragPosition) {
-        onMoveNode(nodeId, dragOverNode, dragPosition);
-      }
-
-      setDraggingNode(null);
-      setIsActuallyDragging(false);
-      setDragOverNode(null);
-      setDragPosition(null);
+      setDragState((prev) => {
+        if (prev.isDragging && prev.overId && prev.position && prev.sourceId) {
+          onMoveNode(prev.sourceId, prev.overId, prev.position);
+        }
+        return { isDragging: false, sourceId: null, overId: null, position: null, currentX: 0, currentY: 0 };
+      });
     };
 
-    mouseMoveHandlerRef.current = handleMouseMove;
-    mouseUpHandlerRef.current = handleMouseUp;
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
   };
 
   const handleNodeDoubleClick = (nodeId: string) => {
-    if (isActuallyDragging) return;
+    if (dragState.isDragging) return;
     setEditingNode(nodeId);
   };
 
@@ -382,32 +368,6 @@ const MapView: React.FC<MapViewProps> = ({
 
   const scalePercent = Math.round(viewport.scale * 100);
 
-  const renderDraggedNode = () => {
-    if (!draggingNode || !isActuallyDragging) return null;
-    const pos = nodePositions.get(draggingNode);
-    if (!pos) return null;
-
-    return (
-      <div
-        className="mindmap-node dragging-preview"
-        style={{
-          left: currentDragPos.x,
-          top: currentDragPos.y,
-          width: pos.width,
-          height: pos.height,
-          backgroundColor: getNodeColor(pos.depth),
-          color: getTextColor(pos.depth),
-          opacity: 0.8,
-          pointerEvents: 'none',
-          zIndex: 9999,
-          transform: 'none',
-        }}
-      >
-        <span className="node-text">{pos.node.text}</span>
-      </div>
-    );
-  };
-
   return (
     <div
       ref={containerRef}
@@ -424,7 +384,7 @@ const MapView: React.FC<MapViewProps> = ({
         style={{
           transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
           transformOrigin: '0 0',
-          transition: isPanning || isActuallyDragging ? 'none' : 'transform 0.1s ease-out',
+          transition: isPanning || dragState.isDragging ? 'none' : 'transform 0.1s ease-out',
         }}
       >
         <svg className="connections-svg">
@@ -446,24 +406,67 @@ const MapView: React.FC<MapViewProps> = ({
               />
             );
           })}
+
+          {dragState.isDragging && dragState.sourceId && dragState.overId && (() => {
+            const sourcePos = nodePositions.get(dragState.sourceId);
+            const targetPos = nodePositions.get(dragState.overId);
+            if (!sourcePos || !targetPos) return null;
+
+            let lineX1: number, lineY1: number, lineX2: number, lineY2: number;
+
+            if (dragState.position === 'inside') {
+              lineX1 = dragState.currentX + sourcePos.width / 2;
+              lineY1 = dragState.currentY + sourcePos.height / 2;
+              lineX2 = targetPos.x + targetPos.width / 2;
+              lineY2 = targetPos.y + targetPos.height / 2;
+            } else if (dragState.position === 'before') {
+              lineX1 = dragState.currentX + sourcePos.width;
+              lineY1 = dragState.currentY + sourcePos.height / 2;
+              lineX2 = targetPos.x;
+              lineY2 = targetPos.y - 2;
+            } else {
+              lineX1 = dragState.currentX + sourcePos.width;
+              lineY1 = dragState.currentY + sourcePos.height / 2;
+              lineX2 = targetPos.x;
+              lineY2 = targetPos.y + targetPos.height + 2;
+            }
+
+            const midX = (lineX1 + lineX2) / 2;
+
+            return (
+              <path
+                d={`M ${lineX1} ${lineY1} C ${midX} ${lineY1}, ${midX} ${lineY2}, ${lineX2} ${lineY2}`}
+                fill="none"
+                stroke="#1a3a5c"
+                strokeWidth={2}
+                strokeDasharray="6,4"
+                className="drag-preview-line"
+              />
+            );
+          })()}
         </svg>
 
         {Array.from(nodePositions.values()).map((pos) => {
           const isHighlighted = highlightedNodeIds.has(pos.id);
-          const isDragging = draggingNode === pos.id && isActuallyDragging;
-          const isDragOver = dragOverNode === pos.id;
+          const isSourceDragging = dragState.isDragging && dragState.sourceId === pos.id;
+          const isDragOver = dragState.overId === pos.id;
           const hasChildren = pos.node.children.length > 0;
           const hasNote = !!pos.node.note;
           const isEditing = editingNode === pos.id;
+
+          let dragOverClass = '';
+          if (isDragOver && dragState.isDragging) {
+            if (dragState.position === 'inside') dragOverClass = 'drag-over';
+            else if (dragState.position === 'before') dragOverClass = 'drag-before';
+            else if (dragState.position === 'after') dragOverClass = 'drag-after';
+          }
 
           return (
             <div
               key={pos.id}
               className={`mindmap-node node-depth-${pos.depth} ${isHighlighted ? 'highlighted' : ''} ${
-                isDragging ? 'dragging' : ''
-              } ${isDragOver && dragPosition === 'inside' ? 'drag-over' : ''} ${
-                isDragOver && dragPosition === 'before' ? 'drag-before' : ''
-              } ${isDragOver && dragPosition === 'after' ? 'drag-after' : ''}`}
+                isSourceDragging ? 'dragging-source' : ''
+              } ${dragOverClass}`}
               style={{
                 left: pos.x,
                 top: pos.y,
@@ -518,49 +521,26 @@ const MapView: React.FC<MapViewProps> = ({
           );
         })}
 
-        {renderDraggedNode()}
+        {dragState.isDragging && dragState.sourceId && (() => {
+          const pos = nodePositions.get(dragState.sourceId);
+          if (!pos) return null;
 
-        {draggingNode && isActuallyDragging && dragOverNode && (
-          <svg className="drag-preview-svg" style={{ pointerEvents: 'none' }}>
-            {(() => {
-              const sourcePos = nodePositions.get(draggingNode);
-              const targetPos = nodePositions.get(dragOverNode);
-              if (!sourcePos || !targetPos) return null;
-
-              let lineX1: number, lineY1: number, lineX2: number, lineY2: number;
-
-              if (dragPosition === 'inside') {
-                lineX1 = currentDragPos.x + sourcePos.width / 2;
-                lineY1 = currentDragPos.y + sourcePos.height / 2;
-                lineX2 = targetPos.x + targetPos.width / 2;
-                lineY2 = targetPos.y + targetPos.height / 2;
-              } else if (dragPosition === 'before') {
-                lineX1 = currentDragPos.x + sourcePos.width;
-                lineY1 = currentDragPos.y + sourcePos.height / 2;
-                lineX2 = targetPos.x;
-                lineY2 = targetPos.y - 2;
-              } else {
-                lineX1 = currentDragPos.x + sourcePos.width;
-                lineY1 = currentDragPos.y + sourcePos.height / 2;
-                lineX2 = targetPos.x;
-                lineY2 = targetPos.y + targetPos.height + 2;
-              }
-
-              const midX = (lineX1 + lineX2) / 2;
-
-              return (
-                <path
-                  d={`M ${lineX1} ${lineY1} C ${midX} ${lineY1}, ${midX} ${lineY2}, ${lineX2} ${lineY2}`}
-                  fill="none"
-                  stroke="#1a3a5c"
-                  strokeWidth={2}
-                  strokeDasharray="6,4"
-                  className="drag-preview-line"
-                />
-              );
-            })()}
-          </svg>
-        )}
+          return (
+            <div
+              className="mindmap-node dragging-ghost"
+              style={{
+                left: dragState.currentX,
+                top: dragState.currentY,
+                width: pos.width,
+                height: pos.height,
+                backgroundColor: getNodeColor(pos.depth),
+                color: getTextColor(pos.depth),
+              }}
+            >
+              <span className="node-text">{pos.node.text}</span>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="zoom-indicator">{scalePercent}%</div>
