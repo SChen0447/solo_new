@@ -159,7 +159,7 @@ body {
 }
 
 .capsule-card:hover {
-  transform: translateY(-8px) scale(1.02);
+  transform: translateY(-8px) scale(1.05);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
 }
 
@@ -386,11 +386,39 @@ body {
 .image-input-row {
   display: flex;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .image-input-row .glass-input {
   flex: 1;
+}
+
+.image-input-wrapper {
+  margin-bottom: 8px;
+}
+
+.image-delete-btn {
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  padding: 0;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.glass-input.input-error {
+  border-color: rgba(232, 138, 130, 0.6);
+  box-shadow: 0 0 0 3px rgba(232, 138, 130, 0.1);
+}
+
+.input-error-msg {
+  color: #E88A82;
+  font-size: 12px;
+  margin-top: 4px;
+  padding-left: 4px;
 }
 
 .remove-btn {
@@ -575,7 +603,7 @@ body {
 }
 
 .flip-container {
-  perspective: 2000px;
+  perspective: 1000px;
   width: 100%;
   max-width: 500px;
   height: 80vh;
@@ -587,7 +615,7 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.6s ease-out;
   transform-style: preserve-3d;
 }
 
@@ -613,6 +641,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 2;
 }
 
 .front-content {
@@ -641,6 +670,14 @@ body {
 .flip-back {
   transform: rotateY(180deg);
   background: #FFFAF3;
+}
+
+.flipper.flipped .flip-front {
+  z-index: 1;
+}
+
+.flipper.flipped .flip-back {
+  z-index: 2;
 }
 
 .back-content {

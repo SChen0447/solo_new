@@ -15,6 +15,23 @@ export default function CapsuleForm({ onCreated, onCancel }: CapsuleFormProps) {
   const [openDate, setOpenDate] = useState('');
   const [tagInputs, setTagInputs] = useState<string[]>(['']);
 
+  const [imageErrors, setImageErrors] = useState<string[]>([]);
+
+  const IMAGE_URL_PATTERN = /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i;
+
+  const validateImageUrl = (url: string): string | null => {
+    if (!url.trim()) return null;
+    try {
+      new URL(url);
+      if (!IMAGE_URL_PATTERN.test(url)) {
+        return '仅支持 jpg/png/gif/webp 格式的图片链接';
+      }
+      return null;
+    } catch {
+      return '请输入有效的URL地址';
+    }
+  };
+
   const today = new Date().toISOString().split('T')[0];
 
   const handleAddContent = () => {
@@ -72,11 +89,18 @@ export default function CapsuleForm({ onCreated, onCancel }: CapsuleFormProps) {
     const newImages = [...images];
     newImages[index] = url;
     setImages(newImages);
+    const newErrors = [...imageErrors];
+    newErrors[index] = validateImageUrl(url) || '';
+    setImageErrors(newErrors);
   };
 
   const handleRemoveImage = (index: number) => {
-    if (images.length <= 1) return;
     setImages(images.filter((_, i) => i !== index));
+    setImageErrors(imageErrors.filter((_, i) => i !== index));
+    if (images.length <= 1) {
+      setImages(['']);
+      setImageErrors(['']);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -102,6 +126,11 @@ export default function CapsuleForm({ onCreated, onCancel }: CapsuleFormProps) {
     }
 
     const validImages = images.filter(img => img.trim());
+    const invalidImages = validImages.filter(img => validateImageUrl(img) !== null);
+    if (invalidImages.length > 0) {
+      alert('请修正图片URL格式，仅支持 jpg/png/gif/webp 格式的链接');
+      return;
+    }
 
     createCapsule(title, validContents, validImages, openDate);
     onCreated();
@@ -141,22 +170,25 @@ export default function CapsuleForm({ onCreated, onCancel }: CapsuleFormProps) {
           <div className="form-section">
             <label className="form-label">图片 (URL)</label>
             {images.map((img, index) => (
-              <div key={index} className="image-input-row">
-                <input
-                  type="url"
-                  className="glass-input"
-                  value={img}
-                  onChange={e => handleImageChange(index, e.target.value)}
-                  placeholder="粘贴图片URL..."
-                />
-                {images.length > 1 && (
+              <div key={index} className="image-input-wrapper">
+                <div className="image-input-row">
+                  <input
+                    type="url"
+                    className={`glass-input ${imageErrors[index] ? 'input-error' : ''}`}
+                    value={img}
+                    onChange={e => handleImageChange(index, e.target.value)}
+                    placeholder="粘贴图片URL（支持 jpg/png/gif/webp）..."
+                  />
                   <button
                     type="button"
-                    className="remove-btn"
+                    className="remove-btn image-delete-btn"
                     onClick={() => handleRemoveImage(index)}
                   >
-                    删除
+                    ×
                   </button>
+                </div>
+                {imageErrors[index] && (
+                  <p className="input-error-msg">{imageErrors[index]}</p>
                 )}
               </div>
             ))}

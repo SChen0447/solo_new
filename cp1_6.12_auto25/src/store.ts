@@ -23,6 +23,7 @@ export function createCapsule(
     coverColor: getRandomColor(),
     createdAt: new Date().toISOString(),
     isOpened: false,
+    clues: [],
   };
 
   const capsules = listCapsules();
@@ -50,6 +51,12 @@ export function openCapsule(id: string): Capsule | null {
   if (index === -1) return null;
 
   capsules[index].isOpened = true;
+
+  const allTags = capsules[index].contents.flatMap(c => c.tags);
+  const uniqueTags = [...new Set(allTags)];
+  const shuffled = uniqueTags.sort(() => Math.random() - 0.5);
+  capsules[index].clues = shuffled.slice(0, Math.min(3, shuffled.length));
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(capsules));
   return capsules[index];
 }
@@ -95,6 +102,7 @@ export function generateMockCapsules(count: number): Capsule[] {
       coverColor: COVER_COLORS[i % COVER_COLORS.length],
       createdAt: new Date(now.getTime() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
       isOpened,
+      clues: isOpened ? ['回忆', '日落', '勇敢'] : [],
     });
   }
 

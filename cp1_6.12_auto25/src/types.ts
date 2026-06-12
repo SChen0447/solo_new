@@ -13,6 +13,7 @@ export interface Capsule {
   coverColor: CoverColor;
   createdAt: string;
   isOpened: boolean;
+  clues: string[];
 }
 
 export type CoverColor = {
