@@ -120,3 +120,31 @@ input, textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--secondary-color);
 }
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1024px) {
+  .main {
+    flex-direction: column !important;
+  }
+  .sidebar {
+    width: 100% !important;
+    height: 300px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .diffSection {
+    height: 400px !important;
+  }
+  .timelineSection {
+    height: 180px !important;
+  }
+}
