@@ -15,9 +15,8 @@ export interface Accessory {
   name: string;
   description: string;
   attachTo: PartName;
-  compatibleWith: AccessoryId[];
-  incompatibleWith: AccessoryId[];
-  position: [number, number, number];
+  positionOffset: [number, number, number];
+  thumbnail: string;
 }
 
 export interface ProductConfig {
@@ -37,32 +36,64 @@ export interface SavedDesign {
 
 export interface ValidationWarning {
   accessoryId: AccessoryId;
+  blockedBy: AccessoryId;
   message: string;
 }
 
-interface ProductState {
-  currentConfig: ProductConfig;
-  defaultConfig: ProductConfig;
-  savedDesigns: SavedDesign[];
-  availableAccessories: Accessory[];
-  colorPalette: string[];
-  materialOptions: MaterialType[];
-  activePart: PartName;
-  isResetting: boolean;
-  warnings: ValidationWarning[];
+export type ResetPhase = 'idle' | 'fade-out' | 'switching' | 'fade-in';
 
-  setPartColor: (part: PartName, color: string) => void;
-  setPartMaterial: (part: PartName, material: MaterialType) => void;
-  setActivePart: (part: PartName) => void;
-  toggleAccessory: (id: AccessoryId) => void;
-  validateAccessories: (accessories: AccessoryId[]) => ValidationWarning[];
-  resetConfig: () => void;
-  setResetting: (val: boolean) => void;
-  saveDesign: (name: string, thumbnail: string) => void;
-  loadDesign: (id: string) => void;
-  deleteDesign: (id: string) => void;
-  clearWarnings: () => void;
-  initData: () => Promise<void>;
+export interface CompatibilityRule {
+  id: string;
+  accessoryA: AccessoryId;
+  accessoryB: AccessoryId;
+  compatible: boolean;
+  message: string;
+}
+
+const COMPATIBILITY_RULES: CompatibilityRule[] = [
+  {
+    id: 'deco-ring-incompatible-cone',
+    accessoryA: 'deco-ring',
+    accessoryB: 'shade-cone',
+    compatible: false,
+    message: '装饰环仅适配花形灯罩，无法与锥形灯罩同时使用',
+  },
+  {
+    id: 'deco-ring-requires-flower',
+    accessoryA: 'deco-ring',
+    accessoryB: 'shade-flower',
+    compatible: true,
+    message: '',
+  },
+];
+
+export function validateAccessories(
+  accessories: AccessoryId[],
+  rules: CompatibilityRule[] = COMPATIBILITY_RULES
+): ValidationWarning[] {
+  const warnings: ValidationWarning[] = [];
+
+  for (const rule of rules) {
+    if (rule.compatible) continue;
+
+    const hasA = accessories.includes(rule.accessoryA);
+    const hasB = accessories.includes(rule.accessoryB);
+
+    if (hasA && hasB) {
+      warnings.push({
+        accessoryId: rule.accessoryA,
+        blockedBy: rule.accessoryB,
+        message: rule.message,
+      });
+      warnings.push({
+        accessoryId: rule.accessoryB,
+        blockedBy: rule.accessoryA,
+        message: rule.message,
+      });
+    }
+  }
+
+  return warnings;
 }
 
 const DEFAULT_CONFIG: ProductConfig = {
@@ -76,38 +107,34 @@ const DEFAULT_ACCESSORIES: Accessory[] = [
   {
     id: 'shade-flower',
     name: '花形灯罩',
-    description: '优雅花瓣造型的灯罩，搭配装饰环效果更佳',
+    description: '优雅花瓣造型灯罩，搭配装饰环效果更佳',
     attachTo: 'shade',
-    compatibleWith: ['deco-ring'],
-    incompatibleWith: [],
-    position: [0, 2.85, 0],
+    positionOffset: [0, 0, 0],
+    thumbnail: '🌸',
   },
   {
     id: 'shade-cone',
     name: '锥形灯罩',
     description: '极简锥形灯罩，现代风格之选',
     attachTo: 'shade',
-    compatibleWith: [],
-    incompatibleWith: ['deco-ring'],
-    position: [0, 2.85, 0],
+    positionOffset: [0, 0, 0],
+    thumbnail: '🔺',
   },
   {
     id: 'deco-ring',
     name: '装饰环',
     description: '精致金属装饰环，仅适配花形灯罩',
     attachTo: 'pole',
-    compatibleWith: ['shade-flower'],
-    incompatibleWith: ['shade-cone'],
-    position: [0, 2.2, 0],
+    positionOffset: [0, 1.8, 0],
+    thumbnail: '💍',
   },
   {
     id: 'base-extender',
     name: '底座加高垫',
     description: '加高底座垫片，提升台灯整体高度',
     attachTo: 'base',
-    compatibleWith: ['shade-flower', 'shade-cone', 'deco-ring'],
-    incompatibleWith: [],
-    position: [0, 0.08, 0],
+    positionOffset: [0, 0.3, 0],
+    thumbnail: '⬆️',
   },
 ];
 
@@ -118,6 +145,8 @@ const COLOR_PALETTE = [
 ];
 
 const MATERIAL_OPTIONS: MaterialType[] = ['metal', 'plastic', 'matte', 'glossy'];
+
+const RESET_FADE_DURATION = 1000;
 
 function loadSavedDesigns(): SavedDesign[] {
   try {
@@ -132,16 +161,53 @@ function persistDesigns(designs: SavedDesign[]) {
   localStorage.setItem('3d-config-designs', JSON.stringify(designs));
 }
 
+function cloneConfig(config: ProductConfig): ProductConfig {
+  return {
+    base: { ...config.base },
+    pole: { ...config.pole },
+    shade: { ...config.shade },
+    accessories: [...config.accessories],
+  };
+}
+
+interface ProductState {
+  currentConfig: ProductConfig;
+  defaultConfig: ProductConfig;
+  savedDesigns: SavedDesign[];
+  availableAccessories: Accessory[];
+  compatibilityRules: CompatibilityRule[];
+  colorPalette: string[];
+  materialOptions: MaterialType[];
+  activePart: PartName;
+  resetPhase: ResetPhase;
+  warnings: ValidationWarning[];
+  panelCollapsed: boolean;
+
+  setPartColor: (part: PartName, color: string) => void;
+  setPartMaterial: (part: PartName, material: MaterialType) => void;
+  setActivePart: (part: PartName) => void;
+  toggleAccessory: (id: AccessoryId) => void;
+  resetConfig: () => void;
+  saveDesign: (name: string, thumbnail: string) => boolean;
+  loadDesign: (id: string) => void;
+  deleteDesign: (id: string) => void;
+  clearWarnings: () => void;
+  setResetPhase: (phase: ResetPhase) => void;
+  setPanelCollapsed: (collapsed: boolean) => void;
+}
+
 export const useProductStore = create<ProductState>((set, get) => ({
-  currentConfig: { ...DEFAULT_CONFIG, base: { ...DEFAULT_CONFIG.base }, pole: { ...DEFAULT_CONFIG.pole }, shade: { ...DEFAULT_CONFIG.shade }, accessories: [] },
-  defaultConfig: { ...DEFAULT_CONFIG, base: { ...DEFAULT_CONFIG.base }, pole: { ...DEFAULT_CONFIG.pole }, shade: { ...DEFAULT_CONFIG.shade }, accessories: [] },
+  currentConfig: cloneConfig(DEFAULT_CONFIG),
+  defaultConfig: cloneConfig(DEFAULT_CONFIG),
   savedDesigns: loadSavedDesigns(),
   availableAccessories: DEFAULT_ACCESSORIES,
+  compatibilityRules: COMPATIBILITY_RULES,
   colorPalette: COLOR_PALETTE,
   materialOptions: MATERIAL_OPTIONS,
   activePart: 'base',
-  isResetting: false,
+  resetPhase: 'idle',
   warnings: [],
+  panelCollapsed: false,
 
   setPartColor: (part, color) =>
     set((state) => ({
@@ -164,63 +230,42 @@ export const useProductStore = create<ProductState>((set, get) => ({
   toggleAccessory: (id) => {
     const state = get();
     const isActive = state.currentConfig.accessories.includes(id);
-    let newAccessories: AccessoryId[];
+    const newAccessories = isActive
+      ? state.currentConfig.accessories.filter((a) => a !== id)
+      : [...state.currentConfig.accessories, id];
 
-    if (isActive) {
-      newAccessories = state.currentConfig.accessories.filter((a) => a !== id);
-    } else {
-      newAccessories = [...state.currentConfig.accessories, id];
-    }
+    const warnings = validateAccessories(newAccessories, state.compatibilityRules);
 
-    const warnings = get().validateAccessories(newAccessories);
     set({
       currentConfig: { ...state.currentConfig, accessories: newAccessories },
       warnings,
     });
   },
 
-  validateAccessories: (accessories) => {
-    const state = get();
-    const warnings: ValidationWarning[] = [];
-    const allAccessories = state.availableAccessories;
-
-    for (const accId of accessories) {
-      const acc = allAccessories.find((a) => a.id === accId);
-      if (!acc) continue;
-
-      for (const incompatId of acc.incompatibleWith) {
-        if (accessories.includes(incompatId)) {
-          const incompatAcc = allAccessories.find((a) => a.id === incompatId);
-          warnings.push({
-            accessoryId: accId,
-            message: `"${acc.name}" 与 "${incompatAcc?.name}" 不兼容，装饰环仅适配花形灯罩`,
-          });
-        }
-      }
-    }
-
-    return warnings;
-  },
-
   resetConfig: () => {
-    set({ isResetting: true });
+    const state = get();
+    if (state.resetPhase !== 'idle') return;
+
+    set({ resetPhase: 'fade-out' });
+
     setTimeout(() => {
-      set((state) => ({
-        currentConfig: {
-          base: { ...state.defaultConfig.base },
-          pole: { ...state.defaultConfig.pole },
-          shade: { ...state.defaultConfig.shade },
-          accessories: [],
-        },
+      set({ resetPhase: 'switching' });
+      set({
+        currentConfig: cloneConfig(state.defaultConfig),
         warnings: [],
-      }));
-      setTimeout(() => {
-        set({ isResetting: false });
-      }, 500);
-    }, 500);
+      });
+
+      requestAnimationFrame(() => {
+        set({ resetPhase: 'fade-in' });
+
+        setTimeout(() => {
+          set({ resetPhase: 'idle' });
+        }, RESET_FADE_DURATION / 2);
+      });
+    }, RESET_FADE_DURATION / 2);
   },
 
-  setResetting: (val) => set({ isResetting: val }),
+  setResetPhase: (phase) => set({ resetPhase: phase }),
 
   saveDesign: (name, thumbnail) => {
     const state = get();
@@ -230,12 +275,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     const design: SavedDesign = {
       id: uuidv4(),
       name,
-      config: {
-        base: { ...state.currentConfig.base },
-        pole: { ...state.currentConfig.pole },
-        shade: { ...state.currentConfig.shade },
-        accessories: [...state.currentConfig.accessories],
-      },
+      config: cloneConfig(state.currentConfig),
       thumbnail,
       timestamp: Date.now(),
     };
@@ -250,12 +290,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     const design = state.savedDesigns.find((d) => d.id === id);
     if (design) {
       set({
-        currentConfig: {
-          base: { ...design.config.base },
-          pole: { ...design.config.pole },
-          shade: { ...design.config.shade },
-          accessories: [...design.config.accessories],
-        },
+        currentConfig: cloneConfig(design.config),
         warnings: [],
       });
     }
@@ -270,34 +305,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
   clearWarnings: () => set({ warnings: [] }),
 
-  initData: async () => {
-    try {
-      const [configRes, accessoriesRes, colorsRes, materialsRes] = await Promise.all([
-        fetch('/api/product/default'),
-        fetch('/api/accessories'),
-        fetch('/api/colors'),
-        fetch('/api/materials'),
-      ]);
-
-      const [configData, accessoriesData, colorsData, materialsData] = await Promise.all([
-        configRes.json(),
-        accessoriesRes.json(),
-        colorsRes.json(),
-        materialsRes.json(),
-      ]);
-
-      set({
-        currentConfig: configData.config,
-        defaultConfig: configData.config,
-        availableAccessories: accessoriesData.accessories,
-        colorPalette: colorsData.colors,
-        materialOptions: materialsData.materials,
-      });
-    } catch {
-      set({
-        currentConfig: { ...DEFAULT_CONFIG, base: { ...DEFAULT_CONFIG.base }, pole: { ...DEFAULT_CONFIG.pole }, shade: { ...DEFAULT_CONFIG.shade }, accessories: [] },
-        defaultConfig: { ...DEFAULT_CONFIG, base: { ...DEFAULT_CONFIG.base }, pole: { ...DEFAULT_CONFIG.pole }, shade: { ...DEFAULT_CONFIG.shade }, accessories: [] },
-      });
-    }
-  },
+  setPanelCollapsed: (collapsed) => set({ panelCollapsed: collapsed }),
 }));
+
+export { COMPATIBILITY_RULES, DEFAULT_CONFIG, DEFAULT_ACCESSORIES, COLOR_PALETTE, MATERIAL_OPTIONS, RESET_FADE_DURATION };
