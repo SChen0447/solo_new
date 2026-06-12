@@ -665,16 +665,6 @@ body {
   gap: 12px;
 }
 
-@media (max-width: 1200px) {
-  .photo-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .skeleton-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
 @media (max-width: 1024px) {
   .app-main {
     flex-direction: column;

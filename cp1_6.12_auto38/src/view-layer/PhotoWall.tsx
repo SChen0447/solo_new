@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useMemo, useState } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { usePhotoStore } from '../data-layer/photoStore';
 import PhotoCard from './PhotoCard';
 
@@ -17,6 +17,7 @@ const PhotoWall: React.FC = () => {
   } = usePhotoStore();
 
   const observerRef = useRef<HTMLDivElement>(null);
+  const intersectionObserverRef = useRef<IntersectionObserver | null>(null);
   const [groups, setGroups] = useState<{ date: string; photos: typeof photos }[]>([]);
 
   const displayPhotos = useMemo(() => {
@@ -51,7 +52,7 @@ const PhotoWall: React.FC = () => {
   useEffect(() => {
     if (filterTag) return;
 
-    const observer = new IntersectionObserver(
+    intersectionObserverRef.current = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading) {
           loadMorePhotos();
@@ -61,41 +62,50 @@ const PhotoWall: React.FC = () => {
     );
 
     if (observerRef.current) {
-      observer.observe(observerRef.current);
+      intersectionObserverRef.current.observe(observerRef.current);
     }
 
     return () => {
-      if (observerRef.current) {
-        observer.unobserve(observerRef.current);
+      if (intersectionObserverRef.current) {
+        intersectionObserverRef.current.disconnect();
+        intersectionObserverRef.current = null;
       }
     };
   }, [hasMore, loading, loadMorePhotos, filterTag]);
 
-  const onDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
+  const onDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination) return;
 
-    const allPhotosSorted = [...allPhotos].sort((a, b) => a.order - b.order);
-    const sourceIndex = result.source.index;
-    const destinationIndex = result.destination.index;
+      const allPhotosSorted = [...allPhotos].sort((a, b) => a.order - b.order);
+      const sourceIndex = result.source.index;
+      const destinationIndex = result.destination.index;
 
-    if (sourceIndex === destinationIndex) return;
+      if (sourceIndex === destinationIndex) return;
+      if (sourceIndex < 0 || sourceIndex >= allPhotosSorted.length) return;
+      if (destinationIndex < 0 || destinationIndex >= allPhotosSorted.length) return;
 
-    const [removed] = allPhotosSorted.splice(sourceIndex, 1);
-    allPhotosSorted.splice(destinationIndex, 0, removed);
+      const [removed] = allPhotosSorted.splice(sourceIndex, 1);
+      allPhotosSorted.splice(destinationIndex, 0, removed);
 
-    const photoIds = allPhotosSorted.map(p => p.id);
-    const orders = allPhotosSorted.map((_, index) => index);
+      const photoIds = allPhotosSorted.map(p => p.id);
+      const orders = allPhotosSorted.map((_, index) => index);
 
-    reorderPhotos(photoIds, orders);
-  };
+      reorderPhotos(photoIds, orders);
+    },
+    [allPhotos, reorderPhotos]
+  );
 
   const allFlatPhotos = useMemo(() => {
     return groups.flatMap(g => g.photos);
   }, [groups]);
 
-  const getPhotoIndexInFlat = (photoId: string): number => {
-    return allFlatPhotos.findIndex(p => p.id === photoId);
-  };
+  const getPhotoIndexInFlat = useCallback(
+    (photoId: string): number => {
+      return allFlatPhotos.findIndex(p => p.id === photoId);
+    },
+    [allFlatPhotos]
+  );
 
   const SkeletonCard = () => (
     <div className="photo-card skeleton-card">
@@ -129,7 +139,7 @@ const PhotoWall: React.FC = () => {
               ref={provided.innerRef}
               className="timeline-container"
             >
-              {groups.map((group, groupIndex) => (
+              {groups.map((group) => (
                 <div key={group.date} className="timeline-group">
                   <div className="timeline-divider sticky">
                     <span className="timeline-date">{group.date}</span>
@@ -137,8 +147,9 @@ const PhotoWall: React.FC = () => {
                   </div>
 
                   <div className="photo-grid">
-                    {group.photos.map((photo, photoIndex) => {
+                    {group.photos.map((photo) => {
                       const flatIndex = getPhotoIndexInFlat(photo.id);
+                      if (flatIndex < 0) return null;
                       return (
                         <Draggable
                           key={photo.id}

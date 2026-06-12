@@ -1,16 +1,11 @@
 import React from 'react';
 import { usePhotoStore } from '../data-layer/photoStore';
-import { PRESET_TAGS, CUSTOM_TAG_COLOR } from '../data-layer/types';
+import { getTagColor } from '../data-layer/types';
 
 const ExportBar: React.FC = () => {
   const { selectMode, selectedPhotoIds, allPhotos, toggleSelectMode, clearSelection } = usePhotoStore();
 
   const selectedPhotos = allPhotos.filter(p => selectedPhotoIds.includes(p.id));
-
-  const getTagColor = (tagName: string): string => {
-    const preset = PRESET_TAGS.find(t => t.name === tagName);
-    return preset ? preset.color : CUSTOM_TAG_COLOR;
-  };
 
   const generateHTML = (): string => {
     const photosHTML = selectedPhotos

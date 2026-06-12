@@ -1,27 +1,44 @@
-import { v4 as uuidv4 } from 'uuid';
-import { Photo, Tag, PRESET_TAGS, CUSTOM_TAG_COLOR } from './types';
+import { Photo, Tag, PRESET_TAGS, CUSTOM_TAG_COLOR, MAX_TAGS_PER_PHOTO } from './types';
 
-const STORAGE_KEY = 'photo-wall-data';
-const ORDER_STORAGE_KEY = 'photo-wall-order';
+const STORAGE_KEY = 'photo-wall-data-v2';
+
+function createSeededRandom(seed: number) {
+  let state = seed;
+  return function random(): number {
+    state = (state * 9301 + 49297) % 233280;
+    return state / 233280;
+  };
+}
 
 function generateMockPhotos(): Photo[] {
+  const random = createSeededRandom(42);
   const photos: Photo[] = [];
-  const startDate = new Date('2024-01-01');
-  const endDate = new Date('2025-12-31');
+  const startDate = new Date('2024-01-01').getTime();
+  const endDate = new Date('2025-12-31').getTime();
 
   for (let i = 0; i < 30; i++) {
-    const randomTime = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
+    const randomTime = startDate + Math.floor(random() * (endDate - startDate));
     const date = new Date(randomTime);
-    const lat = 30 + Math.random() * 20;
-    const lng = 100 + Math.random() * 30;
-    const numTags = Math.floor(Math.random() * 3) + 1;
-    const shuffledTags = [...PRESET_TAGS].sort(() => Math.random() - 0.5);
-    const tags = shuffledTags.slice(0, numTags).map(t => t.name);
+    const lat = 30 + random() * 20;
+    const lng = 100 + random() * 30;
+    const numTags = Math.floor(random() * MAX_TAGS_PER_PHOTO) + 1;
+
+    const tagIndices: number[] = [];
+    while (tagIndices.length < numTags) {
+      const idx = Math.floor(random() * PRESET_TAGS.length);
+      if (!tagIndices.includes(idx)) {
+        tagIndices.push(idx);
+      }
+    }
+    const tags = tagIndices.map(idx => PRESET_TAGS[idx].name);
+
+    const photoId = `photo-fixed-${i + 1}-${Math.floor(random() * 1000000)}`;
+    const seedKey = `picsum-photo-${i + 1}`;
 
     photos.push({
-      id: uuidv4(),
-      url: `https://picsum.photos/seed/${uuidv4()}/800/600`,
-      thumbnail: `https://picsum.photos/seed/${uuidv4()}/400/300`,
+      id: photoId,
+      url: `https://picsum.photos/seed/${seedKey}/800/600`,
+      thumbnail: `https://picsum.photos/seed/${seedKey}/400/300`,
       date: date.toISOString().split('T')[0],
       latitude: parseFloat(lat.toFixed(6)),
       longitude: parseFloat(lng.toFixed(6)),
@@ -58,30 +75,6 @@ function saveToStorage(photos: Photo[]): void {
   }
 }
 
-function loadOrderFromStorage(): Record<string, number> | null {
-  try {
-    const data = localStorage.getItem(ORDER_STORAGE_KEY);
-    if (data) {
-      return JSON.parse(data);
-    }
-  } catch (e) {
-    console.error('Failed to load order from storage:', e);
-  }
-  return null;
-}
-
-function saveOrderToStorage(photoIds: string[], orders: number[]): void {
-  try {
-    const orderMap: Record<string, number> = {};
-    photoIds.forEach((id, index) => {
-      orderMap[id] = orders[index];
-    });
-    localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(orderMap));
-  } catch (e) {
-    console.error('Failed to save order to storage:', e);
-  }
-}
-
 let photosCache: Photo[] | null = null;
 
 function getPhotosInternal(): Photo[] {
@@ -89,23 +82,16 @@ function getPhotosInternal(): Photo[] {
     return photosCache;
   }
 
-  let photos = loadFromStorage();
-  if (!photos || photos.length === 0) {
-    photos = generateMockPhotos();
-    saveToStorage(photos);
+  const stored = loadFromStorage();
+  if (stored && stored.length > 0) {
+    photosCache = stored;
+    return photosCache;
   }
 
-  const orderMap = loadOrderFromStorage();
-  if (orderMap) {
-    photos.forEach(photo => {
-      if (orderMap[photo.id] !== undefined) {
-        photo.order = orderMap[photo.id];
-      }
-    });
-  }
-
-  photosCache = photos;
-  return photos;
+  const generated = generateMockPhotos();
+  saveToStorage(generated);
+  photosCache = generated;
+  return photosCache;
 }
 
 export async function getPhotos(page: number = 1, pageSize: number = 10): Promise<{
@@ -145,13 +131,22 @@ export async function addTagToPhoto(photoId: string, tagName: string): Promise<P
     setTimeout(() => {
       const photos = getPhotosInternal();
       const photo = photos.find(p => p.id === photoId);
-      if (photo && photo.tags.length < 3 && !photo.tags.includes(tagName)) {
-        photo.tags = [...photo.tags, tagName];
-        saveToStorage(photos);
-        resolve({ ...photo });
-      } else {
-        resolve(photo ? { ...photo } : null);
+      if (!photo) {
+        resolve(null);
+        return;
       }
+      if (photo.tags.length >= MAX_TAGS_PER_PHOTO) {
+        resolve({ ...photo });
+        return;
+      }
+      if (photo.tags.includes(tagName)) {
+        resolve({ ...photo });
+        return;
+      }
+      photo.tags = [...photo.tags, tagName];
+      saveToStorage(photos);
+      photosCache = photos;
+      resolve({ ...photo });
     }, 100);
   });
 }
@@ -164,6 +159,7 @@ export async function removeTagFromPhoto(photoId: string, tagName: string): Prom
       if (photo) {
         photo.tags = photo.tags.filter(t => t !== tagName);
         saveToStorage(photos);
+        photosCache = photos;
         resolve({ ...photo });
       } else {
         resolve(null);
@@ -204,9 +200,12 @@ export async function updatePhotoOrder(photoIds: string[], orders: number[]): Pr
         }
       });
       saveToStorage(photos);
-      saveOrderToStorage(photoIds, orders);
       photosCache = photos;
       resolve(true);
     }, 100);
   });
+}
+
+export function invalidateCache(): void {
+  photosCache = null;
 }

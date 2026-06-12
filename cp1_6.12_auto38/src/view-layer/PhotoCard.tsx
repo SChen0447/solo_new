@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Photo, PRESET_TAGS, CUSTOM_TAG_COLOR } from '../data-layer/types';
+import React, { useState, useMemo } from 'react';
+import { Photo, PRESET_TAGS, getTagColor, MAX_TAGS_PER_PHOTO } from '../data-layer/types';
 import { usePhotoStore } from '../data-layer/photoStore';
 
 interface PhotoCardProps {
@@ -14,14 +14,34 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, isSelected, onClick }) => 
   const [tagInput, setTagInput] = useState('');
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  const getTagColor = (tagName: string): string => {
-    const preset = PRESET_TAGS.find(t => t.name === tagName);
-    return preset ? preset.color : CUSTOM_TAG_COLOR;
+  const canAddMoreTags = photo.tags.length < MAX_TAGS_PER_PHOTO;
+  const presetTagsToAdd = useMemo(
+    () => PRESET_TAGS.filter(t => !photo.tags.includes(t.name)),
+    [photo.tags]
+  );
+
+  const handleAddTag = (tagName: string) => {
+    const trimmed = tagName.trim();
+    if (!trimmed) return false;
+    if (photo.tags.length >= MAX_TAGS_PER_PHOTO) return false;
+    if (photo.tags.includes(trimmed)) return false;
+    addTag(photo.id, trimmed);
+    return true;
   };
 
-  const handleAddTag = () => {
-    if (tagInput.trim() && photo.tags.length < 3 && !photo.tags.includes(tagInput.trim())) {
-      addTag(photo.id, tagInput.trim());
+  const handlePresetTagClick = (tagName: string) => {
+    if (!canAddMoreTags) return;
+    if (photo.tags.includes(tagName)) return;
+    addTag(photo.id, tagName);
+  };
+
+  const handleCustomTagSubmit = () => {
+    const trimmed = tagInput.trim();
+    if (!trimmed) return;
+    if (photo.tags.length >= MAX_TAGS_PER_PHOTO) return;
+    if (photo.tags.includes(trimmed)) return;
+    const ok = handleAddTag(trimmed);
+    if (ok) {
       setTagInput('');
       setShowTagInput(false);
     }
@@ -43,11 +63,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, isSelected, onClick }) => 
       return;
     }
     const { setFilterTag, filterTag } = usePhotoStore.getState();
-    if (filterTag === tagName) {
-      setFilterTag(null);
-    } else {
-      setFilterTag(tagName);
-    }
+    setFilterTag(filterTag === tagName ? null : tagName);
   };
 
   const handleRemoveTag = (e: React.MouseEvent, tagName: string) => {
@@ -57,12 +73,10 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, isSelected, onClick }) => 
 
   const handleAddTagClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (photo.tags.length < 3) {
+    if (canAddMoreTags) {
       setShowTagInput(true);
     }
   };
-
-  const presetTagsToAdd = PRESET_TAGS.filter(t => !photo.tags.includes(t.name));
 
   return (
     <div
@@ -116,7 +130,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, isSelected, onClick }) => 
               {tag}
             </span>
           ))}
-          {photo.tags.length < 3 && (
+          {canAddMoreTags && (
             <button className="add-tag-btn" onClick={handleAddTagClick}>
               +标签
             </button>
@@ -127,21 +141,17 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, isSelected, onClick }) => 
       {showTagInput && (
         <div className="tag-input-popup" onClick={(e) => e.stopPropagation()}>
           <div className="tag-input-header">
-            <span>添加标签</span>
+            <span>添加标签 ({photo.tags.length}/{MAX_TAGS_PER_PHOTO})</span>
             <button className="close-btn" onClick={() => setShowTagInput(false)}>×</button>
           </div>
           <div className="preset-tags">
-            {presetTagsToAdd.slice(0, 6).map(tag => (
+            {presetTagsToAdd.map(tag => (
               <button
                 key={tag.name}
                 className="preset-tag-btn"
                 style={{ backgroundColor: tag.color }}
-                onClick={() => {
-                  if (photo.tags.length < 3) {
-                    addTag(photo.id, tag.name);
-                  }
-                }}
-                disabled={photo.tags.length >= 3}
+                onClick={() => handlePresetTagClick(tag.name)}
+                disabled={!canAddMoreTags}
               >
                 {tag.name}
               </button>
@@ -150,13 +160,17 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, isSelected, onClick }) => 
           <div className="custom-tag-input">
             <input
               type="text"
-              placeholder="输入自定义标签"
+              placeholder={canAddMoreTags ? '输入自定义标签' : '已达标签上限'}
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+              onKeyDown={(e) => e.key === 'Enter' && handleCustomTagSubmit()}
               maxLength={10}
+              disabled={!canAddMoreTags}
             />
-            <button onClick={handleAddTag} disabled={!tagInput.trim()}>
+            <button
+              onClick={handleCustomTagSubmit}
+              disabled={!tagInput.trim() || !canAddMoreTags}
+            >
               添加
             </button>
           </div>

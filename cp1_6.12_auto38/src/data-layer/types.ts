@@ -25,3 +25,17 @@ export const PRESET_TAGS: Tag[] = [
 ];
 
 export const CUSTOM_TAG_COLOR = '#888';
+
+export const TAG_COLOR_MAP: Record<string, string> = PRESET_TAGS.reduce(
+  (acc, tag) => {
+    acc[tag.name] = tag.color;
+    return acc;
+  },
+  {} as Record<string, string>
+);
+
+export const MAX_TAGS_PER_PHOTO = 3;
+
+export function getTagColor(tagName: string): string {
+  return TAG_COLOR_MAP[tagName] ?? CUSTOM_TAG_COLOR;
+}
