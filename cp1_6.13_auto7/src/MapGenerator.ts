@@ -25,6 +25,7 @@ export interface Room {
   trapDamage?: number;
   centerX: number;
   centerY: number;
+  id: number;
 }
 
 export enum ItemType {
@@ -46,179 +47,181 @@ export interface MapData {
   tileSize: number;
 }
 
+interface Edge {
+  from: number;
+  to: number;
+  weight: number;
+}
+
 export class MapGenerator {
   private mapWidth: number;
   private mapHeight: number;
   private minRoomSize: number;
   private maxRoomSize: number;
-  private maxRooms: number;
+  private targetRoomCount: number;
 
   constructor(
     mapWidth: number = 80,
     mapHeight: number = 60,
     minRoomSize: number = 5,
     maxRoomSize: number = 10,
-    maxRooms: number = 25
+    targetRoomCount: number = 22
   ) {
     this.mapWidth = mapWidth;
     this.mapHeight = mapHeight;
     this.minRoomSize = minRoomSize;
     this.maxRoomSize = maxRoomSize;
-    this.maxRooms = maxRooms;
+    this.targetRoomCount = targetRoomCount;
   }
 
   generate(): MapData {
-    const startTime = performance.now();
+    const t0 = performance.now();
 
     const tiles: RoomType[][] = [];
     for (let y = 0; y < this.mapHeight; y++) {
-      tiles[y] = [];
-      for (let x = 0; x < this.mapWidth; x++) {
-        tiles[y][x] = RoomType.WALL;
-      }
+      tiles[y] = new Array(this.mapWidth).fill(RoomType.WALL);
     }
 
-    const rooms: Room[] = [];
-    let attempts = 0;
-    const maxAttempts = this.maxRooms * 10;
-
-    while (rooms.length < this.maxRooms && attempts < maxAttempts) {
-      attempts++;
-
-      const roomWidth = this.randomInt(this.minRoomSize, this.maxRoomSize);
-      const roomHeight = this.randomInt(this.minRoomSize, this.maxRoomSize);
-      const x = this.randomInt(2, this.mapWidth - roomWidth - 2);
-      const y = this.randomInt(2, this.mapHeight - roomHeight - 2);
-
-      const newRoom: Room = {
-        x,
-        y,
-        width: roomWidth,
-        height: roomHeight,
-        type: RoomType.MONSTER,
-        visited: false,
-        cleared: false,
-        centerX: Math.floor(x + roomWidth / 2),
-        centerY: Math.floor(y + roomHeight / 2)
-      };
-
-      let overlaps = false;
-      for (const room of rooms) {
-        if (this.roomsOverlap(newRoom, room, 2)) {
-          overlaps = true;
-          break;
-        }
-      }
-
-      if (!overlaps) {
-        this.carveRoom(tiles, newRoom);
-        rooms.push(newRoom);
-      }
-    }
-
+    const rooms = this.placeRooms(tiles);
     if (rooms.length < 8) {
       return this.generate();
     }
 
-    this.shuffleArray(rooms);
-
-    this.connectRooms(tiles, rooms);
-
-    if (Math.random() < 0.35) {
-      this.addDeadEnds(tiles, rooms);
+    const mstEdges = this.primMST(rooms);
+    for (const edge of mstEdges) {
+      this.carveCorridor(tiles, rooms[edge.from], rooms[edge.to]);
     }
+
+    const extraCount = Math.max(2, Math.floor(rooms.length * 0.25));
+    const allEdges = this.getAllEdges(rooms);
+    this.shuffleArray(allEdges);
+    let added = 0;
+    for (const e of allEdges) {
+      if (added >= extraCount) break;
+      const isMst = mstEdges.some(m => (m.from === e.from && m.to === e.to) || (m.from === e.to && m.to === e.from));
+      if (!isMst) {
+        this.carveCorridor(tiles, rooms[e.from], rooms[e.to]);
+        added++;
+      }
+    }
+
+    const deadEndCount = this.randomInt(3, 7);
+    this.createDeadEnds(tiles, rooms, deadEndCount);
 
     this.assignRoomTypes(rooms);
 
-    const endTime = performance.now();
-    const duration = endTime - startTime;
-    console.log(`地图生成耗时: ${duration.toFixed(2)}ms, 房间数: ${rooms.length}`);
-
-    if (duration > 100) {
-      console.warn('地图生成超过100毫秒！');
-    }
-
-    const startRoom = rooms.find(r => r.type === RoomType.START) || null;
-    const bossRoom = rooms.find(r => r.type === RoomType.BOSS) || null;
+    const duration = performance.now() - t0;
+    console.log(`地图生成: ${duration.toFixed(1)}ms, 房间: ${rooms.length}, 类型: ${rooms.map(r => RoomType[r.type]).join(',')}`);
 
     return {
       tiles,
       rooms,
       width: this.mapWidth,
       height: this.mapHeight,
-      startRoom,
-      bossRoom,
+      startRoom: rooms.find(r => r.type === RoomType.START) || null,
+      bossRoom: rooms.find(r => r.type === RoomType.BOSS) || null,
       tileSize: 16
     };
   }
 
-  private connectRooms(tiles: RoomType[][], rooms: Room[]): void {
-    const connected = new Set<number>();
-    connected.add(0);
+  private placeRooms(tiles: RoomType[][]): Room[] {
+    const rooms: Room[] = [];
+    let attempts = 0;
+    const maxAttempts = this.targetRoomCount * 20;
 
-    while (connected.size < rooms.length) {
-      let minDist = Infinity;
-      let fromIdx = -1;
-      let toIdx = -1;
+    while (rooms.length < this.targetRoomCount && attempts < maxAttempts) {
+      attempts++;
+      const w = this.randomInt(this.minRoomSize, this.maxRoomSize);
+      const h = this.randomInt(this.minRoomSize, this.maxRoomSize);
+      const x = this.randomInt(2, this.mapWidth - w - 2);
+      const y = this.randomInt(2, this.mapHeight - h - 2);
 
-      for (let i = 0; i < rooms.length; i++) {
-        if (!connected.has(i)) continue;
-        for (let j = 0; j < rooms.length; j++) {
-          if (connected.has(j)) continue;
-          const dist = this.roomDistance(rooms[i], rooms[j]);
-          if (dist < minDist) {
-            minDist = dist;
-            fromIdx = i;
-            toIdx = j;
-          }
+      const candidate: Room = {
+        x, y, width: w, height: h,
+        type: RoomType.MONSTER,
+        visited: false,
+        cleared: false,
+        centerX: Math.floor(x + w / 2),
+        centerY: Math.floor(y + h / 2),
+        id: rooms.length
+      };
+
+      let ok = true;
+      for (const r of rooms) {
+        if (this.overlaps(candidate, r, 3)) { ok = false; break; }
+      }
+      if (ok) {
+        this.carveRoom(tiles, candidate);
+        candidate.id = rooms.length;
+        rooms.push(candidate);
+      }
+    }
+    return rooms;
+  }
+
+  private primMST(rooms: Room[]): Edge[] {
+    const n = rooms.length;
+    const inMST = new Array(n).fill(false);
+    const minWeight = new Array(n).fill(Infinity);
+    const parent = new Array(n).fill(-1);
+    const edges: Edge[] = [];
+
+    minWeight[0] = 0;
+
+    for (let count = 0; count < n; count++) {
+      let u = -1;
+      for (let v = 0; v < n; v++) {
+        if (!inMST[v] && (u === -1 || minWeight[v] < minWeight[u])) {
+          u = v;
         }
       }
 
-      if (fromIdx >= 0 && toIdx >= 0) {
-        this.carveCorridor(tiles, rooms[fromIdx], rooms[toIdx]);
-        connected.add(toIdx);
-      } else {
-        break;
+      if (u === -1) break;
+      inMST[u] = true;
+
+      if (parent[u] !== -1) {
+        edges.push({ from: parent[u], to: u, weight: minWeight[u] });
+      }
+
+      for (let v = 0; v < n; v++) {
+        if (inMST[v]) continue;
+        const d = this.dist(rooms[u], rooms[v]) + Math.random() * 200;
+        if (d < minWeight[v]) {
+          minWeight[v] = d;
+          parent[v] = u;
+        }
       }
     }
 
-    const extraConnections = Math.max(1, Math.floor(rooms.length * 0.2));
-    for (let i = 0; i < extraConnections; i++) {
-      const a = Math.floor(Math.random() * rooms.length);
-      const b = Math.floor(Math.random() * rooms.length);
-      if (a !== b) {
-        this.carveCorridor(tiles, rooms[a], rooms[b]);
-      }
-    }
+    return edges;
   }
 
-  private addDeadEnds(tiles: RoomType[][], rooms: Room[]): void {
-    const deadEndCount = Math.floor(Math.random() * 4) + 2;
-    for (let i = 0; i < deadEndCount; i++) {
+  private getAllEdges(rooms: Room[]): Edge[] {
+    const edges: Edge[] = [];
+    for (let i = 0; i < rooms.length; i++) {
+      for (let j = i + 1; j < rooms.length; j++) {
+        edges.push({ from: i, to: j, weight: this.dist(rooms[i], rooms[j]) });
+      }
+    }
+    return edges;
+  }
+
+  private createDeadEnds(tiles: RoomType[][], rooms: Room[], count: number): void {
+    for (let i = 0; i < count; i++) {
       const room = rooms[Math.floor(Math.random() * rooms.length)];
-      const dirs = [
-        { dx: 0, dy: -1 },
-        { dx: 0, dy: 1 },
-        { dx: -1, dy: 0 },
-        { dx: 1, dy: 0 }
-      ];
+      const dirs = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
       this.shuffleArray(dirs);
       const dir = dirs[0];
-      const length = this.randomInt(3, 6);
-
+      const len = this.randomInt(4, 8);
       let cx = room.centerX;
       let cy = room.centerY;
-
-      for (let j = 0; j < length; j++) {
+      for (let s = 0; s < len; s++) {
         cx += dir.dx;
         cy += dir.dy;
-        if (cx > 0 && cx < this.mapWidth - 1 && cy > 0 && cy < this.mapHeight - 1) {
-          if (tiles[cy][cx] === RoomType.WALL) {
-            tiles[cy][cx] = RoomType.CORRIDOR;
-          } else {
-            break;
-          }
-        } else {
+        if (cx <= 0 || cx >= this.mapWidth - 1 || cy <= 0 || cy >= this.mapHeight - 1) break;
+        if (tiles[cy][cx] === RoomType.WALL) {
+          tiles[cy][cx] = RoomType.CORRIDOR;
+        } else if (tiles[cy][cx] === RoomType.EMPTY || tiles[cy][cx] === RoomType.CORRIDOR) {
           break;
         }
       }
@@ -226,80 +229,53 @@ export class MapGenerator {
   }
 
   private assignRoomTypes(rooms: Room[]): void {
-    rooms[0].type = RoomType.START;
-    rooms[0].cleared = true;
-    rooms[0].visited = true;
-
+    const startIdx = 0;
     let farthestIdx = 0;
-    let maxDist = 0;
+    let maxD = 0;
     for (let i = 1; i < rooms.length; i++) {
-      const dist = this.roomDistance(rooms[0], rooms[i]);
-      if (dist > maxDist) {
-        maxDist = dist;
-        farthestIdx = i;
-      }
+      const d = this.dist(rooms[startIdx], rooms[i]);
+      if (d > maxD) { maxD = d; farthestIdx = i; }
     }
 
-    if (farthestIdx > 0) {
-      rooms[farthestIdx].type = RoomType.BOSS;
-      rooms[farthestIdx].monsterHp = 150;
-      rooms[farthestIdx].monsterMaxHp = 150;
-      rooms[farthestIdx].monsterAttack = 25;
-      rooms[farthestIdx].monsterName = '时空领主';
-    }
+    rooms[startIdx].type = RoomType.START;
+    rooms[startIdx].cleared = true;
+    rooms[startIdx].visited = true;
 
-    const remaining: Room[] = [];
+    rooms[farthestIdx].type = RoomType.BOSS;
+    rooms[farthestIdx].monsterHp = 150;
+    rooms[farthestIdx].monsterMaxHp = 150;
+    rooms[farthestIdx].monsterAttack = 25;
+    rooms[farthestIdx].monsterName = '时空领主';
+
+    const rest: number[] = [];
     for (let i = 0; i < rooms.length; i++) {
-      if (rooms[i].type === RoomType.MONSTER && i !== farthestIdx) {
-        remaining.push(rooms[i]);
-      }
+      if (i !== startIdx && i !== farthestIdx) rest.push(i);
     }
+    this.shuffleArray(rest);
 
-    this.shuffleArray(remaining);
+    const trapN = Math.max(2, Math.floor(rest.length * 0.22));
+    const chestN = Math.max(2, Math.floor(rest.length * 0.22));
+    let ri = 0;
 
-    const trapCount = Math.max(2, Math.floor(remaining.length * 0.2));
-    const chestCount = Math.max(2, Math.floor(remaining.length * 0.2));
-    const monsterCount = remaining.length - trapCount - chestCount;
-
-    let idx = 0;
-    for (let t = 0; t < trapCount && idx < remaining.length; t++, idx++) {
-      remaining[idx].type = RoomType.TRAP;
-      remaining[idx].trapDamage = this.randomInt(8, 25);
+    for (let t = 0; t < trapN && ri < rest.length; t++, ri++) {
+      const idx = rest[ri];
+      rooms[idx].type = RoomType.TRAP;
+      rooms[idx].trapDamage = this.randomInt(8, 25);
     }
-
-    for (let c = 0; c < chestCount && idx < remaining.length; c++, idx++) {
-      remaining[idx].type = RoomType.CHEST;
-      remaining[idx].chestItem = this.getRandomChestItem();
+    for (let c = 0; c < chestN && ri < rest.length; c++, ri++) {
+      const idx = rest[ri];
+      rooms[idx].type = RoomType.CHEST;
+      rooms[idx].chestItem = this.randomChestItem();
     }
-
-    for (let m = 0; m < monsterCount && idx < remaining.length; m++, idx++) {
-      remaining[idx].type = RoomType.MONSTER;
+    while (ri < rest.length) {
+      const idx = rest[ri];
+      rooms[idx].type = RoomType.MONSTER;
       const hp = this.randomInt(25, 60);
-      remaining[idx].monsterHp = hp;
-      remaining[idx].monsterMaxHp = hp;
-      remaining[idx].monsterAttack = this.randomInt(6, 18);
-      remaining[idx].monsterName = this.getRandomMonsterName();
-    }
-
-    const hasTrap = rooms.some(r => r.type === RoomType.TRAP);
-    const hasChest = rooms.some(r => r.type === RoomType.CHEST);
-    const hasMonster = rooms.some(r => r.type === RoomType.MONSTER);
-
-    if (!hasTrap && remaining.length > 0) {
-      remaining[0].type = RoomType.TRAP;
-      remaining[0].trapDamage = this.randomInt(8, 25);
-    }
-    if (!hasChest && remaining.length > 1) {
-      remaining[1].type = RoomType.CHEST;
-      remaining[1].chestItem = this.getRandomChestItem();
-    }
-    if (!hasMonster && remaining.length > 2) {
-      remaining[2].type = RoomType.MONSTER;
-      const hp = this.randomInt(25, 60);
-      remaining[2].monsterHp = hp;
-      remaining[2].monsterMaxHp = hp;
-      remaining[2].monsterAttack = this.randomInt(6, 18);
-      remaining[2].monsterName = this.getRandomMonsterName();
+      rooms[idx].monsterHp = hp;
+      rooms[idx].monsterMaxHp = hp;
+      rooms[idx].monsterAttack = this.randomInt(6, 18);
+      rooms[idx].monsterName = this.randomMonsterName();
+      ri++;
     }
   }
 
@@ -313,59 +289,33 @@ export class MapGenerator {
     }
   }
 
-  private carveCorridor(tiles: RoomType[][], room1: Room, room2: Room): void {
-    const x1 = room1.centerX;
-    const y1 = room1.centerY;
-    const x2 = room2.centerX;
-    const y2 = room2.centerY;
+  private carveCorridor(tiles: RoomType[][], a: Room, b: Room): void {
+    let cx = a.centerX, cy = a.centerY;
+    const tx = b.centerX, ty = b.centerY;
 
-    let cx = x1;
-    let cy = y1;
-
-    const horizontalFirst = Math.random() > 0.5;
-
-    if (horizontalFirst) {
-      while (cx !== x2) {
-        this.setCorridorTile(tiles, cx, cy);
-        cx += cx < x2 ? 1 : -1;
-      }
-      while (cy !== y2) {
-        this.setCorridorTile(tiles, cx, cy);
-        cy += cy < y2 ? 1 : -1;
-      }
+    if (Math.random() < 0.5) {
+      while (cx !== tx) { this.setCorr(tiles, cx, cy); cx += cx < tx ? 1 : -1; }
+      while (cy !== ty) { this.setCorr(tiles, cx, cy); cy += cy < ty ? 1 : -1; }
     } else {
-      while (cy !== y2) {
-        this.setCorridorTile(tiles, cx, cy);
-        cy += cy < y2 ? 1 : -1;
-      }
-      while (cx !== x2) {
-        this.setCorridorTile(tiles, cx, cy);
-        cx += cx < x2 ? 1 : -1;
-      }
+      while (cy !== ty) { this.setCorr(tiles, cx, cy); cy += cy < ty ? 1 : -1; }
+      while (cx !== tx) { this.setCorr(tiles, cx, cy); cx += cx < tx ? 1 : -1; }
     }
-
-    this.setCorridorTile(tiles, cx, cy);
+    this.setCorr(tiles, cx, cy);
   }
 
-  private setCorridorTile(tiles: RoomType[][], x: number, y: number): void {
-    if (y >= 0 && y < this.mapHeight && x >= 0 && x < this.mapWidth) {
-      if (tiles[y][x] === RoomType.WALL) {
-        tiles[y][x] = RoomType.CORRIDOR;
-      }
+  private setCorr(tiles: RoomType[][], x: number, y: number): void {
+    if (y >= 0 && y < this.mapHeight && x >= 0 && x < this.mapWidth && tiles[y][x] === RoomType.WALL) {
+      tiles[y][x] = RoomType.CORRIDOR;
     }
   }
 
-  private roomsOverlap(room1: Room, room2: Room, padding: number = 1): boolean {
-    return (
-      room1.x - padding <= room2.x + room2.width &&
-      room1.x + room1.width + padding >= room2.x &&
-      room1.y - padding <= room2.y + room2.height &&
-      room1.y + room1.height + padding >= room2.y
-    );
+  private overlaps(a: Room, b: Room, pad: number): boolean {
+    return a.x - pad < b.x + b.width && a.x + a.width + pad > b.x &&
+           a.y - pad < b.y + b.height && a.y + a.height + pad > b.y;
   }
 
-  private roomDistance(room1: Room, room2: Room): number {
-    return Math.abs(room1.centerX - room2.centerX) + Math.abs(room1.centerY - room2.centerY);
+  private dist(a: Room, b: Room): number {
+    return Math.abs(a.centerX - b.centerX) + Math.abs(a.centerY - b.centerY);
   }
 
   private randomInt(min: number, max: number): number {
@@ -379,36 +329,19 @@ export class MapGenerator {
     }
   }
 
-  private getRandomMonsterName(): string {
-    const names = [
-      '史莱姆', '哥布林', '骷髅兵', '蝙蝠怪',
-      '暗影狼', '石像鬼', '巨型蜘蛛', '地狱犬',
-      '食尸鬼', '幽魂', '堕落骑士', '毒蛇'
-    ];
-    return names[Math.floor(Math.random() * names.length)];
+  private randomMonsterName(): string {
+    const n = ['史莱姆', '哥布林', '骷髅兵', '蝙蝠怪', '暗影狼', '石像鬼', '巨型蜘蛛', '地狱犬', '食尸鬼', '幽魂', '堕落骑士', '毒蛇'];
+    return n[Math.floor(Math.random() * n.length)];
   }
 
-  private getRandomChestItem(): ItemType {
-    const items: ItemType[] = [
-      ItemType.HEALTH_POTION,
-      ItemType.STAMINA_POTION,
-      ItemType.SWORD,
-      ItemType.SHIELD,
-      ItemType.GOLD,
-      ItemType.GOLD,
-      ItemType.HEALTH_POTION
-    ];
+  private randomChestItem(): ItemType {
+    const items = [ItemType.HEALTH_POTION, ItemType.STAMINA_POTION, ItemType.SWORD, ItemType.SHIELD, ItemType.GOLD, ItemType.GOLD];
     return items[Math.floor(Math.random() * items.length)];
   }
 
   getRoomAt(mapData: MapData, x: number, y: number): Room | null {
     for (const room of mapData.rooms) {
-      if (
-        x >= room.x &&
-        x < room.x + room.width &&
-        y >= room.y &&
-        y < room.y + room.height
-      ) {
+      if (x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height) {
         return room;
       }
     }
@@ -416,10 +349,7 @@ export class MapGenerator {
   }
 
   isWalkable(mapData: MapData, x: number, y: number): boolean {
-    if (x < 0 || x >= this.mapWidth || y < 0 || y >= this.mapHeight) {
-      return false;
-    }
-    const tile = mapData.tiles[y][x];
-    return tile !== RoomType.WALL;
+    if (x < 0 || x >= this.mapWidth || y < 0 || y >= this.mapHeight) return false;
+    return mapData.tiles[y][x] !== RoomType.WALL;
   }
 }

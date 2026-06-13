@@ -219,8 +219,12 @@ export class SceneManager {
     }
   }
 
-  private easeOutCubic(t: number): number {
-    return 1 - Math.pow(1 - t, 3);
+  private easeInOutCubic(t: number): number {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  private easeInOutCubicDerivative(t: number): number {
+    return t < 0.5 ? 12 * t * t : 6 * (1 - t) * (1 - t);
   }
 
   private easeOutQuad(t: number): number {
@@ -237,12 +241,13 @@ export class SceneManager {
         this.camera.isScrolling = false;
       }
 
-      const eased = this.easeOutCubic(this.camera.scrollProgress);
+      const eased = this.easeInOutCubic(this.camera.scrollProgress);
       this.camera.x = this.camera.scrollStartX + (this.camera.scrollEndX - this.camera.scrollStartX) * eased;
       this.camera.y = this.camera.scrollStartY + (this.camera.scrollEndY - this.camera.scrollStartY) * eased;
 
-      this.camera.velocityX = (this.camera.scrollEndX - this.camera.scrollStartX) / this.camera.scrollDuration;
-      this.camera.velocityY = (this.camera.scrollEndY - this.camera.scrollStartY) / this.camera.scrollDuration;
+      const derivative = this.easeInOutCubicDerivative(this.camera.scrollProgress);
+      this.camera.velocityX = (this.camera.scrollEndX - this.camera.scrollStartX) * derivative / this.camera.scrollDuration;
+      this.camera.velocityY = (this.camera.scrollEndY - this.camera.scrollStartY) * derivative / this.camera.scrollDuration;
     } else {
       const speed = 0.08 * (deltaTime / 16.67);
       const prevX = this.camera.x;
