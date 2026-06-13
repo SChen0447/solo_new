@@ -67,9 +67,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   rollDiceAction: () => {
-    const { isAnimating, gameStarted, players, currentPlayerIndex, specialCells, showModal } = get();
+    const { isAnimating, gameStarted, players, currentPlayerIndex, specialCells, showModal, winner } = get();
     
-    if (isAnimating || !gameStarted || showModal.show) return;
+    if (isAnimating || !gameStarted || showModal.show || winner) return;
 
     const diceValue = rollDice();
     const currentPlayer = players[currentPlayerIndex];
@@ -87,3 +87,95 @@ export const useGameStore = create<GameState>((set, get) => ({
       );
       set({ players: updatedPlayers });
 
+      setTimeout(() => {
+        if (specialEvent) {
+          const finalPlayers = updatedPlayers.map((p, i) =>
+            i === currentPlayerIndex ? { ...p, position: targetPosition } : p
+          );
+          set({ players: finalPlayers });
+
+          const message = specialEvent === 'ladder' 
+            ? `恭喜！爬上梯子，从第${newPosition}格前进到第${targetPosition}格！`
+            : `糟糕！遇到蛇了，从第${newPosition}格滑落到第${targetPosition}格！`;
+
+          setTimeout(() => {
+            set({
+              isAnimating: false,
+              showModal: {
+                show: true,
+                type: specialEvent,
+                message,
+                playerName: currentPlayer.name,
+                from: newPosition,
+                to: targetPosition
+              }
+            });
+          }, 400);
+        } else {
+          const isWin = checkWin(targetPosition);
+          if (isWin) {
+            setTimeout(() => {
+              set({
+                isAnimating: false,
+                winner: currentPlayer,
+                showModal: {
+                  show: true,
+                  type: 'win',
+                  message: `恭喜${currentPlayer.name}获得胜利！`,
+                  playerName: currentPlayer.name,
+                  from: currentPlayer.position,
+                  to: BOARD_SIZE
+                }
+              });
+            }, 400);
+          } else {
+            setTimeout(() => {
+              set({
+                isAnimating: false,
+                currentPlayerIndex: getNextPlayerIndex(currentPlayerIndex, players.length)
+              });
+            }, 400);
+          }
+        }
+      }, 400);
+    }, 800);
+  },
+
+  closeModal: () => {
+    const { showModal, currentPlayerIndex, players, winner } = get();
+    
+    if (showModal.type === 'win') {
+      set({
+        showModal: { show: false, type: null, message: '', playerName: '', from: 0, to: 0 }
+      });
+    } else {
+      const finalPlayer = players[currentPlayerIndex];
+      const isWin = checkWin(finalPlayer.position);
+      
+      if (isWin) {
+        set({
+          showModal: { show: false, type: null, message: '', playerName: '', from: 0, to: 0 },
+          winner: finalPlayer,
+          showModal: {
+            show: true,
+            type: 'win',
+            message: `恭喜${finalPlayer.name}获得胜利！`,
+            playerName: finalPlayer.name,
+            from: finalPlayer.position,
+            to: BOARD_SIZE
+          }
+        });
+      } else {
+        set({
+          showModal: { show: false, type: null, message: '', playerName: '', from: 0, to: 0 },
+          currentPlayerIndex: getNextPlayerIndex(currentPlayerIndex, players.length)
+        });
+      }
+    }
+  },
+
+  resetGame: () => {
+    const playerCount = get().players.length;
+    get().startGame(playerCount);
+  }
+}));
