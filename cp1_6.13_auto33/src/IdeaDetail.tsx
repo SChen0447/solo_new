@@ -32,10 +32,32 @@ const TAG_COLORS: Record<string, string> = {
 };
 
 const detailStyles = `
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-60px) scale(0.3); opacity: 0; }
+  }
+
+  @keyframes commentSlideUp {
+    0% { transform: translateY(20px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
   .detail-page {
     min-height: 100vh;
     background: #F7F1E0;
-    animation: slideInRight 350ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: transform 350ms cubic-bezier(0.4, 0, 0.2, 1), opacity 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .detail-page.entered {
+    transform: translateX(0);
+    opacity: 1;
   }
 
   .detail-like-btn {
@@ -77,7 +99,7 @@ const detailStyles = `
     margin-bottom: 14px;
   }
   .comment-item.new-comment {
-    animation: slideUp 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: commentSlideUp 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
   .comment-avatar {
     width: 36px;
@@ -98,6 +120,7 @@ const detailStyles = `
     font-weight: 700;
     color: #555;
     margin-bottom: 4px;
+    font-family: 'Nunito', sans-serif;
   }
   .comment-time {
     font-weight: 400;
@@ -109,6 +132,7 @@ const detailStyles = `
     font-size: 14px;
     color: #444;
     line-height: 1.6;
+    font-family: 'Nunito', sans-serif;
   }
 
   .comment-input-wrap {
@@ -188,6 +212,7 @@ export default function IdeaDetail() {
   const [idea, setIdea] = useState<Idea | null>(null);
   const [commentText, setCommentText] = useState('');
   const [isLiking, setIsLiking] = useState(false);
+  const [entered, setEntered] = useState(false);
   const [stars, setStars] = useState<{ sid: number; x: number; y: number }[]>([]);
   const [newCommentId, setNewCommentId] = useState<number | null>(null);
   const starIdRef = useRef(0);
@@ -196,7 +221,14 @@ export default function IdeaDetail() {
     if (!id) return;
     axios
       .get<Idea>(`/api/ideas/${id}`)
-      .then((res) => setIdea(res.data))
+      .then((res) => {
+        setIdea(res.data);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setEntered(true);
+          });
+        });
+      })
       .catch(() => navigate('/'));
   }, [id, navigate]);
 
@@ -253,14 +285,14 @@ export default function IdeaDetail() {
 
   if (!idea) {
     return (
-      <div style={{ textAlign: 'center', padding: 80, color: '#bbb', fontSize: 18, fontWeight: 600 }}>
+      <div style={{ textAlign: 'center', padding: 80, color: '#bbb', fontSize: 18, fontWeight: 600, fontFamily: 'Nunito, sans-serif' }}>
         加载中...
       </div>
     );
   }
 
   return (
-    <div className="detail-page">
+    <div className={`detail-page ${entered ? 'entered' : ''}`}>
       <style>{detailStyles}</style>
 
       {stars.map((s) => (
@@ -389,7 +421,7 @@ export default function IdeaDetail() {
         </div>
 
         <div>
-          <h3 style={{ fontSize: 18, fontWeight: 800, color: '#333', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: '#333', marginBottom: 16, fontFamily: 'Nunito, sans-serif' }}>
             💬 评论 ({idea.comments.length})
           </h3>
 
@@ -413,7 +445,7 @@ export default function IdeaDetail() {
           </div>
 
           {idea.comments.length === 0 && (
-            <div style={{ textAlign: 'center', color: '#bbb', fontSize: 14, fontWeight: 600, padding: '20px 0' }}>
+            <div style={{ textAlign: 'center', color: '#bbb', fontSize: 14, fontWeight: 600, padding: '20px 0', fontFamily: 'Nunito, sans-serif' }}>
               还没有评论，来说点什么吧 🌟
             </div>
           )}

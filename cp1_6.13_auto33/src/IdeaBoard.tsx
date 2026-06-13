@@ -49,31 +49,61 @@ const breakpointColumns = {
 };
 
 const masonryStyles = `
+  @keyframes dropIn {
+    0% { transform: translateY(-80px); opacity: 0; }
+    60% { transform: translateY(10px); opacity: 1; }
+    80% { transform: translateY(-5px); }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-60px) scale(0.3); opacity: 0; }
+  }
+
+  @keyframes putoBounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(0.85); }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.08); }
+    70% { transform: scale(0.95); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes toastIn {
+    0% { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+    100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+  }
+
+  @keyframes toastOut {
+    0% { transform: translateX(-50%) translateY(0); opacity: 1; }
+    100% { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+  }
+
   .masonry-grid {
     display: flex;
-    margin-left: -18px;
+    margin-left: -16px;
     width: auto;
   }
   .masonry-grid_column {
-    padding-left: 18px;
+    padding-left: 16px;
     background-clip: padding-box;
-  }
-  .masonry-grid_column > .idea-card {
-    margin-bottom: 18px;
-  }
-
-  @media (max-width: 600px) {
-    .masonry-grid {
-      margin-left: 0 !important;
-    }
-    .masonry-grid_column {
-      padding-left: 0 !important;
-    }
-    .masonry-grid_column > .idea-card {
-      margin-left: 8px !important;
-      margin-right: 8px !important;
-      margin-bottom: 12px !important;
-    }
   }
 
   .idea-card {
@@ -83,13 +113,12 @@ const masonryStyles = `
     cursor: pointer;
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    break-inside: avoid;
+    margin-bottom: 16px;
   }
   .idea-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 28px rgba(0,0,0,0.13);
   }
-
   .idea-card.drop-in {
     animation: dropIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
@@ -132,7 +161,7 @@ const masonryStyles = `
     width: 90%;
     max-width: 460px;
     box-shadow: 0 16px 48px rgba(0,0,0,0.15);
-    animation: bounceIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: bounceIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
 
   .like-btn {
@@ -146,7 +175,7 @@ const masonryStyles = `
     font-size: 14px;
     font-weight: 700;
     font-family: 'Nunito', sans-serif;
-    transition: background 0.2s, transform 0.2s;
+    transition: background 0.2s;
   }
   .like-btn.liked {
     background: #FF6B6B;
@@ -172,13 +201,13 @@ const masonryStyles = `
     position: fixed;
     top: 24px;
     left: 50%;
-    transform: translateX(-50%);
     background: #FF6B6B;
     color: #fff;
     padding: 10px 28px;
     border-radius: 24px;
     font-weight: 700;
     font-size: 15px;
+    font-family: 'Nunito', sans-serif;
     z-index: 10000;
     box-shadow: 0 4px 20px rgba(255,107,107,0.4);
   }
@@ -195,16 +224,43 @@ const masonryStyles = `
     color: #aaa;
     font-weight: 600;
     font-size: 14px;
+    font-family: 'Nunito', sans-serif;
   }
 
   .sentinel {
-    height: 20px;
+    height: 1px;
+  }
+
+  @media (max-width: 900px) {
+    .masonry-grid {
+      margin-left: -12px;
+    }
+    .masonry-grid_column {
+      padding-left: 12px;
+    }
+    .idea-card {
+      margin-bottom: 12px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .masonry-grid {
+      margin-left: 0 !important;
+    }
+    .masonry-grid_column {
+      padding-left: 0 !important;
+    }
+    .masonry-grid_column > .idea-card {
+      margin-left: 8px !important;
+      margin-right: 8px !important;
+      margin-bottom: 12px !important;
+      width: calc(100% - 16px) !important;
+    }
   }
 `;
 
 export default function IdeaBoard() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -218,14 +274,18 @@ export default function IdeaBoard() {
   const [buttonBounce, setButtonBounce] = useState(false);
   const starIdRef = useRef(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef(1);
+  const loadingRef = useRef(false);
+  const hasMoreRef = useRef(true);
   const navigate = useNavigate();
 
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
+  const loadMore = useCallback(async (pageNum: number) => {
+    if (loadingRef.current || !hasMoreRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     try {
       const res = await axios.get<PaginatedResponse>('/api/ideas', {
-        params: { page, page_size: 6 },
+        params: { page: pageNum, page_size: 6 },
       });
       const newItems = res.data.items;
       setIdeas((prev) => {
@@ -233,38 +293,44 @@ export default function IdeaBoard() {
         const filtered = newItems.filter((i) => !existingIds.has(i.id));
         return [...prev, ...filtered];
       });
+      hasMoreRef.current = res.data.has_more;
       setHasMore(res.data.has_more);
       if (res.data.has_more) {
-        setPage((p) => p + 1);
+        pageRef.current = pageNum + 1;
       }
     } catch {
       // ignore
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [page, loading, hasMore]);
+  }, []);
 
   useEffect(() => {
-    loadMore();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    loadMore(1);
+  }, [loadMore]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && ideas.length > 0) {
-          loadMore();
+        if (entries[0].isIntersecting && hasMoreRef.current && !loadingRef.current && ideas.length > 0) {
+          loadMore(pageRef.current);
         }
       },
-      { threshold: 0.1 }
+      { rootMargin: '200px', threshold: 0 }
     );
 
-    if (sentinelRef.current) {
-      observer.observe(sentinelRef.current);
+    const sentinel = sentinelRef.current;
+    if (sentinel) {
+      observer.observe(sentinel);
     }
 
-    return () => observer.disconnect();
-  }, [hasMore, loading, ideas.length, loadMore]);
+    return () => {
+      if (sentinel) {
+        observer.unobserve(sentinel);
+      }
+    };
+  }, [ideas.length, loadMore]);
 
   const handleLike = async (e: React.MouseEvent, idea: Idea) => {
     e.stopPropagation();
@@ -350,7 +416,7 @@ export default function IdeaBoard() {
   const handlePutoClick = () => {
     setButtonBounce(true);
     setTimeout(() => setButtonBounce(false), 300);
-    setShowModal(true);
+    setTimeout(() => setShowModal(true), 150);
   };
 
   return (
@@ -617,7 +683,7 @@ export default function IdeaBoard() {
       {loading && <div className="loading-indicator">加载更多灵感中...</div>}
 
       {!hasMore && ideas.length > 0 && (
-        <div style={{ textAlign: 'center', color: '#ccc', fontSize: 13, padding: '20px 0' }}>
+        <div style={{ textAlign: 'center', color: '#ccc', fontSize: 13, padding: '20px 0', fontFamily: 'Nunito, sans-serif' }}>
           — 已经到底啦，去点燃更多灵感吧 —
         </div>
       )}
@@ -630,6 +696,7 @@ export default function IdeaBoard() {
             color: '#bbb',
             fontSize: 18,
             fontWeight: 600,
+            fontFamily: 'Nunito, sans-serif',
           }}
         >
           还没有灵感，点击「噗通！发点子」点燃第一颗火花 🔥
