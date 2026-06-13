@@ -86,10 +86,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
       className="radial-loading"
       style={{ width: size, height: size, display: 'inline-block', position: 'relative' }}
     >
-      <span className="radial-ring radial-ring-1" />
-      <span className="radial-ring radial-ring-2" />
-      <span className="radial-ring radial-ring-3" />
-      <span className="radial-center" />
+      <span className="ripple ripple-1" />
+      <span className="ripple ripple-2" />
+      <span className="ripple ripple-3" />
+      <span className="ripple-core" />
     </span>
   );
 
@@ -532,61 +532,69 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
         .radial-loading {
           display: inline-block;
+          position: relative;
+          animation: radial-rotate 1.2s linear infinite;
         }
 
-        .radial-loading .radial-ring {
+        .radial-loading .ripple {
           position: absolute;
-          border: 2px solid transparent;
-          border-top-color: white;
+          border: 2px solid white;
           border-radius: 50%;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          opacity: 1;
         }
 
-        .radial-loading .radial-ring-1 {
-          animation: radial-spin 1s linear infinite;
+        .radial-loading .ripple-1 {
+          width: 100%;
+          height: 100%;
+          animation: ripple-expand 1.2s ease-out infinite;
+          animation-delay: 0s;
         }
 
-        .radial-loading .radial-ring-2 {
-          top: 3px;
-          left: 3px;
-          right: 3px;
-          bottom: 3px;
-          border-top-color: rgba(255, 255, 255, 0.7);
-          animation: radial-spin 0.8s linear infinite reverse;
+        .radial-loading .ripple-2 {
+          width: 100%;
+          height: 100%;
+          animation: ripple-expand 1.2s ease-out infinite;
+          animation-delay: 0.4s;
         }
 
-        .radial-loading .radial-ring-3 {
-          top: 6px;
-          left: 6px;
-          right: 6px;
-          bottom: 6px;
-          border-top-color: rgba(255, 255, 255, 0.4);
-          animation: radial-spin 0.6s linear infinite;
+        .radial-loading .ripple-3 {
+          width: 100%;
+          height: 100%;
+          animation: ripple-expand 1.2s ease-out infinite;
+          animation-delay: 0.8s;
         }
 
-        .radial-loading .radial-center {
+        .radial-loading .ripple-core {
           position: absolute;
           top: 50%;
           left: 50%;
-          width: 3px;
-          height: 3px;
+          width: 4px;
+          height: 4px;
           background: white;
           border-radius: 50%;
           transform: translate(-50%, -50%);
-          animation: radial-pulse 0.6s ease-in-out infinite alternate;
+          box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
         }
 
-        @keyframes radial-spin {
+        @keyframes ripple-expand {
+          0% {
+            transform: translate(-50%, -50%) scale(0.2);
+            opacity: 1;
+            border-width: 3px;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0;
+            border-width: 1px;
+          }
+        }
+
+        @keyframes radial-rotate {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
-        }
-
-        @keyframes radial-pulse {
-          0% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.8); }
-          100% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
         }
 
         .nav-buttons {
