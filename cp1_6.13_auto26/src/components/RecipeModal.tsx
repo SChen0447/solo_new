@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Clock, ChefHat, ListOrdered } from 'lucide-react';
 import { Recipe } from '../api/recipes';
 
@@ -9,12 +9,19 @@ interface RecipeModalProps {
 }
 
 const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isOpen, onClose }) => {
+  const [visible, setVisible] = useState(false);
+  const [animating, setAnimating] = useState(false);
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') handleClose();
     };
 
     if (isOpen) {
+      setVisible(true);
+      requestAnimationFrame(() => {
+        setAnimating(true);
+      });
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
     }
@@ -23,18 +30,29 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isOpen, onClose }) =>
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
-  if (!recipe || !isOpen) return null;
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+  const handleClose = () => {
+    setAnimating(false);
+    setTimeout(() => {
+      setVisible(false);
+      onClose();
+    }, 300);
   };
 
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) handleClose();
+  };
+
+  if (!recipe || !visible) return null;
+
   return (
-    <div className={`modal-overlay ${isOpen ? 'open' : ''}`} onClick={handleOverlayClick}>
-      <div className={`modal-content ${isOpen ? 'open' : ''}`}>
-        <button className="modal-close-btn" onClick={onClose} aria-label="关闭">
+    <div
+      className={`modal-overlay ${animating ? 'open' : ''}`}
+      onClick={handleOverlayClick}
+    >
+      <div className={`modal-content ${animating ? 'open' : ''}`}>
+        <button className="modal-close-btn" onClick={handleClose} aria-label="关闭">
           <X size={24} />
         </button>
 
@@ -64,7 +82,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ recipe, isOpen, onClose }) =>
 
         <div className="modal-body">
           <div className="steps-section">
-            <h3 className="section-title">
+            <h3 className="section-heading">
               <ListOrdered size={20} />
               烹饪步骤
             </h3>

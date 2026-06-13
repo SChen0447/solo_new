@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, CORS
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -78,7 +79,12 @@ def generate_short_code(length: int = 6) -> str:
 
 app = FastAPI()
 
-CORS(app, origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/api/recommend")
@@ -138,13 +144,9 @@ async def add_favorite(request: FavoriteAddRequest):
     return {"success": True}
 
 
-@app.delete("/api/favorites/{recipe_id}")
 @app.post("/api/favorites/remove")
-async def remove_favorite(recipe_id: Optional[str] = None, request: Optional[FavoriteAddRequest] = None):
-    if request:
-        recipe_id = request.recipeId
-    if not recipe_id:
-        raise HTTPException(status_code=400, detail="recipeId is required")
+async def remove_favorite(request: FavoriteAddRequest):
+    recipe_id = request.recipeId
 
     favorites_data = read_json_file(FAVORITES_FILE)
     recipe_ids = favorites_data.get("recipeIds", [])
