@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Achievement Tracker</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #1a1a2e;
+        color: #e0e0e0;
+        font-family: 'Segoe UI', 'Roboto', sans-serif;
+        min-height: 100vh;
+      }
+      .achievement-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      @media (max-width: 768px) {
+        .achievement-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      input:focus, textarea:focus {
+        border-color: #e4a117 !important;
+      }
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: #1a1a2e; }
+      ::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #e4a117; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
