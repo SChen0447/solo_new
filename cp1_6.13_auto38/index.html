@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CYBER NET // 黑客攻防战</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0b0c10;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: #66fcf1;
+      user-select: none;
+    }
+    #app {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      background: #0b0c10;
+    }
+
+    /* ===== 左侧面板 ===== */
+    #ui-panel {
+      width: 300px;
+      min-width: 280px;
+      height: 100%;
+      background: linear-gradient(180deg, #0f1117 0%, #0b0c10 100%);
+      border-right: 1px solid rgba(102, 252, 241, 0.2);
+      padding: 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow: hidden;
+      position: relative;
+      z-index: 10;
+    }
+    #ui-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #66fcf1, transparent);
+      animation: scanline 4s linear infinite;
+    }
+    @keyframes scanline {
+      0% { opacity: 0; transform: translateX(-100%); }
+      50% { opacity: 1; }
+      100% { opacity: 0; transform: translateX(100%); }
+    }
+
+    .panel-title {
+      font-size: 14px;
+      letter-spacing: 3px;
+      color: #66fcf1;
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(102, 252, 241, 0.25);
+      text-shadow: 0 0 8px rgba(102, 252, 241, 0.5);
+    }
+
+    /* 玩家状态栏 */
+    .player-info { display: flex; flex-direction: column; gap: 10px; }
+    .player-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px;
+    }
+    .player-row .label { color: #8892b0; letter-spacing: 1px; }
+    .player-row .value { color: #66fcf1; font-weight: bold; }
+
+    .energy-wrapper { position: relative; margin-top: 4px; }
+    .energy-bar {
+      width: 100%; height: 14px;
+      background: rgba(69, 162, 158, 0.15);
+      border: 1px solid rgba(102, 252, 241, 0.4);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+    .energy-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #45a29e, #66fcf1);
+      box-shadow: 0 0 10px rgba(102, 252, 241, 0.6);
+      transition: width 0.4s ease;
+    }
+    .energy-fill::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 2s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .energy-text {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 10px;
+      color: #0b0c10;
+      font-weight: bold;
+      letter-spacing: 1px;
+      z-index: 2;
+    }
+
+    /* 脚本槽位 */
+    .script-slots { display: flex; flex-direction: column; gap: 10px; }
+    .script-slot {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px;
+      background: rgba(102, 252, 241, 0.05);
+      border: 1px solid rgba(102, 252, 241, 0.2);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .script-slot:hover:not(.disabled) {
+      border-color: #66fcf1;
+      background: rgba(102, 252, 241, 0.1);
+      box-shadow: 0 0 12px rgba(102, 252, 241, 0.3);
+    }
+    .script-slot.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .script-slot.selected {
+      border-color: #ffd700;
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.4);
+      background: rgba(255, 215, 0, 0.08);
+    }
+    .script-icon {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      background: rgba(102, 252, 241, 0.15);
+      border: 1px solid rgba(102, 252, 241, 0.3);
+      flex-shrink: 0;
+    }
+    .script-details { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .script-name { font-size: 12px; color: #66fcf1; letter-spacing: 1px; }
+    .script-desc { font-size: 10px; color: #8892b0; }
+    .script-cost {
+      font-size: 11px;
+      color: #ffd700;
+      padding: 2px 6px;
+      border: 1px solid rgba(255, 215, 0, 0.4);
+    }
+    .script-cooldown {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 100%;
+      background: rgba(0,0,0,0.65);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      font-weight: bold;
+      color: #ff4d6d;
+    }
+
+    /* AI日志 */
+    .ai-log-wrapper {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ai-log-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 6px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(102, 252, 241, 0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ai-log-list::-webkit-scrollbar { width: 5px; }
+    .ai-log-list::-webkit-scrollbar-track { background: #0b0c10; }
+    .ai-log-list::-webkit-scrollbar-thumb { background: #45a29e; }
+
+    .ai-log-entry {
+      font-size: 10px;
+      padding: 5px 7px;
+      border-left: 2px solid #ff4d6d;
+      background: rgba(255, 77, 109, 0.08);
+      line-height: 1.5;
+      animation: logIn 0.3s ease;
+    }
+    @keyframes logIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .ai-log-entry .ts { color: #8892b0; margin-right: 6px; }
+    .ai-log-entry .action { color: #ff4d6d; font-weight: bold; }
+    .ai-log-entry .detail { color: #c5c6c7; }
+
+    /* ===== 3D 渲染容器 ===== */
+    #renderer-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: radial-gradient(ellipse at center, #10131c 0%, #0b0c10 70%);
+    }
+    #renderer-container canvas { display: block; }
+
+    /* 顶部信息条 */
+    .top-bar {
+      position: absolute;
+      top: 16px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 24px;
+      padding: 10px 24px;
+      background: rgba(11, 12, 16, 0.85);
+      border: 1px solid rgba(102, 252, 241, 0.3);
+      backdrop-filter: blur(6px);
+      z-index: 5;
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+    .top-bar .item { display: flex; gap: 8px; align-items: center; }
+    .top-bar .item .lbl { color: #8892b0; }
+    .top-bar .item .val { color: #66fcf1; font-weight: bold; text-shadow: 0 0 6px rgba(102,252,241,0.6); }
+    .top-bar .item .val.danger { color: #ff4d6d; text-shadow: 0 0 6px rgba(255,77,109,0.6); }
+    .top-bar .item .val.warning { color: #ffd700; text-shadow: 0 0 6px rgba(255,215,0,0.6); }
+
+    /* 操作提示 */
+    .help-hint {
+      position: absolute;
+      bottom: 16px; left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 18px;
+      background: rgba(11, 12, 16, 0.8);
+      border: 1px solid rgba(102, 252, 241, 0.2);
+      font-size: 11px;
+      color: #8892b0;
+      letter-spacing: 1px;
+      z-index: 5;
+    }
+
+    /* ===== 终端弹窗 ===== */
+    #terminal-popup {
+      position: absolute;
+      right: 24px; bottom: 24px;
+      width: 320px;
+      min-height: 100px;
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid rgba(0, 255, 128, 0.4);
+      box-shadow: 0 0 20px rgba(0, 255, 128, 0.2), inset 0 0 20px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      padding: 14px 16px;
+      z-index: 20;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    #terminal-popup.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .terminal-header {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px;
+      color: #00ff80;
+      letter-spacing: 2px;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed rgba(0, 255, 128, 0.3);
+      margin-bottom: 10px;
+    }
+    .terminal-dot {
+      width: 8px; height: 8px;
+      background: #00ff80;
+      box-shadow: 0 0 8px #00ff80;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.3; } }
+    .terminal-body {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 14px;
+      color: #00ff80;
+      text-shadow: 0 0 8px rgba(0, 255, 128, 0.6);
+      line-height: 1.6;
+      letter-spacing: 1px;
+      min-height: 44px;
+      position: relative;
+    }
+    .terminal-body .cursor {
+      display: inline-block;
+      width: 8px; height: 16px;
+      background: #00ff80;
+      animation: blink 0.6s step-end infinite;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+    }
+    .scanline-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 0;
+      background: linear-gradient(180deg, transparent 0%, rgba(0, 255, 128, 0.4) 50%, transparent 100%);
+      pointer-events: none;
+    }
+    .scanline-overlay.active {
+      animation: scanDown 0.3s linear;
+    }
+    @keyframes scanDown {
+      0% { top: 0; height: 0; }
+      50% { height: 30%; }
+      100% { top: 100%; height: 0; }
+    }
+
+    /* ===== 倒计时警告 ===== */
+    #countdown-banner {
+      position: absolute;
+      top: 70px; left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 36px;
+      background: rgba(255, 77, 109, 0.15);
+      border: 2px solid #ff4d6d;
+      box-shadow: 0 0 30px rgba(255, 77, 109, 0.5);
+      font-size: 22px;
+      font-weight: bold;
+      color: #ff4d6d;
+      letter-spacing: 4px;
+      text-shadow: 0 0 10px rgba(255,77,109,0.8);
+      z-index: 15;
+      display: none;
+      animation: pulse 0.8s ease-in-out infinite;
+    }
+    #countdown-banner.active { display: block; }
+    @keyframes pulse {
+      0%,100% { transform: translateX(-50%) scale(1); }
+      50% { transform: translateX(-50%) scale(1.05); }
+    }
+
+    /* ===== 胜利/失败 遮罩 ===== */
+    #game-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 100;
+      flex-direction: column;
+      gap: 24px;
+    }
+    #game-overlay.active { display: flex; }
+    .game-title {
+      font-size: 56px;
+      letter-spacing: 12px;
+      font-weight: bold;
+      text-shadow: 0 0 30px currentColor;
+    }
+    .game-title.win { color: #66fcf1; }
+    .game-title.lose { color: #ff4d6d; }
+    .game-subtitle {
+      font-size: 16px;
+      color: #8892b0;
+      letter-spacing: 3px;
+    }
+    .restart-btn {
+      margin-top: 20px;
+      padding: 12px 40px;
+      background: transparent;
+      border: 1px solid #66fcf1;
+      color: #66fcf1;
+      font-family: inherit;
+      font-size: 14px;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .restart-btn:hover {
+      background: #66fcf1;
+      color: #0b0c10;
+      box-shadow: 0 0 20px rgba(102,252,241,0.5);
+    }
+
+    /* 玩家光标拖拽指示 */
+    body.dragging-core { cursor: none !important; }
+    body.dragging-core * { cursor: none !important; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 左侧 UI 面板 -->
+    <aside id="ui-panel">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <div style="width:8px;height:8px;background:#66fcf1;box-shadow:0 0 10px #66fcf1;"></div>
+        <span style="font-size:16px;letter-spacing:4px;font-weight:bold;text-shadow:0 0 10px rgba(102,252,241,0.6);">CYBER.NET</span>
+      </div>
+
+      <div>
+        <div class="panel-title">▌ 黑客状态</div>
+        <div class="player-info" style="margin-top:12px;">
+          <div class="player-row">
+            <span class="label">身份 ID</span>
+            <span class="value">#0xFA77</span>
+          </div>
+          <div class="energy-wrapper">
+            <div class="player-row" style="margin-bottom:6px;">
+              <span class="label">能量 ENERGY</span>
+              <span class="value" id="energy-value">10 / 10</span>
+            </div>
+            <div class="energy-bar">
+              <div class="energy-fill" id="energy-fill" style="width:100%"></div>
+              <span class="energy-text" id="energy-text">10 / 10</span>
+            </div>
+          </div>
+          <div class="player-row">
+            <span class="label">已占领节点</span>
+            <span class="value" id="node-count">1</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-title">▌ 脚本库</div>
+        <div class="script-slots" id="script-slots" style="margin-top:12px;">
+          <!-- 破译脚本 -->
+          <div class="script-slot" data-script="crack">
+            <div class="script-icon">&#128273;</div>
+            <div class="script-details">
+              <div class="script-name">破译脚本 CRACK</div>
+              <div class="script-desc">加速攻占敌方节点</div>
+            </div>
+            <div class="script-cost">3</div>
+          </div>
+          <!-- 防火墙脚本 -->
+          <div class="script-slot" data-script="firewall">
+            <div class="script-icon">&#128737;</div>
+            <div class="script-details">
+              <div class="script-name">防火墙 FIREWALL</div>
+              <div class="script-desc">加固已占领节点防御</div>
+            </div>
+            <div class="script-cost">2</div>
+          </div>
+          <!-- 隐形脚本 -->
+          <div class="script-slot" data-script="stealth">
+            <div class="script-icon">&#128123;</div>
+            <div class="script-details">
+              <div class="script-name">隐形 STEALTH</div>
+              <div class="script-desc">下一回合隐藏移动轨迹</div>
+            </div>
+            <div class="script-cost">4</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-log-wrapper">
+        <div class="panel-title">▌ AI 威胁日志</div>
+        <div class="ai-log-list" id="ai-log"></div>
+      </div>
+    </aside>
+
+    <!-- 右侧 3D 渲染 -->
+    <div id="renderer-container">
+      <div class="top-bar">
+        <div class="item"><span class="lbl">回合</span><span class="val" id="turn-val">1</span></div>
+        <div class="item"><span class="lbl">阶段</span><span class="val" id="phase-val">玩家行动</span></div>
+        <div class="item"><span class="lbl">模式</span><span class="val" id="mode-val">待机</span></div>
+        <div class="item"><span class="lbl">帧率</span><span class="val" id="fps-val">60</span></div>
+      </div>
+
+      <div id="countdown-banner">
+        &#9888; 数据传输中: <span id="countdown-val">5</span>s &#9888;
+      </div>
+
+      <div class="help-hint">
+        [左键] 点击节点移动/攻击 &nbsp;|&nbsp; [右键/拖拽] 平移视角 &nbsp;|&nbsp; [滚轮] 缩放 &nbsp;|&nbsp; [中心节点] 夺取后拖拽回起点
+      </div>
+
+      <!-- 终端弹窗 -->
+      <div id="terminal-popup">
+        <div class="terminal-header">
+          <div class="terminal-dot"></div>
+          <span>SCRIPT.EXE // EXECUTING</span>
+        </div>
+        <div class="terminal-body">
+          <div id="terminal-text"></div><span class="cursor"></span>
+          <div class="scanline-overlay" id="scanline"></div>
+        </div>
+      </div>
+
+      <!-- 结束遮罩 -->
+      <div id="game-overlay">
+        <div class="game-title" id="game-title">VICTORY</div>
+        <div class="game-subtitle" id="game-subtitle">核心数据已成功传输至你的终端</div>
+        <button class="restart-btn" id="restart-btn">&#9658; 重新启动</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/game/main.ts"></script>
+</body>
+</html>
