@@ -1,0 +1,204 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "name": "草莓",
+      "price": 29.9,
+      "category": "水果",
+      "origin": "本地",
+      "season": ["春"],
+      "nutrition": { "热量": "32kcal", "维生素C": "58.8mg", "膳食纤维": "2g" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20red%20strawberries%20in%20a%20basket%20on%20wooden%20table%20bright%20lighting&image_size=square_hd"
+    },
+    {
+      "id": 2,
+      "name": "菠菜",
+      "price": 8.5,
+      "category": "蔬菜",
+      "origin": "有机",
+      "season": ["春"],
+      "nutrition": { "热量": "23kcal", "铁": "2.7mg", "维生素A": "469μg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20organic%20spinach%20leaves%20on%20white%20background%20top%20view&image_size=square_hd"
+    },
+    {
+      "id": 3,
+      "name": "樱桃",
+      "price": 68.0,
+      "category": "水果",
+      "origin": "进口",
+      "season": ["春", "夏"],
+      "nutrition": { "热量": "50kcal", "维生素C": "7mg", "钾": "222mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=red%20cherries%20in%20a%20glass%20bowl%20fresh%20fruits%20close%20up&image_size=square_hd"
+    },
+    {
+      "id": 4,
+      "name": "芦笋",
+      "price": 15.8,
+      "category": "蔬菜",
+      "origin": "本地",
+      "season": ["春"],
+      "nutrition": { "热量": "27kcal", "叶酸": "54μg", "膳食纤维": "2.1g" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20green%20asparagus%20bunch%20on%20wooden%20cutting%20board&image_size=square_hd"
+    },
+    {
+      "id": 5,
+      "name": "韭菜",
+      "price": 6.9,
+      "category": "蔬菜",
+      "origin": "有机",
+      "season": ["春"],
+      "nutrition": { "热量": "29kcal", "维生素K": "180μg", "维生素A": "235μg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20chinese%20chives%20garlic%20chives%20green%20vegetables&image_size=square_hd"
+    },
+    {
+      "id": 6,
+      "name": "西瓜",
+      "price": 25.0,
+      "category": "水果",
+      "origin": "本地",
+      "season": ["夏"],
+      "nutrition": { "热量": "30kcal", "维生素C": "8.1mg", "番茄红素": "4532μg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=sliced%20ripe%20watermelon%20on%20wooden%20table%20summer%20fruit&image_size=square_hd"
+    },
+    {
+      "id": 7,
+      "name": "黄瓜",
+      "price": 5.5,
+      "category": "蔬菜",
+      "origin": "本地",
+      "season": ["夏"],
+      "nutrition": { "热量": "15kcal", "维生素K": "16.4μg", "水分": "96%" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20green%20cucumbers%20on%20white%20background%20vegetables&image_size=square_hd"
+    },
+    {
+      "id": 8,
+      "name": "番茄",
+      "price": 7.8,
+      "category": "蔬菜",
+      "origin": "有机",
+      "season": ["夏", "秋"],
+      "nutrition": { "热量": "18kcal", "维生素C": "13.7mg", "番茄红素": "2573μg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=ripe%20red%20tomatoes%20on%20vine%20fresh%20vegetables%20garden&image_size=square_hd"
+    },
+    {
+      "id": 9,
+      "name": "桃子",
+      "price": 12.9,
+      "category": "水果",
+      "origin": "本地",
+      "season": ["夏"],
+      "nutrition": { "热量": "39kcal", "维生素C": "6.6mg", "钾": "190mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20ripe%20peaches%20in%20wicker%20basket%20summer%20fruits&image_size=square_hd"
+    },
+    {
+      "id": 10,
+      "name": "葡萄",
+      "price": 19.9,
+      "category": "水果",
+      "origin": "进口",
+      "season": ["夏", "秋"],
+      "nutrition": { "热量": "69kcal", "维生素K": "14.6μg", "钾": "191mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=purple%20grapes%20bunch%20fresh%20fruits%20on%20marble%20surface&image_size=square_hd"
+    },
+    {
+      "id": 11,
+      "name": "苹果",
+      "price": 9.9,
+      "category": "水果",
+      "origin": "本地",
+      "season": ["秋", "冬"],
+      "nutrition": { "热量": "52kcal", "膳食纤维": "2.4g", "维生素C": "4.6mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=red%20apples%20in%20wooden%20crate%20autumn%20harvest%20fruits&image_size=square_hd"
+    },
+    {
+      "id": 12,
+      "name": "梨",
+      "price": 8.8,
+      "category": "水果",
+      "origin": "本地",
+      "season": ["秋"],
+      "nutrition": { "热量": "57kcal", "膳食纤维": "3.1g", "维生素C": "4.3mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20green%20pears%20on%20wooden%20table%20autumn%20fruits&image_size=square_hd"
+    },
+    {
+      "id": 13,
+      "name": "南瓜",
+      "price": 11.5,
+      "category": "蔬菜",
+      "origin": "本地",
+      "season": ["秋"],
+      "nutrition": { "热量": "26kcal", "维生素A": "426μg", "钾": "230mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=orange%20pumpkin%20whole%20and%20sliced%20autumn%20vegetables&image_size=square_hd"
+    },
+    {
+      "id": 14,
+      "name": "红薯",
+      "price": 7.5,
+      "category": "蔬菜",
+      "origin": "本地",
+      "season": ["秋", "冬"],
+      "nutrition": { "热量": "86kcal", "维生素A": "709μg", "膳食纤维": "3g" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=sweet%20potatoes%20roasted%20on%20wooden%20board%20autumn%20food&image_size=square_hd"
+    },
+    {
+      "id": 15,
+      "name": "柿子",
+      "price": 14.9,
+      "category": "水果",
+      "origin": "本地",
+      "season": ["秋"],
+      "nutrition": { "热量": "81kcal", "维生素C": "7.5mg", "膳食纤维": "3.6g" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=ripe%20persimmon%20fruits%20orange%20on%20wooden%20table%20autumn&image_size=square_hd"
+    },
+    {
+      "id": 16,
+      "name": "柑橘",
+      "price": 6.9,
+      "category": "水果",
+      "origin": "本地",
+      "season": ["冬"],
+      "nutrition": { "热量": "53kcal", "维生素C": "53.2mg", "钾": "181mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20citrus%20mandarin%20oranges%20in%20basket%20winter%20fruits&image_size=square_hd"
+    },
+    {
+      "id": 17,
+      "name": "白萝卜",
+      "price": 4.5,
+      "category": "蔬菜",
+      "origin": "本地",
+      "season": ["冬"],
+      "nutrition": { "热量": "16kcal", "维生素C": "21mg", "钾": "173mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=white%20radish%20daikon%20on%20wooden%20table%20winter%20vegetable&image_size=square_hd"
+    },
+    {
+      "id": 18,
+      "name": "胡萝卜",
+      "price": 5.9,
+      "category": "蔬菜",
+      "origin": "有机",
+      "season": ["冬", "秋"],
+      "nutrition": { "热量": "41kcal", "维生素A": "835μg", "钾": "320mg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20orange%20carrots%20with%20green%20tops%20organic%20vegetables&image_size=square_hd"
+    },
+    {
+      "id": 19,
+      "name": "猕猴桃",
+      "price": 15.8,
+      "category": "水果",
+      "origin": "进口",
+      "season": ["冬", "秋"],
+      "nutrition": { "热量": "61kcal", "维生素C": "92.7mg", "膳食纤维": "3g" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=kiwi%20fruits%20sliced%20and%20whole%20on%20white%20background&image_size=square_hd"
+    },
+    {
+      "id": 20,
+      "name": "西兰花",
+      "price": 9.9,
+      "category": "蔬菜",
+      "origin": "有机",
+      "season": ["冬", "春"],
+      "nutrition": { "热量": "34kcal", "维生素C": "89.2mg", "维生素K": "101.6μg" },
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fresh%20broccoli%20florets%20on%20white%20background%20healthy%20vegetable&image_size=square_hd"
+    }
+  ]
+}
