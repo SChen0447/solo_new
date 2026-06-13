@@ -31,6 +31,9 @@ export interface AnimalData {
   wanderTimer: number;
   wobblePhase: number;
   baseSpeed: number;
+  currentSpeed: number;
+  targetSpeed: number;
+  speedLerpFactor: number;
   targetPlant: PlantData | null;
   targetMate: AnimalData | null;
   targetPrey: AnimalData | null;
