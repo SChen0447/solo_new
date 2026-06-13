@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#F8F5F0" />
+    <title>云端艺廊 · Cloud Art Gallery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=Noto+Serif+SC:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #F8F5F0;
+        font-family: 'DM Sans', 'Noto Sans SC', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      #loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #F8F5F0;
+        opacity: 1;
+        transition: opacity 1.2s ease-out;
+      }
+      #loading-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #loading-overlay .logo {
+        font-family: 'Playfair Display', 'Noto Serif SC', serif;
+        font-size: 36px;
+        font-weight: 600;
+        color: #D4AF7B;
+        margin-bottom: 28px;
+        letter-spacing: 4px;
+        animation: pulse-slow 2.2s ease-in-out infinite;
+      }
+      #loading-overlay .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #E5E2DD;
+        border-top-color: #D4AF7B;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 24px;
+      }
+      #loading-overlay .progress-wrap {
+        width: 280px;
+        height: 4px;
+        background: #E5E2DD;
+        border-radius: 999px;
+        overflow: hidden;
+        margin-bottom: 16px;
+      }
+      #loading-overlay .progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #D4AF7B, #E8978E);
+        border-radius: 999px;
+        transition: width 0.3s ease-out;
+      }
+      #loading-overlay .text {
+        font-size: 13px;
+        color: #8A857F;
+        letter-spacing: 2px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes pulse-slow {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-overlay">
+      <div class="logo">云 端 艺 廊</div>
+      <div class="spinner"></div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="text">正在为您布置展厅 · Preparing Gallery</div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

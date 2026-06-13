@@ -1,0 +1,90 @@
+[
+  {
+    "id": "preset_veil_001",
+    "type": "sculpture",
+    "name": "飘纱 · Veil",
+    "theme": "现代雕塑",
+    "geometry": "veil",
+    "color": "#E8D5C4",
+    "metalness": 0.05,
+    "roughness": 0.55,
+    "defaultScale": 1.0,
+    "thumbnailColor": "#E8D5C4",
+    "description": "以流动曲面致敬轻盈的织物形态"
+  },
+  {
+    "id": "preset_horizon_002",
+    "type": "sculpture",
+    "name": "地平线 · Horizon",
+    "theme": "抽象雕塑",
+    "geometry": "horizon",
+    "color": "#D4AF7B",
+    "metalness": 0.75,
+    "roughness": 0.18,
+    "defaultScale": 1.15,
+    "thumbnailColor": "#D4AF7B",
+    "description": "黄铜质感的环环相扣，象征时空的延展"
+  },
+  {
+    "id": "preset_tower_003",
+    "type": "sculpture",
+    "name": "秩序之塔 · Tower",
+    "theme": "极简雕塑",
+    "geometry": "tower",
+    "color": "#B8A998",
+    "metalness": 0.0,
+    "roughness": 0.88,
+    "defaultScale": 0.9,
+    "thumbnailColor": "#B8A998",
+    "description": "错落堆叠的几何体，寻求秩序与偶然的平衡"
+  },
+  {
+    "id": "preset_bloom_004",
+    "type": "sculpture",
+    "name": "绽放 · Bloom",
+    "theme": "自然雕塑",
+    "geometry": "bloom",
+    "color": "#E8978E",
+    "metalness": 0.12,
+    "roughness": 0.42,
+    "defaultScale": 1.0,
+    "thumbnailColor": "#E8978E",
+    "description": "以几何花瓣语言诠释盛开的瞬间"
+  },
+  {
+    "id": "preset_dawn_005",
+    "type": "painting",
+    "name": "晨曦 · Dawn",
+    "theme": "风景画作",
+    "geometry": "paintingLandscape",
+    "canvasColors": ["#F4E4D1", "#D4AF7B", "#A8C0D4", "#8AA5BC"],
+    "frameColor": "#3A3530",
+    "defaultScale": 1.0,
+    "thumbnailColor": "#A8C0D4",
+    "description": "山峦层叠中的第一道曙光"
+  },
+  {
+    "id": "preset_portrait_006",
+    "type": "painting",
+    "name": "静思 · Quietude",
+    "theme": "肖像画作",
+    "geometry": "paintingPortrait",
+    "canvasColors": ["#E8D5C4", "#C9B8A8", "#8A7B6C", "#4A3F35"],
+    "frameColor": "#5C4A3D",
+    "defaultScale": 1.0,
+    "thumbnailColor": "#E8978E",
+    "description": "珊瑚调中的静默自省"
+  },
+  {
+    "id": "preset_field_007",
+    "type": "painting",
+    "name": "原野 · Field",
+    "theme": "抽象画作",
+    "geometry": "paintingSquare",
+    "canvasColors": ["#F0E8D8", "#C9B890", "#7A8C6A", "#D4AF7B"],
+    "frameColor": "#2A2724",
+    "defaultScale": 1.05,
+    "thumbnailColor": "#C9B890",
+    "description": "金色原野上的风与远方"
+  }
+]
