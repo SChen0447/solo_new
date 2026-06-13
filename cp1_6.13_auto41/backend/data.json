@@ -1,0 +1,162 @@
+{
+  "departments": [
+    {
+      "id": "internal",
+      "name": "内科",
+      "color": "#E3F2FD",
+      "icon": "🫀",
+      "description": "诊治内脏系统疾病"
+    },
+    {
+      "id": "surgery",
+      "name": "外科",
+      "color": "#FFEBEE",
+      "icon": "🩺",
+      "description": "手术及创伤治疗"
+    },
+    {
+      "id": "pediatrics",
+      "name": "儿科",
+      "color": "#FFF8E1",
+      "icon": "👶",
+      "description": "儿童健康诊疗"
+    },
+    {
+      "id": "ophthalmology",
+      "name": "眼科",
+      "color": "#E8F5E9",
+      "icon": "👁️",
+      "description": "眼部疾病诊治"
+    },
+    {
+      "id": "dermatology",
+      "name": "皮肤科",
+      "color": "#F3E5F5",
+      "icon": "🧴",
+      "description": "皮肤相关疾病"
+    }
+  ],
+  "doctors": [
+    {
+      "id": "d1",
+      "departmentId": "internal",
+      "name": "张明华",
+      "title": "主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=zhangminghua",
+      "slots": ["周一 09:00-10:00", "周一 14:00-15:00", "周三 10:00-11:00", "周五 09:00-10:00"]
+    },
+    {
+      "id": "d2",
+      "departmentId": "internal",
+      "name": "李秀兰",
+      "title": "副主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=lixiulan",
+      "slots": ["周二 09:00-10:00", "周二 14:00-15:00", "周四 10:00-11:00"]
+    },
+    {
+      "id": "d3",
+      "departmentId": "internal",
+      "name": "王建国",
+      "title": "主治医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=wangjianguo",
+      "slots": ["周一 10:00-11:00", "周三 09:00-10:00", "周四 14:00-15:00", "周六 09:00-10:00"]
+    },
+    {
+      "id": "d4",
+      "departmentId": "surgery",
+      "name": "陈志强",
+      "title": "主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=chenzhiqiang",
+      "slots": ["周一 09:00-11:00", "周三 09:00-11:00", "周五 14:00-16:00"]
+    },
+    {
+      "id": "d5",
+      "departmentId": "surgery",
+      "name": "刘伟强",
+      "title": "副主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=liuweiqiang",
+      "slots": ["周二 10:00-12:00", "周四 09:00-11:00", "周六 10:00-12:00"]
+    },
+    {
+      "id": "d6",
+      "departmentId": "surgery",
+      "name": "赵文博",
+      "title": "主治医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=zhaowenbo",
+      "slots": ["周一 14:00-16:00", "周三 14:00-16:00", "周五 09:00-11:00"]
+    },
+    {
+      "id": "d7",
+      "departmentId": "pediatrics",
+      "name": "孙丽娟",
+      "title": "主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=sunlijuan",
+      "slots": ["周一 09:00-11:00", "周二 09:00-11:00", "周四 14:00-16:00"]
+    },
+    {
+      "id": "d8",
+      "departmentId": "pediatrics",
+      "name": "周小梅",
+      "title": "副主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=zhouxiaomei",
+      "slots": ["周三 09:00-11:00", "周五 09:00-11:00", "周六 09:00-11:00"]
+    },
+    {
+      "id": "d9",
+      "departmentId": "pediatrics",
+      "name": "吴晓燕",
+      "title": "主治医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=wuxiaoyan",
+      "slots": ["周一 14:00-16:00", "周二 14:00-16:00", "周四 09:00-11:00", "周日 09:00-11:00"]
+    },
+    {
+      "id": "d10",
+      "departmentId": "ophthalmology",
+      "name": "黄明亮",
+      "title": "主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=huangmingliang",
+      "slots": ["周一 10:00-12:00", "周三 10:00-12:00", "周五 10:00-12:00"]
+    },
+    {
+      "id": "d11",
+      "departmentId": "ophthalmology",
+      "name": "林晶晶",
+      "title": "副主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=linjingjing",
+      "slots": ["周二 09:00-11:00", "周四 14:00-16:00", "周六 14:00-16:00"]
+    },
+    {
+      "id": "d12",
+      "departmentId": "ophthalmology",
+      "name": "郑海涛",
+      "title": "主治医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=zhenghaitao",
+      "slots": ["周一 14:00-16:00", "周三 14:00-16:00", "周日 10:00-12:00"]
+    },
+    {
+      "id": "d13",
+      "departmentId": "dermatology",
+      "name": "冯美玲",
+      "title": "主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=fengmeiling",
+      "slots": ["周二 10:00-12:00", "周四 10:00-12:00", "周六 10:00-12:00"]
+    },
+    {
+      "id": "d14",
+      "departmentId": "dermatology",
+      "name": "许文清",
+      "title": "副主任医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=xuwenqing",
+      "slots": ["周一 09:00-11:00", "周三 09:00-11:00", "周五 14:00-16:00"]
+    },
+    {
+      "id": "d15",
+      "departmentId": "dermatology",
+      "name": "何丽华",
+      "title": "主治医师",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=helihua",
+      "slots": ["周二 14:00-16:00", "周四 14:00-16:00", "周日 14:00-16:00"]
+    }
+  ],
+  "appointments": []
+}
