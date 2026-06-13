@@ -1,3 +1,23 @@
+// =============================================================================
+// MouseTracker.ts - 鼠标/触摸事件追踪器
+// -----------------------------------------------------------------------------
+// 职责:
+//   1. 监听 DOM 的鼠标/触摸事件（mousedown/move/up/dblclick/touchstart等）
+//   2. 计算鼠标屏幕坐标、标准化设备坐标(NDC)、3D世界坐标
+//   3. 计算鼠标速度、移动方向向量
+//   4. 识别双击事件（触发粒子爆发）
+//   5. 通过回调接口将状态输出给外部消费者
+//
+// 数据流向:
+//   输入: 原生 DOM 事件 → mousedown/mousemove/mouseup/touchstart/touchmove/touchend
+//   处理: 坐标转换(NDC→世界坐标)、速度计算、方向归一化、双击检测
+//   输出: 回调函数 → onDragStart / onDragMove / onDragEnd / onMove / onBurst
+//         输出 MouseState { position, worldPosition, velocity, speed, direction, isPressed }
+//
+// 被调用: main.ts 中实例化，回调函数直接调用 ParticleSystem 的方法
+// 依赖:   three.js (THREE.Vector2, THREE.Vector3, THREE.Raycaster, THREE.PerspectiveCamera)
+// =============================================================================
+
 import * as THREE from 'three';
 
 export interface MouseState {

@@ -1,3 +1,40 @@
+// =============================================================================
+// main.ts - 应用入口文件
+// -----------------------------------------------------------------------------
+// 职责:
+//   1. 初始化 Three.js 核心：Scene（场景）、Camera（相机）、Renderer（渲染器）
+//   2. 初始化 OrbitControls（轨道控制，右键旋转/滚轮缩放）
+//   3. 初始化 ParticleSystem（粒子系统）和 MouseTracker（鼠标追踪器）
+//   4. 启动 requestAnimationFrame 动画循环，每帧更新粒子系统并渲染
+//   5. 监听窗口 resize 事件，同步调整相机和渲染器尺寸
+//   6. 组装各模块之间的数据流连接
+//
+// 数据流向（核心数据流）:
+//   ┌──────────────┐   MouseState    ┌────────────────┐
+//   │ MouseTracker │ ──────────────► │ ParticleSystem │
+//   │  (鼠标追踪)   │   onDragMove    │  (粒子系统)     │
+//   │              │   onBurst       │                │
+//   │              │   onMove        │                │
+//   └──────────────┘                 └───────┬────────┘
+//                                            │
+//                                  BufferGeometry/Group
+//                                            │
+//                                            ▼
+//                                   ┌────────────────┐
+//                                   │  THREE.Scene   │
+//                                   │    (场景渲染)    │
+//                                   └────────────────┘
+//
+// 具体回调连接:
+//   MouseTracker.onDragMove → ParticleSystem.emitDragParticles() + sampleTrailPoint()
+//   MouseTracker.onBurst    → ParticleSystem.emitBurst()
+//   MouseTracker.onMove     → ParticleSystem.sampleTrailPoint()
+//   每帧 animate()           → ParticleSystem.update(dt, elapsedTime)
+//
+// 被调用: index.html <script type="module" src="/src/main.ts">
+// 依赖:   three.js, OrbitControls, ParticleSystem, MouseTracker, ParticleShader
+// =============================================================================
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ParticleSystem } from './ParticleSystem';
