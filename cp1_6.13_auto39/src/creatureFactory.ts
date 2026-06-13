@@ -371,12 +371,10 @@ export function getCreatureConfigByInstancedMesh(mesh: THREE.Object3D): Creature
 
 export function getCreatureByInstancedIndex(
   instancedMesh: THREE.InstancedMesh,
-  instanceId: number
+  instanceId: number,
+  allCreatures: CreatureRef[]
 ): CreatureRef | null {
-  const sceneManagerModule = require('./sceneManager');
-  const creatures: CreatureRef[] = sceneManagerModule.getCreatures?.() || [];
-
-  return creatures.find(c =>
+  return allCreatures.find(c =>
     c.instancedMesh === instancedMesh &&
     c.instanceIndex === instanceId
   ) || null;

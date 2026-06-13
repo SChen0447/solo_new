@@ -157,7 +157,7 @@ export class InteractionHandler {
         if (config) {
           const creatureRef = this.getCreatureRef(target, hit);
           const worldPos = new THREE.Vector3();
-          hit.point.clone(worldPos);
+          worldPos.copy(hit.point);
 
           if (creatureRef) {
             creatureRef.mesh.getWorldPosition(worldPos);
