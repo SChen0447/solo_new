@@ -31,7 +31,7 @@ export class PhysicsSystem {
   private ship: ShipState;
   private storms: StormData[] = [];
   private spatialGrid: Map<string, SpatialGridCell> = new Map();
-  private gridCellSize: number = 50;
+  private gridCellSize: number = 64;
   private viewportWidth: number;
   private viewportHeight: number;
   private stormTimer: number = 0;
@@ -70,20 +70,25 @@ export class PhysicsSystem {
     if (!this.starMap) return;
 
     for (const planet of this.starMap.planets) {
-      const cellKey = this.getCellKey(planet.x, planet.y);
-      if (!this.spatialGrid.has(cellKey)) {
-        this.spatialGrid.set(cellKey, { crystals: [], planets: [] });
+      const keys = this.getCellKeysForCircle(planet.x, planet.y, planet.gravityRadius);
+      for (const key of keys) {
+        if (!this.spatialGrid.has(key)) {
+          this.spatialGrid.set(key, { crystals: [], planets: [] });
+        }
+        const cell = this.spatialGrid.get(key)!;
+        if (!cell.planets.includes(planet)) {
+          cell.planets.push(planet);
+        }
       }
-      this.spatialGrid.get(cellKey)!.planets.push(planet);
     }
 
     for (const crystal of this.starMap.crystals) {
       if (crystal.collected) continue;
-      const cellKey = this.getCellKey(crystal.x, crystal.y);
-      if (!this.spatialGrid.has(cellKey)) {
-        this.spatialGrid.set(cellKey, { crystals: [], planets: [] });
+      const key = this.getCellKey(crystal.x, crystal.y);
+      if (!this.spatialGrid.has(key)) {
+        this.spatialGrid.set(key, { crystals: [], planets: [] });
       }
-      this.spatialGrid.get(cellKey)!.crystals.push(crystal);
+      this.spatialGrid.get(key)!.crystals.push(crystal);
     }
   }
 
@@ -93,18 +98,73 @@ export class PhysicsSystem {
     return `${cellX},${cellY}`;
   }
 
-  private getNearbyCells(x: number, y: number, radius: number = 1): string[] {
-    const cells: string[] = [];
-    const centerCellX = Math.floor(x / this.gridCellSize);
-    const centerCellY = Math.floor(y / this.gridCellSize);
+  private getCellKeysForCircle(cx: number, cy: number, radius: number): string[] {
+    const keys: string[] = [];
+    const minCellX = Math.floor((cx - radius) / this.gridCellSize);
+    const maxCellX = Math.floor((cx + radius) / this.gridCellSize);
+    const minCellY = Math.floor((cy - radius) / this.gridCellSize);
+    const maxCellY = Math.floor((cy + radius) / this.gridCellSize);
 
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dy = -radius; dy <= radius; dy++) {
-        cells.push(`${centerCellX + dx},${centerCellY + dy}`);
+    for (let cx2 = minCellX; cx2 <= maxCellX; cx2++) {
+      for (let cy2 = minCellY; cy2 <= maxCellY; cy2++) {
+        keys.push(`${cx2},${cy2}`);
+      }
+    }
+    return keys;
+  }
+
+  public queryRange<T extends 'crystal' | 'planet'>(
+    x: number,
+    y: number,
+    radius: number,
+    type: T
+  ): Array<T extends 'crystal' ? CrystalData : PlanetData> {
+    const results: Array<CrystalData | PlanetData> = [];
+    const seen = new Set<string>();
+    const keys = this.getCellKeysForCircle(x, y, radius);
+
+    for (const key of keys) {
+      const cell = this.spatialGrid.get(key);
+      if (!cell) continue;
+
+      if (type === 'crystal') {
+        for (const c of cell.crystals) {
+          if (seen.has(c.id)) continue;
+          seen.add(c.id);
+          if (c.collected) continue;
+          const dx = c.x - x;
+          const dy = c.y - y;
+          if (dx * dx + dy * dy <= radius * radius) {
+            results.push(c);
+          }
+        }
+      } else {
+        for (const p of cell.planets) {
+          if (seen.has(p.id)) continue;
+          seen.add(p.id);
+          const effectiveR = Math.max(radius, p.gravityRadius);
+          const dx = p.x - x;
+          const dy = p.y - y;
+          if (dx * dx + dy * dy <= effectiveR * effectiveR) {
+            results.push(p);
+          }
+        }
       }
     }
 
-    return cells;
+    return results as any;
+  }
+
+  public queryScreenVisible<T extends 'crystal' | 'planet'>(
+    type: T,
+    margin: number = 32
+  ): Array<T extends 'crystal' ? CrystalData : PlanetData> {
+    return this.queryRange(
+      this.viewportWidth / 2,
+      this.viewportHeight / 2,
+      Math.max(this.viewportWidth, this.viewportHeight) / 2 + margin,
+      type
+    );
   }
 
   public update(delta: number, input: { up: boolean; down: boolean; left: boolean; right: boolean }): void {
@@ -139,19 +199,21 @@ export class PhysicsSystem {
     this.ship.velocity.x *= friction;
     this.ship.velocity.y *= friction;
 
-    if (this.starMap) {
-      for (const planet of this.starMap.planets) {
-        const dx = planet.x - this.ship.x;
-        const dy = planet.y - this.ship.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+    const nearbyPlanets = this.queryRange<"planet">(
+      this.ship.x, this.ship.y, 120, 'planet'
+    );
 
-        if (dist < planet.gravityRadius && dist > planet.radius) {
-          const gravityStrength = 0.02 * (1 - dist / planet.gravityRadius);
-          this.ship.velocity.x += (dx / dist) * gravityStrength * delta * 0.06;
-          this.ship.velocity.y += (dy / dist) * gravityStrength * delta * 0.06;
-          this.ship.velocity.x *= 0.99;
-          this.ship.velocity.y *= 0.99;
-        }
+    for (const planet of nearbyPlanets) {
+      const dx = planet.x - this.ship.x;
+      const dy = planet.y - this.ship.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < planet.gravityRadius && dist > planet.radius) {
+        const gravityStrength = 0.02 * (1 - dist / planet.gravityRadius);
+        this.ship.velocity.x += (dx / dist) * gravityStrength * delta * 0.06;
+        this.ship.velocity.y += (dy / dist) * gravityStrength * delta * 0.06;
+        this.ship.velocity.x *= 0.99;
+        this.ship.velocity.y *= 0.99;
       }
     }
 
@@ -169,17 +231,19 @@ export class PhysicsSystem {
   private updatePlanets(delta: number): void {
     if (!this.starMap) return;
 
+    const needRebuild: boolean = this.starMap.planets.some(p => p.orbitRadius > 0.1);
+
     for (const planet of this.starMap.planets) {
-      if (planet.orbitRadius > 0) {
+      if (planet.orbitRadius > 0.1) {
         planet.orbitAngle += planet.orbitSpeed * delta * 0.06;
-        const centerX = planet.x - Math.cos(planet.orbitAngle - planet.orbitSpeed * delta * 0.06) * planet.orbitRadius;
-        const centerY = planet.y - Math.sin(planet.orbitAngle - planet.orbitSpeed * delta * 0.06) * planet.orbitRadius;
-        planet.x = centerX + Math.cos(planet.orbitAngle) * planet.orbitRadius;
-        planet.y = centerY + Math.sin(planet.orbitAngle) * planet.orbitRadius;
+        planet.x = planet.orbitCenterX + Math.cos(planet.orbitAngle) * planet.orbitRadius;
+        planet.y = planet.orbitCenterY + Math.sin(planet.orbitAngle) * planet.orbitRadius;
       }
     }
 
-    this.buildSpatialGrid();
+    if (needRebuild) {
+      this.buildSpatialGrid();
+    }
   }
 
   private updateStorms(delta: number): void {
@@ -253,8 +317,6 @@ export class PhysicsSystem {
   }
 
   private checkCollisions(): void {
-    if (!this.starMap) return;
-
     this.ship.inStorm = false;
 
     for (const storm of this.storms) {
@@ -271,52 +333,44 @@ export class PhysicsSystem {
       }
     }
 
-    const nearbyCells = this.getNearbyCells(this.ship.x, this.ship.y, 1);
+    const nearbyCrystals = this.queryRange<"crystal">(this.ship.x, this.ship.y, 32, 'crystal');
+    for (const crystal of nearbyCrystals) {
+      if (crystal.collected) continue;
+      const dx = crystal.x - this.ship.x;
+      const dy = crystal.y - this.ship.y;
+      const distSq = dx * dx + dy * dy;
 
-    for (const cellKey of nearbyCells) {
-      const cell = this.spatialGrid.get(cellKey);
-      if (!cell) continue;
-
-      for (const crystal of cell.crystals) {
-        if (crystal.collected) continue;
-
-        const dx = crystal.x - this.ship.x;
-        const dy = crystal.y - this.ship.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < 25) {
-          crystal.collected = true;
-          if (this.onCrystalCollected) {
-            this.onCrystalCollected(crystal);
-          }
+      if (distSq < 25 * 25) {
+        crystal.collected = true;
+        if (this.onCrystalCollected) {
+          this.onCrystalCollected(crystal);
         }
+        this.buildSpatialGrid();
       }
     }
   }
 
   private checkStormCrystalCollisions(storm: StormData): void {
-    if (!this.starMap) return;
+    const nearbyCrystals = this.queryRange<"crystal">(storm.x, storm.y, storm.radius + 8, 'crystal');
+    let changed = false;
 
-    const nearbyCells = this.getNearbyCells(storm.x, storm.y, Math.ceil(storm.maxRadius / this.gridCellSize));
+    for (const crystal of nearbyCrystals) {
+      if (crystal.collected) continue;
+      const dx = crystal.x - storm.x;
+      const dy = crystal.y - storm.y;
+      const distSq = dx * dx + dy * dy;
 
-    for (const cellKey of nearbyCells) {
-      const cell = this.spatialGrid.get(cellKey);
-      if (!cell) continue;
-
-      for (const crystal of cell.crystals) {
-        if (crystal.collected) continue;
-
-        const dx = crystal.x - storm.x;
-        const dy = crystal.y - storm.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < storm.radius) {
-          crystal.collected = true;
-          if (this.onCrystalDestroyed) {
-            this.onCrystalDestroyed(crystal);
-          }
+      if (distSq < storm.radius * storm.radius) {
+        crystal.collected = true;
+        changed = true;
+        if (this.onCrystalDestroyed) {
+          this.onCrystalDestroyed(crystal);
         }
       }
+    }
+
+    if (changed) {
+      this.buildSpatialGrid();
     }
   }
 

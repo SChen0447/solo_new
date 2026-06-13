@@ -17,6 +17,8 @@ export interface PlanetData {
   orbitSpeed: number;
   orbitAngle: number;
   gravityRadius: number;
+  orbitCenterX: number;
+  orbitCenterY: number;
 }
 
 export interface CrystalData {
@@ -84,20 +86,28 @@ export class StarGenerator {
       const radius = this.randomFloat(8, 20);
       const gravityRadius = radius * 1.5;
       const orbitRadius = this.randomFloat(0, 120);
-      const centerX = this.randomFloat(100, this.viewportWidth - 100);
-      const centerY = this.randomFloat(100, this.viewportHeight - 100);
+      const orbitCenterX = this.randomFloat(
+        Math.max(orbitRadius + radius + 20, 80),
+        this.viewportWidth - Math.max(orbitRadius + radius + 20, 80)
+      );
+      const orbitCenterY = this.randomFloat(
+        Math.max(orbitRadius + radius + 20, 80),
+        this.viewportHeight - Math.max(orbitRadius + radius + 20, 80)
+      );
       const orbitAngle = this.randomFloat(0, Math.PI * 2);
 
       planets.push({
         id: `planet_${i}`,
-        x: centerX + Math.cos(orbitAngle) * orbitRadius,
-        y: centerY + Math.sin(orbitAngle) * orbitRadius,
+        x: orbitCenterX + Math.cos(orbitAngle) * orbitRadius,
+        y: orbitCenterY + Math.sin(orbitAngle) * orbitRadius,
         radius,
         color: colors[Math.floor(Math.random() * colors.length)],
         orbitRadius,
         orbitSpeed: this.randomFloat(0.005, 0.02) * (Math.random() > 0.5 ? 1 : -1),
         orbitAngle,
-        gravityRadius
+        gravityRadius,
+        orbitCenterX,
+        orbitCenterY
       });
     }
 
@@ -107,16 +117,46 @@ export class StarGenerator {
   private generateCrystals(planets: PlanetData[]): CrystalData[] {
     const count = this.randomInt(20, 30);
     const crystals: CrystalData[] = [];
+    let id = 0;
+
+    const planetsWithOrbit = planets.filter(p => p.orbitRadius > 5);
+    const targets = planetsWithOrbit.length > 0 ? planetsWithOrbit : planets;
 
     for (let i = 0; i < count; i++) {
-      const planet = planets[Math.floor(Math.random() * planets.length)];
+      const planet = targets[Math.floor(Math.random() * targets.length)];
+
+      if (planet.orbitRadius > 5) {
+        const baseOrbitAngle = this.randomFloat(0, Math.PI * 2);
+        const orbitVariation = this.randomFloat(-15, 15);
+        const crystalOrbitRadius = planet.orbitRadius + orbitVariation;
+        const radialJitter = this.randomFloat(-8, 8);
+
+        const cx = planet.orbitCenterX + Math.cos(baseOrbitAngle) * (crystalOrbitRadius + radialJitter);
+        const cy = planet.orbitCenterY + Math.sin(baseOrbitAngle) * (crystalOrbitRadius + radialJitter);
+
+        if (cx > 10 && cx < this.viewportWidth - 10 && cy > 10 && cy < this.viewportHeight - 10) {
+          crystals.push({
+            id: `crystal_${id++}`,
+            x: cx,
+            y: cy,
+            radius: 8,
+            color: '#ffd54f',
+            collected: false,
+            pulsePhase: this.randomFloat(0, Math.PI * 2)
+          });
+          continue;
+        }
+      }
+
       const angle = this.randomFloat(0, Math.PI * 2);
-      const distFromPlanet = this.randomFloat(planet.radius + 8, planet.gravityRadius + 40);
+      const distFromPlanet = this.randomFloat(planet.radius + 12, planet.gravityRadius + 30);
+      const cx = planet.x + Math.cos(angle) * distFromPlanet;
+      const cy = planet.y + Math.sin(angle) * distFromPlanet;
 
       crystals.push({
-        id: `crystal_${i}`,
-        x: planet.x + Math.cos(angle) * distFromPlanet,
-        y: planet.y + Math.sin(angle) * distFromPlanet,
+        id: `crystal_${id++}`,
+        x: Math.max(10, Math.min(this.viewportWidth - 10, cx)),
+        y: Math.max(10, Math.min(this.viewportHeight - 10, cy)),
         radius: 8,
         color: '#ffd54f',
         collected: false,
