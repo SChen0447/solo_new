@@ -36,6 +36,12 @@ export class Player {
     this.velocity = { x: 0, y: 0 };
   }
 
+  private static easeOutBack(t: number): number {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  }
+
   public update(deltaTime: number, input: InputState, canJump: boolean): void {
     if (this.isStunned) {
       this.stunTimer -= deltaTime;
@@ -105,27 +111,29 @@ export class Player {
 
   private updateScale(deltaTime: number): void {
     if (this.isJumping) {
-      const t = this.jumpAnimation / 0.2;
-      if (t < 0.3) {
-        const k = t / 0.3;
-        this.scaleX = 1 + 0.25 * k;
-        this.scaleY = 1 - 0.3 * k;
+      const t = Math.min(1, this.jumpAnimation / 0.2);
+      if (t < 0.35) {
+        const k = t / 0.35;
+        this.scaleX = 1 + 0.3 * k;
+        this.scaleY = 1 - 0.4 * k;
       } else {
-        const k = (t - 0.3) / 0.7;
-        this.scaleX = 1.25 - 0.3 * k;
-        this.scaleY = 0.7 + 0.35 * k;
+        const k = (t - 0.35) / 0.65;
+        const eased = Player.easeOutBack(k);
+        this.scaleX = 1.3 - 0.35 * eased;
+        this.scaleY = 0.6 + 0.4 * eased;
       }
-    } else if (!this.isGrounded && this.zVelocity > 100) {
-      const k = Math.min(1, this.zVelocity / 400);
-      this.scaleX = 1 - 0.1 * k;
-      this.scaleY = 1 + 0.15 * k;
-    } else if (!this.isGrounded && this.zVelocity < -100) {
-      const k = Math.min(1, Math.abs(this.zVelocity) / 400);
-      this.scaleX = 1 + 0.1 * k;
+    } else if (!this.isGrounded && this.zVelocity > 50) {
+      const k = Math.min(1, this.zVelocity / 350);
+      const eased = Player.easeOutBack(k);
+      this.scaleX = 1 - 0.12 * eased;
+      this.scaleY = 1 + 0.18 * eased;
+    } else if (!this.isGrounded && this.zVelocity < -50) {
+      const k = Math.min(1, Math.abs(this.zVelocity) / 350);
+      this.scaleX = 1 + 0.12 * k;
       this.scaleY = 1 - 0.1 * k;
     } else {
-      this.scaleX += (1 - this.scaleX) * Math.min(1, deltaTime * 12);
-      this.scaleY += (1 - this.scaleY) * Math.min(1, deltaTime * 12);
+      this.scaleX += (1 - this.scaleX) * Math.min(1, deltaTime * 15);
+      this.scaleY += (1 - this.scaleY) * Math.min(1, deltaTime * 15);
     }
   }
 
@@ -139,8 +147,9 @@ export class Player {
 
     if (this.z <= 0) {
       if (this.zVelocity < -200) {
-        this.scaleX = 1.3;
-        this.scaleY = 0.7;
+        const impactK = Math.min(1, Math.abs(this.zVelocity) / 500);
+        this.scaleX = 1 + 0.4 * impactK;
+        this.scaleY = 1 - 0.3 * impactK;
       }
       this.z = 0;
       this.zVelocity = 0;
@@ -159,8 +168,21 @@ export class Player {
     };
   }
 
+  public getSteamCharge(): number {
+    return this.steamCharge;
+  }
+
   public addSteamCharge(): void {
     this.steamCharge = Math.min(100, this.steamCharge + CRYSTAL_CHARGE);
+  }
+
+  public getLavaHitCount(): number {
+    return this.lavaHitCount;
+  }
+
+  public isLavaFlashing(): boolean {
+    if (this.lavaFlashTimer <= 0) return false;
+    return Math.floor(this.lavaFlashTimer * 8) % 2 === 0;
   }
 
   public hitByLava(): boolean {
@@ -170,9 +192,15 @@ export class Player {
     return this.lavaHitCount >= 2;
   }
 
+  public getStunProgress(): number {
+    return this.isStunned ? this.stunTimer / STUN_DURATION : 0;
+  }
+
   public stun(): void {
     this.isStunned = true;
     this.stunTimer = STUN_DURATION;
+    this.velocity.x = 0;
+    this.velocity.y = 0;
   }
 
   public reset(startPos: Vector2): void {
@@ -196,7 +224,6 @@ export class Player {
   }
 
   public isFlashing(): boolean {
-    if (this.lavaFlashTimer <= 0) return false;
-    return Math.floor(this.lavaFlashTimer * 8) % 2 === 0;
+    return this.isLavaFlashing();
   }
 }
