@@ -3,27 +3,34 @@ import { eventBus } from '../core/EventBus';
 
 export class UIManager {
   private scene: Phaser.Scene;
+  private viewportWidth: number;
+  private viewportHeight: number;
+
   private container: Phaser.GameObjects.Container;
-  private energyBar: Phaser.GameObjects.Graphics;
+
+  private hudPanel: Phaser.GameObjects.Graphics;
   private energyBarBg: Phaser.GameObjects.Graphics;
+  private energyBar: Phaser.GameObjects.Graphics;
+  private energyPulseTween: Phaser.Tweens.Tween | null = null;
+  private energyPulseTarget: { alpha: number } = { alpha: 1 };
+  private energyLow: boolean = false;
+
   private scoreText: Phaser.GameObjects.Text;
+  private energyLabelText: Phaser.GameObjects.Text;
   private comboText: Phaser.GameObjects.Text;
+  private comboBounceTween: Phaser.Tweens.Tween | null = null;
+
   private stormWarning: Phaser.GameObjects.Text;
+  private stormWarningTween: Phaser.Tweens.Tween | null = null;
+
   private gameOverPanel: Phaser.GameObjects.Container;
   private finalScoreText: Phaser.GameObjects.Text;
   private restartButton: Phaser.GameObjects.Text;
-  private viewportWidth: number;
-  private viewportHeight: number;
+  private restartBtnBg: Phaser.GameObjects.Graphics;
 
   private energy: number = 100;
   private score: number = 0;
   private combo: number = 0;
-  private stormActive: boolean = false;
-  private gameOver: boolean = false;
-
-  private comboTween: Phaser.Tweens.Tween | null = null;
-  private energyLowPulse: Phaser.Time.TimerEvent | null = null;
-  private energyPulseActive: boolean = false;
 
   constructor(scene: Phaser.Scene, width: number = 640, height: number = 480) {
     this.scene = scene;
@@ -32,34 +39,51 @@ export class UIManager {
 
     this.container = this.scene.add.container(0, 0);
     this.container.setDepth(100);
+    this.container.setAlpha(0);
 
+    this.hudPanel = this.scene.add.graphics();
     this.energyBarBg = this.scene.add.graphics();
     this.energyBar = this.scene.add.graphics();
-    this.scoreText = this.scene.add.text(0, 0, '', {
-      fontSize: '18px',
+
+    this.energyLabelText = this.scene.add.text(0, 0, '能量', {
+      fontSize: '12px',
       fontFamily: 'Arial, sans-serif',
       color: '#f0f0f0'
     });
+
+    this.scoreText = this.scene.add.text(0, 0, '得分: 0', {
+      fontSize: '18px',
+      fontFamily: 'Arial, sans-serif',
+      color: '#f0f0f0',
+      fontStyle: 'bold'
+    });
+
     this.comboText = this.scene.add.text(0, 0, '', {
       fontSize: '24px',
       fontFamily: 'Arial, sans-serif',
       color: '#ffd54f',
       fontStyle: 'bold'
     });
-    this.comboText.setStroke('#000', 3);
+    this.comboText.setStroke('#000000', 3);
+    this.comboText.setOrigin(1, 0);
+    this.comboText.setScale(1);
 
-    this.stormWarning = this.scene.add.text(0, 0, '⚠ 风暴预警', {
+    this.stormWarning = this.scene.add.text(0, 0, '⚠ 暗物质风暴来袭！', {
       fontSize: '20px',
       fontFamily: 'Arial, sans-serif',
       color: '#ff5252',
       fontStyle: 'bold'
     });
-    this.stormWarning.setStroke('#000', 2);
+    this.stormWarning.setStroke('#000000', 3);
+    this.stormWarning.setOrigin(0.5, 0);
     this.stormWarning.setVisible(false);
+    this.stormWarning.setAlpha(0);
 
     this.container.add([
+      this.hudPanel,
       this.energyBarBg,
       this.energyBar,
+      this.energyLabelText,
       this.scoreText,
       this.comboText,
       this.stormWarning
@@ -68,57 +92,82 @@ export class UIManager {
     this.gameOverPanel = this.scene.add.container(0, 0);
     this.gameOverPanel.setDepth(200);
     this.gameOverPanel.setVisible(false);
+    this.gameOverPanel.setAlpha(0);
 
     const panelBg = this.scene.add.graphics();
-    panelBg.fillStyle(0x000000, 0.8);
-    panelBg.fillRect(-150, -100, 300, 200);
+    panelBg.fillStyle(0x000000, 0.85);
+    panelBg.fillRoundedRect(-160, -110, 320, 220, 12);
     panelBg.lineStyle(2, 0x00e5ff, 1);
-    panelBg.strokeRect(-150, -100, 300, 200);
+    panelBg.strokeRoundedRect(-160, -110, 320, 220, 12);
 
-    const gameOverTitle = this.scene.add.text(0, -60, '游戏结束', {
-      fontSize: '28px',
+    const gameOverTitle = this.scene.add.text(0, -70, '游戏结束', {
+      fontSize: '30px',
       fontFamily: 'Arial, sans-serif',
       color: '#ff5252',
       fontStyle: 'bold'
     });
     gameOverTitle.setOrigin(0.5);
+    gameOverTitle.setStroke('#000000', 3);
 
-    this.finalScoreText = this.scene.add.text(0, 0, '得分: 0', {
-      fontSize: '22px',
+    const scoreLabel = this.scene.add.text(0, -15, '最终得分', {
+      fontSize: '16px',
       fontFamily: 'Arial, sans-serif',
-      color: '#ffd54f'
+      color: '#aaaaaa'
+    });
+    scoreLabel.setOrigin(0.5);
+
+    this.finalScoreText = this.scene.add.text(0, 15, '0', {
+      fontSize: '32px',
+      fontFamily: 'Arial, sans-serif',
+      color: '#ffd54f',
+      fontStyle: 'bold'
     });
     this.finalScoreText.setOrigin(0.5);
+    this.finalScoreText.setStroke('#000000', 3);
 
-    this.restartButton = this.scene.add.text(0, 50, '重新开始', {
+    this.restartBtnBg = this.scene.add.graphics();
+    this.restartBtnBg.fillStyle(0x00e5ff, 0.9);
+    this.restartBtnBg.fillRoundedRect(-70, 55, 140, 40, 8);
+
+    this.restartButton = this.scene.add.text(0, 75, '重新开始', {
       fontSize: '20px',
       fontFamily: 'Arial, sans-serif',
-      color: '#00e5ff',
+      color: '#0a0e27',
       fontStyle: 'bold'
     });
     this.restartButton.setOrigin(0.5);
-    this.restartButton.setInteractive({ useHandCursor: true });
-    this.restartButton.on('pointerdown', () => this.onRestartClick());
+    this.restartButton.setInteractive({ useHandCursor: true, pixelPerfect: true });
+
     this.restartButton.on('pointerover', () => {
-      this.restartButton.setColor('#80ffff');
+      this.restartBtnBg.clear();
+      this.restartBtnBg.fillStyle(0x80ffff, 1);
+      this.restartBtnBg.fillRoundedRect(-70, 55, 140, 40, 8);
     });
     this.restartButton.on('pointerout', () => {
-      this.restartButton.setColor('#00e5ff');
+      this.restartBtnBg.clear();
+      this.restartBtnBg.fillStyle(0x00e5ff, 0.9);
+      this.restartBtnBg.fillRoundedRect(-70, 55, 140, 40, 8);
+    });
+    this.restartButton.on('pointerdown', () => {
+      eventBus.emit('restartRequested');
     });
 
     this.gameOverPanel.add([
       panelBg,
       gameOverTitle,
+      scoreLabel,
       this.finalScoreText,
+      this.restartBtnBg,
       this.restartButton
     ]);
+    this.gameOverPanel.setPosition(this.viewportWidth / 2, this.viewportHeight / 2);
 
-    this.setupEventListeners();
     this.layoutUI();
-    this.fadeIn();
+    this.bindEvents();
+    this.playFadeIn();
   }
 
-  private setupEventListeners(): void {
+  private bindEvents(): void {
     eventBus.on('energyChanged', (energy: number) => {
       this.energy = Math.max(0, Math.min(100, energy));
       this.updateEnergyBar();
@@ -139,95 +188,125 @@ export class UIManager {
     });
 
     eventBus.on('gameOver', (finalScore: number) => {
-      this.gameOver = true;
       this.showGameOver(finalScore);
     });
 
     eventBus.on('gameRestart', () => {
-      this.gameOver = false;
-      this.gameOverPanel.setVisible(false);
-      this.stormWarning.setVisible(false);
-      this.energy = 100;
-      this.score = 0;
-      this.combo = 0;
-      this.stormActive = false;
-      this.updateEnergyBar();
-      this.scoreText.setText('得分: 0');
-      this.comboText.setText('');
+      this.resetUI();
     });
   }
 
   private layoutUI(): void {
-    const padding = 15;
+    const pad = 12;
+
+    this.hudPanel.clear();
+    this.hudPanel.fillStyle(0x000000, 0.55);
+    this.hudPanel.fillRoundedRect(pad - 4, pad - 4, 218, 58, 6);
+
+    this.energyLabelText.setPosition(pad, pad);
 
     this.energyBarBg.clear();
-    this.energyBarBg.fillStyle(0x000000, 0.7);
-    this.energyBarBg.fillRect(padding, padding, 200, 20);
-    this.energyBarBg.lineStyle(1, 0x333333, 1);
-    this.energyBarBg.strokeRect(padding, padding, 200, 20);
+    this.energyBarBg.fillStyle(0x1a1a2e, 1);
+    this.energyBarBg.fillRoundedRect(pad, pad + 16, 200, 18, 4);
+    this.energyBarBg.lineStyle(1, 0x333355, 1);
+    this.energyBarBg.strokeRoundedRect(pad, pad + 16, 200, 18, 4);
+
+    this.scoreText.setPosition(pad, pad + 40);
+
+    this.comboText.setPosition(this.viewportWidth - pad, pad);
+
+    this.stormWarning.setPosition(this.viewportWidth / 2, 55);
 
     this.updateEnergyBar();
-
-    this.scoreText.setPosition(padding, padding + 30);
-
-    this.comboText.setPosition(this.viewportWidth - padding, padding);
-    this.comboText.setOrigin(1, 0);
-
-    this.stormWarning.setPosition(this.viewportWidth / 2, padding + 40);
-    this.stormWarning.setOrigin(0.5, 0);
-
-    this.gameOverPanel.setPosition(this.viewportWidth / 2, this.viewportHeight / 2);
+    this.scoreText.setText(`得分: ${Math.floor(this.score)}`);
   }
 
   private updateEnergyBar(): void {
-    const padding = 15;
-    const barWidth = 198;
-    const barHeight = 18;
-    const barX = padding + 1;
-    const barY = padding + 1;
+    const pad = 12;
+    const barW = 198;
+    const barH = 16;
+    const barX = pad + 1;
+    const barY = pad + 17;
 
     this.energyBar.clear();
 
-    const energyRatio = this.energy / 100;
-    const currentWidth = barWidth * energyRatio;
+    const isLow = this.energy < 30;
+    if (isLow !== this.energyLow) {
+      this.energyLow = isLow;
+      if (isLow) {
+        this.startEnergyPulse();
+      } else {
+        this.stopEnergyPulse();
+        this.energyPulseTarget.alpha = 1;
+      }
+    }
+
+    const ratio = this.energy / 100;
+    const currentW = Math.max(0, barW * ratio);
 
     if (this.energy < 30) {
-      if (!this.energyLowPulse) {
-        this.startEnergyLowPulse();
+      const a = this.energyPulseTarget.alpha;
+      const c1 = Phaser.Display.Color.GetColor(255, 60, 60);
+      const c2 = Phaser.Display.Color.GetColor(255, 100, 100);
+      const steps = 8;
+      for (let i = 0; i < steps; i++) {
+        const sw = currentW / steps;
+        const sx = barX + i * sw;
+        const t = i / steps;
+        const color = Phaser.Display.Color.Interpolate.ColorWithColor(
+          new Phaser.Display.Color(255, 60, 60),
+          new Phaser.Display.Color(255, 160, 80),
+          steps,
+          i
+        );
+        const col = Phaser.Display.Color.GetColor(color.r, color.g, color.b);
+        this.energyBar.fillStyle(col, a);
+        this.energyBar.fillRect(sx, barY, sw + 0.5, barH);
       }
-      const alpha = this.energyPulseActive ? 1 : 0.5;
-      this.energyBar.fillStyle(0xff5252, alpha);
-      this.energyBar.fillRect(barX, barY, currentWidth, barHeight);
     } else {
-      if (this.energyLowPulse) {
-        this.energyLowPulse.remove(false);
-        this.energyLowPulse = null;
+      const steps = 12;
+      for (let i = 0; i < steps; i++) {
+        const sw = currentW / steps;
+        const sx = barX + i * sw;
+        const color = Phaser.Display.Color.Interpolate.ColorWithColor(
+          new Phaser.Display.Color(46, 204, 113),
+          new Phaser.Display.Color(39, 174, 96),
+          steps,
+          i
+        );
+        const col = Phaser.Display.Color.GetColor(color.r, color.g, color.b);
+        this.energyBar.fillStyle(col, 1);
+        this.energyBar.fillRect(sx, barY, sw + 0.5, barH);
       }
+    }
 
-      const gradientSteps = 10;
-      for (let i = 0; i < gradientSteps; i++) {
-        const stepWidth = currentWidth / gradientSteps;
-        const stepX = barX + i * stepWidth;
-        const ratio = i / gradientSteps;
-        const r = Math.floor(76 + ratio * (0 - 76));
-        const g = Math.floor(175 + ratio * (221 - 175));
-        const b = Math.floor(80 + ratio * (79 - 80));
-        const color = Phaser.Display.Color.GetColor(r, g, b);
-        this.energyBar.fillStyle(color, 1);
-        this.energyBar.fillRect(stepX, barY, stepWidth + 1, barHeight);
-      }
+    if (currentW > 2) {
+      this.energyBar.fillStyle(0xffffff, 0.25);
+      this.energyBar.fillRect(barX, barY, currentW, barH * 0.4);
     }
   }
 
-  private startEnergyLowPulse(): void {
-    this.energyLowPulse = this.scene.time.addEvent({
-      delay: 500,
-      callback: () => {
-        this.energyPulseActive = !this.energyPulseActive;
+  private startEnergyPulse(): void {
+    this.stopEnergyPulse();
+    this.energyPulseTarget.alpha = 1;
+    this.energyPulseTween = this.scene.tweens.add({
+      targets: this.energyPulseTarget,
+      alpha: 0.35,
+      duration: 250,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
         this.updateEnergyBar();
-      },
-      loop: true
+      }
     });
+  }
+
+  private stopEnergyPulse(): void {
+    if (this.energyPulseTween) {
+      this.energyPulseTween.stop();
+      this.energyPulseTween = null;
+    }
   }
 
   private updateComboText(): void {
@@ -243,57 +322,104 @@ export class UIManager {
 
     this.comboText.setText(`${this.combo}连击 x${multiplier}`);
 
-    if (this.comboTween) {
-      this.comboTween.stop();
+    this.comboText.setScale(1);
+    if (this.comboBounceTween) {
+      this.comboBounceTween.stop();
     }
 
-    this.comboText.setScale(1);
+    this.scene.tweens.killTweensOf(this.comboText);
 
-    this.comboTween = this.scene.tweens.add({
+    this.comboBounceTween = this.scene.tweens.chain({
       targets: this.comboText,
-      scale: 1.2,
-      duration: 100,
-      yoyo: true,
-      ease: 'Power2'
+      tweens: [
+        {
+          scaleX: 1.25,
+          scaleY: 1.25,
+          duration: 90,
+          ease: 'Quad.easeOut'
+        },
+        {
+          scaleX: 1,
+          scaleY: 1,
+          duration: 110,
+          ease: 'Bounce.easeOut'
+        }
+      ]
     });
   }
 
   private showStormWarning(): void {
     this.stormWarning.setVisible(true);
     this.stormWarning.setAlpha(0);
+    this.stormWarning.setScale(0.8);
 
-    this.scene.tweens.add({
+    if (this.stormWarningTween) {
+      this.stormWarningTween.stop();
+    }
+
+    this.stormWarningTween = this.scene.tweens.chain({
       targets: this.stormWarning,
-      alpha: 1,
-      duration: 200,
-      ease: 'Linear',
-      yoyo: true,
-      repeat: 4
-    });
-
-    this.scene.time.delayedCall(3000, () => {
-      this.stormWarning.setVisible(false);
+      tweens: [
+        { alpha: 1, scaleX: 1.1, scaleY: 1.1, duration: 180, ease: 'Back.easeOut' },
+        { alpha: 0.3, scaleX: 1, scaleY: 1, duration: 250, ease: 'Linear' },
+        { alpha: 1, duration: 200, ease: 'Linear' },
+        { alpha: 0.3, duration: 250, ease: 'Linear' },
+        { alpha: 1, duration: 200, ease: 'Linear' },
+        {
+          alpha: 0,
+          scaleX: 0.9,
+          scaleY: 0.9,
+          duration: 300,
+          ease: 'Quad.easeIn',
+          onComplete: () => {
+            this.stormWarning.setVisible(false);
+          }
+        }
+      ]
     });
   }
 
   private showGameOver(finalScore: number): void {
-    this.finalScoreText.setText(`得分: ${Math.floor(finalScore)}`);
+    this.finalScoreText.setText(String(Math.floor(finalScore)));
     this.gameOverPanel.setVisible(true);
     this.gameOverPanel.setAlpha(0);
+    this.gameOverPanel.setScale(0.7);
 
+    this.scene.tweens.killTweensOf(this.gameOverPanel);
     this.scene.tweens.add({
       targets: this.gameOverPanel,
       alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
       duration: 500,
-      ease: 'Power2'
+      ease: 'Back.easeOut'
     });
   }
 
-  private onRestartClick(): void {
-    eventBus.emit('restartRequested');
+  private resetUI(): void {
+    this.scene.tweens.killTweensOf(this.gameOverPanel);
+    this.gameOverPanel.setVisible(false);
+    this.gameOverPanel.setAlpha(0);
+
+    if (this.stormWarningTween) {
+      this.stormWarningTween.stop();
+    }
+    this.stormWarning.setVisible(false);
+    this.stormWarning.setAlpha(0);
+
+    this.energy = 100;
+    this.score = 0;
+    this.combo = 0;
+    this.energyLow = false;
+    this.stopEnergyPulse();
+    this.energyPulseTarget.alpha = 1;
+
+    this.updateEnergyBar();
+    this.scoreText.setText('得分: 0');
+    this.comboText.setText('');
   }
 
-  private fadeIn(): void {
+  private playFadeIn(): void {
     this.container.setAlpha(0);
     this.scene.tweens.add({
       targets: this.container,
@@ -307,15 +433,15 @@ export class UIManager {
     this.viewportWidth = width;
     this.viewportHeight = height;
     this.layoutUI();
+    this.gameOverPanel.setPosition(this.viewportWidth / 2, this.viewportHeight / 2);
   }
 
   public destroy(): void {
-    if (this.energyLowPulse) {
-      this.energyLowPulse.remove(false);
-    }
-    if (this.comboTween) {
-      this.comboTween.stop();
-    }
+    this.stopEnergyPulse();
+    if (this.comboBounceTween) this.comboBounceTween.stop();
+    if (this.stormWarningTween) this.stormWarningTween.stop();
+    this.scene.tweens.killTweensOf(this.comboText);
+    this.scene.tweens.killTweensOf(this.gameOverPanel);
     this.container.destroy();
     this.gameOverPanel.destroy();
   }
