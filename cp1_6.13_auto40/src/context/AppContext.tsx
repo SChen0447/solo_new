@@ -9,11 +9,19 @@ interface AppState {
   pageMode: PageMode;
   isEtymologyExpanded: boolean;
   isSearching: boolean;
+  fireworksTriggerId: number;
+  showFpsCounter: boolean;
+
   setCurrentWord: (word: string) => void;
   searchWord: (word: string) => void;
   setPageMode: (mode: PageMode) => void;
   setIsEtymologyExpanded: (expanded: boolean) => void;
+  toggleEtymology: () => void;
+  triggerFireworks: () => void;
+  enterFireworksMode: () => void;
+  exitFireworksMode: () => void;
   clearSearch: () => void;
+  setShowFpsCounter: (show: boolean) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -24,6 +32,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [pageMode, setPageMode] = useState<PageMode>('home');
   const [isEtymologyExpanded, setIsEtymologyExpanded] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [fireworksTriggerId, setFireworksTriggerId] = useState(0);
+  const [showFpsCounter, setShowFpsCounter] = useState(false);
 
   const searchWord = useCallback((word: string) => {
     const trimmedWord = word.trim();
@@ -31,14 +41,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setIsSearching(true);
     setCurrentWord(trimmedWord);
+    setIsEtymologyExpanded(false);
 
+    const t0 = performance.now();
+    const result = queryWord(trimmedWord);
+    const elapsed = performance.now() - t0;
+
+    const delay = Math.max(120, 200 - elapsed);
     setTimeout(() => {
-      const result = queryWord(trimmedWord);
       setWordData(result);
       setPageMode('card');
-      setIsEtymologyExpanded(false);
       setIsSearching(false);
-    }, 150);
+    }, delay);
   }, []);
 
   const clearSearch = useCallback(() => {
@@ -46,6 +60,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWordData(null);
     setPageMode('home');
     setIsEtymologyExpanded(false);
+    setFireworksTriggerId(0);
+  }, []);
+
+  const toggleEtymology = useCallback(() => {
+    setIsEtymologyExpanded(prev => !prev);
+  }, []);
+
+  const triggerFireworks = useCallback(() => {
+    setFireworksTriggerId(prev => prev + 1);
+  }, []);
+
+  const enterFireworksMode = useCallback(() => {
+    setFireworksTriggerId(prev => prev + 1);
+    setPageMode('fireworks');
+  }, []);
+
+  const exitFireworksMode = useCallback(() => {
+    setPageMode('card');
   }, []);
 
   return (
@@ -56,11 +88,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         pageMode,
         isEtymologyExpanded,
         isSearching,
+        fireworksTriggerId,
+        showFpsCounter,
         setCurrentWord,
         searchWord,
         setPageMode,
         setIsEtymologyExpanded,
+        toggleEtymology,
+        triggerFireworks,
+        enterFireworksMode,
+        exitFireworksMode,
         clearSearch,
+        setShowFpsCounter,
       }}
     >
       {children}
