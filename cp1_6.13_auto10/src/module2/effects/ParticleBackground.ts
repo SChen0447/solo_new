@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SceneManager } from '../module1/core/SceneManager';
+import { SceneManager } from '../../module1/core/SceneManager';
 
 export interface ColorTheme {
   name: string;
