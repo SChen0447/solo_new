@@ -1,3 +1,25 @@
+// =============================================================================
+// ParticleSystem.ts - 粒子系统核心模块
+// -----------------------------------------------------------------------------
+// 职责:
+//   1. 管理粒子对象池（空闲链表模式，避免GC，上限3000个）
+//   2. 粒子物理模拟（速度衰减、重力、生命周期）
+//   3. 拖拽轨迹粒子生成（接收MouseTracker的鼠标状态）
+//   4. 双击爆发粒子效果（HSL彩虹色均匀分布）
+//   5. 历史轨迹光带回放（30秒小球体光带，蓝紫粉渐变）
+//   6. 每帧将粒子数据同步到BufferGeometry供Shader渲染
+//
+// 数据流向:
+//   输入: MouseTracker → emitDragParticles / emitBurst / sampleTrailPoint
+//   处理: 对象池分配 → 物理更新 → 生命周期管理
+//   输出: BufferGeometry属性数组 → THREE.Points → 场景渲染
+//   输出: 轨迹小球体组 → THREE.Group → 场景渲染
+//
+// 被调用: main.ts 中实例化并每帧调用 update()
+// 依赖:   ParticleShader.ts (材质和颜色工具)
+//         MouseTracker.ts  (输入的鼠标状态类型)
+// =============================================================================
+
 import * as THREE from 'three';
 import {
   createParticleMaterial,
@@ -36,12 +58,14 @@ export class ParticleSystem {
   private readonly BURST_MAX_RADIUS: number = 8;
   private readonly TRAIL_DURATION: number = 30;
   private readonly TRAIL_SAMPLE_INTERVAL: number = 0.1;
-  private readonly GRAVITY: THREE.Vector3 = new THREE.Vector3(0, -0.8, 0);
-  private readonly SPEED_REFERENCE: number = 3000;
+  private readonly GRAVITY: THREE.Vector3 = new THREE.Vector3(0, -1.5, 0);
+  private readonly SPEED_REFERENCE: number = 2500;
 
   private scene: THREE.Scene;
 
   private particlePool: Particle[] = [];
+  private freeIndices: number[] = [];
+  private activeIndices: number[] = [];
   private activeCount: number = 0;
 
   private geometry!: THREE.BufferGeometry;
@@ -93,6 +117,7 @@ export class ParticleSystem {
         hasGravity: false,
         isBurst: false,
       });
+      this.freeIndices.push(i);
     }
   }
 
@@ -137,11 +162,11 @@ export class ParticleSystem {
     this.trailGroup = new THREE.Group();
     this.scene.add(this.trailGroup);
 
-    const trailGeo = new THREE.SphereGeometry(1.5, 8, 6);
+    const trailGeo = new THREE.SphereGeometry(1.5, 12, 8);
     const trailMat = new THREE.MeshBasicMaterial({
-      color: 0x4466ff,
+      color: 0x6688ff,
       transparent: true,
-      opacity: 0.15,
+      opacity: 0.3,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -158,22 +183,23 @@ export class ParticleSystem {
   public emitDragParticles(mouseState: MouseState): void {
     const speedNormalized = Math.min(1, mouseState.speed / this.SPEED_REFERENCE);
     const count = Math.max(1, Math.floor(this.MAX_DRAG_PER_FRAME * (0.4 + speedNormalized * 0.6)));
-    const actualCount = Math.min(count, this.MAX_PARTICLES - this.activeCount);
+    const actualCount = Math.min(count, this.freeIndices.length);
 
     if (actualCount <= 0) return;
 
     const baseColor = colorFromSpeed(speedNormalized);
 
     for (let i = 0; i < actualCount; i++) {
-      const p = this.acquireParticle();
-      if (!p) break;
+      const idx = this.acquireParticleIndex();
+      if (idx === -1) break;
+      const p = this.particlePool[idx];
 
-      const spread = (Math.random() - 0.5) * 0.5;
+      const spread = 0.3 + speedNormalized * 0.5;
       p.position.copy(mouseState.worldPosition).add(
         this.tmpVec3.set(
           (Math.random() - 0.5) * spread,
           (Math.random() - 0.5) * spread,
-          (Math.random() - 0.5) * spread
+          (Math.random() - 0.5) * spread * 0.5
         )
       );
 
@@ -183,16 +209,17 @@ export class ParticleSystem {
       const dirX = mouseState.direction.x * cos - mouseState.direction.y * sin;
       const dirY = mouseState.direction.x * sin + mouseState.direction.y * cos;
 
-      const velocityScale = 0.0008 + speedNormalized * 0.002;
+      const velocityScale = 0.0006 + speedNormalized * 0.0018;
+      const baseSpeed = mouseState.speed * velocityScale;
       p.velocity.set(
-        dirX * mouseState.speed * velocityScale + (Math.random() - 0.5) * 0.3,
-        -dirY * mouseState.speed * velocityScale + (Math.random() - 0.5) * 0.3,
-        (Math.random() - 0.5) * 0.4
+        dirX * baseSpeed + (Math.random() - 0.5) * 0.2,
+        -dirY * baseSpeed + (Math.random() - 0.5) * 0.2,
+        (Math.random() - 0.5) * 0.3
       );
 
       p.size = this.DRAG_MIN_SIZE + Math.random() * (this.DRAG_MAX_SIZE - this.DRAG_MIN_SIZE);
 
-      const colorJitter = 0.1;
+      const colorJitter = 0.08;
       p.color.setRGB(
         Math.max(0, Math.min(1, baseColor.r + (Math.random() - 0.5) * colorJitter)),
         Math.max(0, Math.min(1, baseColor.g + (Math.random() - 0.5) * colorJitter)),
@@ -208,12 +235,13 @@ export class ParticleSystem {
   }
 
   public emitBurst(worldPos: THREE.Vector3): void {
-    const actualCount = Math.min(this.BURST_COUNT, this.MAX_PARTICLES - this.activeCount);
+    const actualCount = Math.min(this.BURST_COUNT, this.freeIndices.length);
     if (actualCount <= 0) return;
 
     for (let i = 0; i < actualCount; i++) {
-      const p = this.acquireParticle();
-      if (!p) break;
+      const idx = this.acquireParticleIndex();
+      if (idx === -1) break;
+      const p = this.particlePool[idx];
 
       const phi = Math.acos(2 * Math.random() - 1);
       const theta = Math.random() * Math.PI * 2;
@@ -226,16 +254,20 @@ export class ParticleSystem {
       const dirZ = Math.cos(phi);
 
       p.position.copy(worldPos).add(
-        this.tmpVec3.set(dirX, dirY, dirZ).multiplyScalar(0.2)
+        this.tmpVec3.set(dirX, dirY, dirZ).multiplyScalar(0.3)
       );
 
-      const speed = radius * (0.5 + Math.random() * 0.5);
-      p.velocity.set(dirX * speed, dirY * speed, dirZ * speed);
+      const speed = radius * (0.6 + Math.random() * 0.6);
+      p.velocity.set(
+        dirX * speed,
+        dirY * speed + 0.5,
+        dirZ * speed
+      );
 
-      p.size = 3 + Math.random() * 5;
+      p.size = 4 + Math.random() * 6;
       p.color.copy(rainbowColor(i, this.BURST_COUNT));
       p.life = 0;
-      p.maxLife = this.PARTICLE_LIFETIME * (0.9 + Math.random() * 0.4);
+      p.maxLife = this.PARTICLE_LIFETIME * (1.0 + Math.random() * 0.5);
       p.speedFactor = 1.0;
       p.hasGravity = true;
       p.isBurst = true;
@@ -258,25 +290,35 @@ export class ParticleSystem {
     });
   }
 
-  private acquireParticle(): Particle | null {
-    if (this.activeCount >= this.MAX_PARTICLES) {
-      for (let i = 0; i < this.MAX_PARTICLES; i++) {
-        if (this.particlePool[i].active) {
-          this.particlePool[i].active = false;
-          this.activeCount--;
-          break;
-        }
+  private acquireParticleIndex(): number {
+    if (this.freeIndices.length === 0) {
+      if (this.activeIndices.length > 0) {
+        const oldestIdx = this.activeIndices.shift()!;
+        this.particlePool[oldestIdx].active = false;
+        this.activeCount--;
+        this.freeIndices.push(oldestIdx);
+      } else {
+        return -1;
       }
     }
 
-    for (let i = 0; i < this.MAX_PARTICLES; i++) {
-      if (!this.particlePool[i].active) {
-        this.particlePool[i].active = true;
-        this.activeCount++;
-        return this.particlePool[i];
-      }
+    const idx = this.freeIndices.pop()!;
+    this.particlePool[idx].active = true;
+    this.activeIndices.push(idx);
+    this.activeCount++;
+    return idx;
+  }
+
+  private releaseParticleIndex(idx: number): void {
+    if (!this.particlePool[idx].active) return;
+    this.particlePool[idx].active = false;
+    this.freeIndices.push(idx);
+    this.activeCount--;
+
+    const activeIdx = this.activeIndices.indexOf(idx);
+    if (activeIdx !== -1) {
+      this.activeIndices.splice(activeIdx, 1);
     }
-    return null;
   }
 
   public update(dt: number, elapsedTime: number): void {
@@ -288,25 +330,29 @@ export class ParticleSystem {
   }
 
   private updateParticles(dt: number): void {
-    const dragFactor = Math.pow(0.01, dt / this.PARTICLE_LIFETIME);
+    const dragFactor = Math.pow(0.02, dt / this.PARTICLE_LIFETIME);
+    const indicesToRemove: number[] = [];
 
-    for (let i = 0; i < this.MAX_PARTICLES; i++) {
-      const p = this.particlePool[i];
-      if (!p.active) continue;
+    for (let i = 0; i < this.activeIndices.length; i++) {
+      const idx = this.activeIndices[i];
+      const p = this.particlePool[idx];
 
       p.life += dt;
       if (p.life >= p.maxLife) {
-        p.active = false;
-        this.activeCount--;
+        indicesToRemove.push(idx);
         continue;
       }
 
       if (p.hasGravity) {
-        p.velocity.addScaledVector(this.GRAVITY, dt * 0.3);
+        p.velocity.addScaledVector(this.GRAVITY, dt * 0.5);
       }
 
       p.velocity.multiplyScalar(dragFactor);
       p.position.addScaledVector(p.velocity, dt * 60);
+    }
+
+    for (let i = indicesToRemove.length - 1; i >= 0; i--) {
+      this.releaseParticleIndex(indicesToRemove[i]);
     }
   }
 
@@ -318,6 +364,7 @@ export class ParticleSystem {
     }
 
     const count = this.trailPoints.length;
+
     for (let i = 0; i < this.TRAIL_MAX_POINTS; i++) {
       const mesh = this.trailMeshes[i];
       if (i < count) {
@@ -327,12 +374,13 @@ export class ParticleSystem {
 
         const age = elapsedTime - point.timestamp;
         const lifeRatio = age / this.TRAIL_DURATION;
+        const alphaRatio = 1 - lifeRatio;
 
         this.tmpColor.copy(this.getTrailColor(lifeRatio));
         (mesh.material as THREE.MeshBasicMaterial).color.copy(this.tmpColor);
-        (mesh.material as THREE.MeshBasicMaterial).opacity = 0.25 * (1 - lifeRatio * 0.7);
+        (mesh.material as THREE.MeshBasicMaterial).opacity = 0.35 * alphaRatio;
 
-        const scale = 0.4 + (1 - lifeRatio) * 0.8;
+        const scale = 0.5 + alphaRatio * 0.9;
         mesh.scale.setScalar(scale);
       } else {
         mesh.visible = false;
@@ -343,8 +391,8 @@ export class ParticleSystem {
   private getTrailColor(lifeRatio: number): THREE.Color {
     const t = lifeRatio;
     const blue = new THREE.Color(0.3, 0.5, 1.0);
-    const purple = new THREE.Color(0.7, 0.3, 1.0);
-    const pink = new THREE.Color(1.0, 0.4, 0.7);
+    const purple = new THREE.Color(0.75, 0.3, 1.0);
+    const pink = new THREE.Color(1.0, 0.45, 0.75);
 
     if (t < 0.5) {
       return blue.clone().lerp(purple, t * 2);
@@ -354,14 +402,13 @@ export class ParticleSystem {
   }
 
   private updateBufferGeometry(): void {
-    let writeIndex = 0;
+    const count = this.activeIndices.length;
 
-    for (let i = 0; i < this.MAX_PARTICLES; i++) {
-      const p = this.particlePool[i];
-      if (!p.active) continue;
+    for (let i = 0; i < count; i++) {
+      const idx = this.activeIndices[i];
+      const p = this.particlePool[idx];
 
-      const wi = writeIndex * 3;
-
+      const wi = i * 3;
       this.positions[wi] = p.position.x;
       this.positions[wi + 1] = p.position.y;
       this.positions[wi + 2] = p.position.z;
@@ -370,15 +417,13 @@ export class ParticleSystem {
       this.colors[wi + 1] = p.color.g;
       this.colors[wi + 2] = p.color.b;
 
-      this.sizes[writeIndex] = p.size;
-      this.lives[writeIndex] = p.life;
-      this.maxLives[writeIndex] = p.maxLife;
-      this.speedFactors[writeIndex] = p.speedFactor;
-
-      writeIndex++;
+      this.sizes[i] = p.size;
+      this.lives[i] = p.life;
+      this.maxLives[i] = p.maxLife;
+      this.speedFactors[i] = p.speedFactor;
     }
 
-    for (let i = writeIndex; i < this.MAX_PARTICLES; i++) {
+    for (let i = count; i < this.MAX_PARTICLES; i++) {
       const wi = i * 3;
       this.positions[wi] = 0;
       this.positions[wi + 1] = 0;
@@ -392,7 +437,7 @@ export class ParticleSystem {
     this.geometry.attributes.aMaxLife.needsUpdate = true;
     this.geometry.attributes.aSpeedFactor.needsUpdate = true;
 
-    this.geometry.setDrawRange(0, writeIndex);
+    this.geometry.setDrawRange(0, count);
   }
 
   public getActiveCount(): number {
