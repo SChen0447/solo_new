@@ -35,7 +35,6 @@ export class InteractionManager {
   private dragStartX: number = 0;
   private dragStartY: number = 0;
 
-  private static readonly DRAG_THRESHOLD = 3;
   private static readonly CLICK_THRESHOLD = 5;
   private static readonly CLICK_TIME_THRESHOLD = 300;
 

@@ -49,6 +49,7 @@ interface ColumnMesh {
   targetBendIntensity: number;
   isTransitioningOut: boolean;
   transitionProgress: number;
+  transitionStartOpacity: number;
 }
 
 interface ParticleData {
@@ -233,7 +234,8 @@ export class RenderController {
       bendIntensity: 0,
       targetBendIntensity: 0,
       isTransitioningOut: false,
-      transitionProgress: startInvisible ? 0 : 1
+      transitionProgress: startInvisible ? 0 : 1,
+      transitionStartOpacity: initialOpacity
     };
   }
 
@@ -258,6 +260,8 @@ export class RenderController {
     this.columnMeshes.forEach(cm => {
       cm.isTransitioningOut = true;
       cm.targetOpacity = 0;
+      cm.transitionProgress = 1;
+      cm.transitionStartOpacity = cm.opacity;
     });
     this.pendingNewColumns = true;
   }
@@ -269,6 +273,7 @@ export class RenderController {
       cm.targetOpacity = this.dataController.getColumns().find(c => c.id === cm.id)?.opacity ?? 1;
       cm.isTransitioningOut = false;
       cm.transitionProgress = 0;
+      cm.transitionStartOpacity = 0;
     });
     this.pendingNewColumns = false;
   }
@@ -460,11 +465,11 @@ export class RenderController {
       }
     }
 
-    this.updateColumnMeshes(deltaTime, time);
+    this.updateColumnMeshes(deltaTime);
     this.updateParticles(deltaTime, time);
   }
 
-  private updateColumnMeshes(deltaTime: number, time: number): void {
+  private updateColumnMeshes(deltaTime: number): void {
     const columns = this.dataController.getColumns();
     const smoothFactor = Math.min(deltaTime * 8, 1);
     const fadeSpeed = 1 / Math.max(this.fadeTransitionDuration, 0.01);
@@ -475,8 +480,7 @@ export class RenderController {
 
       if (cm.isTransitioningOut) {
         cm.transitionProgress = Math.max(0, cm.transitionProgress - deltaTime * fadeSpeed);
-        cm.targetOpacity = 0;
-        cm.opacity = this.easeOutCubic(cm.transitionProgress) * cm.opacity;
+        cm.opacity = this.easeOutCubic(cm.transitionProgress) * cm.transitionStartOpacity;
       } else if (cm.transitionProgress < 1) {
         cm.transitionProgress = Math.min(1, cm.transitionProgress + deltaTime * fadeSpeed);
         const easedProgress = this.easeOutCubic(cm.transitionProgress);

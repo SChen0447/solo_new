@@ -1,6 +1,6 @@
 import * as dat from 'dat.gui';
 import { DataController, FilterConfig } from '../modules/dataController';
-import { RenderController, COLOR_THEMES } from '../modules/renderController';
+import { RenderController } from '../modules/renderController';
 
 export interface ControlPanelConfig {
   columnCount: number;
