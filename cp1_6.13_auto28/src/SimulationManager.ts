@@ -229,15 +229,6 @@ export class SimulationManager {
 
   setDecayInterval(value: number): void {
     this.state.decayInterval = value
-    const now = performance.now() / 1000
-    for (const particle of this.state.particles) {
-      if (particle.isSelected && this.lastDecayCheck.has(particle.id)) {
-        const elapsed = now - this.lastDecayCheck.get(particle.id)!
-        if (elapsed >= value) {
-          this.lastDecayCheck.set(particle.id, now - value + 0.001)
-        }
-      }
-    }
   }
 
   getDecayInterval(): number {

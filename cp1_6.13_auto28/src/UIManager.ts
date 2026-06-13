@@ -35,7 +35,6 @@ export class UIManager {
     this.callbacks = callbacks
     this.createUI()
     this.bindEvents()
-    this.checkResponsive()
   }
 
   private createUI(): void {
@@ -165,7 +164,6 @@ export class UIManager {
     this.pauseBtn.addEventListener('click', this.onPauseToggle.bind(this))
 
     document.addEventListener('keydown', this.onKeyDown.bind(this))
-    window.addEventListener('resize', this.checkResponsive.bind(this))
   }
 
   private onMouseDown(e: MouseEvent): void {
@@ -247,12 +245,6 @@ export class UIManager {
     return element.closest('.control-panel') !== null ||
            element.closest('.info-panel') !== null ||
            element.closest('.stats-display') !== null
-  }
-
-  private checkResponsive(): void {
-    const isMobile = window.innerWidth < 1024
-    this.leftPanel.classList.toggle('mobile', isMobile)
-    this.rightPanel.classList.toggle('mobile', isMobile)
   }
 
   updateParticleInfo(particle: Particle | null): void {
@@ -342,7 +334,6 @@ export class UIManager {
     this.container.removeEventListener('wheel', this.onWheel.bind(this))
     this.container.removeEventListener('click', this.onClick.bind(this))
     document.removeEventListener('keydown', this.onKeyDown.bind(this))
-    window.removeEventListener('resize', this.checkResponsive.bind(this))
     
     this.leftPanel.remove()
     this.rightPanel.remove()

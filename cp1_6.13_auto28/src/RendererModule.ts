@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Particle, PARTICLE_CONFIG, ParticleType } from './types'
+import { Particle, PARTICLE_CONFIG } from './types'
 
 interface PooledMesh {
   mesh: THREE.Mesh

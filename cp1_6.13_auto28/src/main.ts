@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { SimulationManager } from './SimulationManager'
 import { RendererModule } from './RendererModule'
 import { UIManager } from './UIManager'
-import { CameraState, Particle } from './types'
+import { CameraState } from './types'
 import './style.css'
 
 class App {
@@ -210,7 +210,7 @@ class App {
     return null
   }
 
-  private updateCamera(deltaTime: number): void {
+  private updateCamera(_deltaTime: number): void {
     const { inertia } = this.cameraState
 
     if (this.isResettingCamera && this.resetStartCamera && this.resetTargetCamera) {
