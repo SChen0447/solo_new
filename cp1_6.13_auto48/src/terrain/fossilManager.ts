@@ -15,18 +15,23 @@ export interface FossilMarker {
   data: FossilData;
   group: THREE.Group;
   postMesh: THREE.Mesh;
+  glowMesh: THREE.Mesh;
   iconSprite: THREE.Sprite;
   depthSprite: THREE.Sprite;
   targetPostHeight: number;
-  currentPostHeight: number;
   isAnimatingIn: boolean;
   animationStartTime: number;
   isHighlighted: boolean;
   highlightStartTime: number;
-  baseScale: number;
+  iconAngle: number;
 }
 
 const FOSSIL_TYPES: FossilType[] = ['trilobite', 'ammonite', 'brachiopod'];
+const FOSSIL_LABELS: Record<FossilType, string> = {
+  trilobite: '三叶虫',
+  ammonite: '菊石',
+  brachiopod: '腕足类'
+};
 
 export class FossilManager {
   public group: THREE.Group = new THREE.Group();
@@ -42,13 +47,12 @@ export class FossilManager {
     this.groundY = y;
   }
 
-  public addFossil(
-    position: THREE.Vector3,
-    layerName: string
-  ): FossilData | null {
-    if (this.fossils.size >= this.maxFossils) {
-      return null;
-    }
+  public getFossilTypeLabel(t: FossilType): string {
+    return FOSSIL_LABELS[t];
+  }
+
+  public addFossil(position: THREE.Vector3, layerName: string): FossilData | null {
+    if (this.fossils.size >= this.maxFossils) return null;
 
     const id = this.generateId();
     const type = FOSSIL_TYPES[Math.floor(Math.random() * FOSSIL_TYPES.length)];
@@ -66,22 +70,18 @@ export class FossilManager {
     if (!marker) return false;
 
     this.group.remove(marker.group);
-    marker.group.traverse((child) => {
+    marker.group.traverse(child => {
       if (child instanceof THREE.Mesh) {
         child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach(m => m.dispose());
-        } else {
-          child.material.dispose();
-        }
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
       } else if (child instanceof THREE.Sprite) {
-        if (child.material.map) {
-          child.material.map.dispose();
+        if ((child.material as THREE.SpriteMaterial).map) {
+          (child.material as THREE.SpriteMaterial).map!.dispose();
         }
         child.material.dispose();
       }
     });
-
     this.fossils.delete(id);
     return true;
   }
@@ -96,9 +96,12 @@ export class FossilManager {
   public highlightFossil(id: string, highlighted: boolean): void {
     const marker = this.fossils.get(id);
     if (!marker) return;
-
     marker.isHighlighted = highlighted;
     marker.highlightStartTime = performance.now();
+  }
+
+  public getFossilIconCanvas(type: FossilType): HTMLCanvasElement {
+    return this.drawFossilIconCanvas(type, 256, 256);
   }
 
   private createFossilMarker(
@@ -112,36 +115,60 @@ export class FossilManager {
     group.position.copy(position);
 
     const postHeight = 0.2;
-    const postGeometry = new THREE.CylinderGeometry(0.06, 0.08, postHeight, 12);
-    const postMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff8822,
+
+    const postGeo = new THREE.CylinderGeometry(0.055, 0.08, postHeight, 14);
+    const postMat = new THREE.MeshBasicMaterial({
+      color: 0xff8833,
       transparent: true,
-      opacity: 0.85
+      opacity: 0.78
     });
-    const postMesh = new THREE.Mesh(postGeometry, postMaterial);
-    postMesh.position.y = postHeight / 2;
+    const postMesh = new THREE.Mesh(postGeo, postMat);
+    postMesh.scale.y = 0.001;
     postMesh.visible = false;
     group.add(postMesh);
 
-    const glowGeometry = new THREE.CylinderGeometry(0.1, 0.12, postHeight * 1.2, 12);
-    const glowMaterial = new THREE.MeshBasicMaterial({
+    const glowGeo = new THREE.CylinderGeometry(0.11, 0.14, postHeight * 1.3, 14);
+    const glowMat = new THREE.MeshBasicMaterial({
       color: 0xffaa44,
       transparent: true,
-      opacity: 0.3,
-      side: THREE.DoubleSide
+      opacity: 0.38,
+      side: THREE.DoubleSide,
+      depthWrite: false
     });
-    const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial);
-    glowMesh.position.y = postHeight / 2;
+    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    glowMesh.scale.y = 0.001;
     glowMesh.visible = false;
     group.add(glowMesh);
 
-    const iconSprite = this.createFossilIcon(type);
-    iconSprite.position.y = postHeight + 0.25;
+    const iconCanvas = this.drawFossilIconCanvas(type, 256, 256);
+    const iconTex = new THREE.CanvasTexture(iconCanvas);
+    iconTex.minFilter = THREE.LinearFilter;
+    iconTex.magFilter = THREE.LinearFilter;
+    iconTex.needsUpdate = true;
+    const iconMat = new THREE.SpriteMaterial({
+      map: iconTex,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
+    });
+    const iconSprite = new THREE.Sprite(iconMat);
+    iconSprite.scale.setScalar(0.001);
     iconSprite.visible = false;
     group.add(iconSprite);
 
-    const depthSprite = this.createDepthLabel(depth);
-    depthSprite.position.y = postHeight + 0.08;
+    const depthCanvas = this.drawDepthLabelCanvas(depth);
+    const depthTex = new THREE.CanvasTexture(depthCanvas);
+    depthTex.minFilter = THREE.LinearFilter;
+    depthTex.magFilter = THREE.LinearFilter;
+    depthTex.needsUpdate = true;
+    const depthMat = new THREE.SpriteMaterial({
+      map: depthTex,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
+    });
+    const depthSprite = new THREE.Sprite(depthMat);
+    depthSprite.scale.set(0.001, 0.001, 1);
     depthSprite.visible = false;
     group.add(depthSprite);
 
@@ -158,164 +185,274 @@ export class FossilManager {
       data,
       group,
       postMesh,
+      glowMesh,
       iconSprite,
       depthSprite,
       targetPostHeight: postHeight,
-      currentPostHeight: 0,
       isAnimatingIn: true,
       animationStartTime: performance.now(),
       isHighlighted: false,
       highlightStartTime: 0,
-      baseScale: 1
+      iconAngle: 0
     };
   }
 
-  private createFossilIcon(type: FossilType): THREE.Sprite {
-    const svgString = this.getFossilSVG(type);
-    const canvas = this.svgToCanvas(svgString, 256, 256);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
+  private drawFossilIconCanvas(type: FossilType, w: number, h: number): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, w, h);
 
-    const material = new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthTest: false
-    });
-
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(0.5, 0.5, 1);
-
-    return sprite;
-  }
-
-  private getFossilSVG(type: FossilType): string {
-    const size = 200;
-    const cx = size / 2;
-    const cy = size / 2;
+    const s = w / 200;
+    ctx.save();
+    ctx.scale(s, s);
 
     switch (type) {
-      case 'trilobite':
-        return `
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-            <defs>
-              <radialGradient id="gradTri" cx="50%" cy="30%" r="70%">
-                <stop offset="0%" style="stop-color:#ffcc66;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#cc7722;stop-opacity:1" />
-              </radialGradient>
-            </defs>
-            <ellipse cx="100" cy="100" rx="65" ry="85" fill="url(#gradTri)" stroke="#885511" stroke-width="3"/>
-            <line x1="100" y1="20" x2="100" y2="180" stroke="#885511" stroke-width="2.5"/>
-            <line x1="35" y1="55" x2="165" y2="55" stroke="#885511" stroke-width="2"/>
-            <line x1="35" y1="90" x2="165" y2="90" stroke="#885511" stroke-width="2"/>
-            <line x1="35" y1="125" x2="165" y2="125" stroke="#885511" stroke-width="2"/>
-            <line x1="35" y1="160" x2="165" y2="160" stroke="#885511" stroke-width="2"/>
-            <circle cx="100" cy="30" r="12" fill="#ffeecc" stroke="#885511" stroke-width="2"/>
-            <circle cx="90" cy="28" r="3" fill="#332211"/>
-            <circle cx="110" cy="28" r="3" fill="#332211"/>
-          </svg>
-        `;
-
-      case 'ammonite':
-        return `
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-            <defs>
-              <radialGradient id="gradAmm" cx="40%" cy="40%" r="60%">
-                <stop offset="0%" style="stop-color:#ff9966;stop-opacity:1" />
-                <stop offset="60%" style="stop-color:#cc5533;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#883322;stop-opacity:1" />
-              </radialGradient>
-            </defs>
-            <circle cx="100" cy="105" r="80" fill="url(#gradAmm)" stroke="#552211" stroke-width="3"/>
-            <path d="M 100 25 Q 150 30, 165 70 Q 175 110, 150 145 Q 115 175, 70 165 Q 35 150, 30 110 Q 28 75, 55 45 Q 80 25, 100 25 Z" 
-                  fill="none" stroke="#552211" stroke-width="2.5" opacity="0.6"/>
-            <path d="M 100 45 Q 135 50, 148 80 Q 155 110, 135 138 Q 105 162, 70 152 Q 45 142, 42 110 Q 40 82, 65 58 Q 85 45, 100 45 Z" 
-                  fill="none" stroke="#552211" stroke-width="2" opacity="0.5"/>
-            <path d="M 100 65 Q 122 70, 130 92 Q 135 112, 120 130 Q 98 145, 75 138 Q 55 130, 53 108 Q 52 88, 72 73 Q 88 65, 100 65 Z" 
-                  fill="none" stroke="#552211" stroke-width="1.8" opacity="0.4"/>
-            <path d="M 100 85 Q 112 88, 116 102 Q 118 115, 108 125 Q 95 132, 82 127 Q 68 120, 67 105 Q 66 92, 82 85 Q 92 83, 100 85 Z" 
-                  fill="none" stroke="#552211" stroke-width="1.5" opacity="0.3"/>
-          </svg>
-        `;
-
-      case 'brachiopod':
-        return `
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-            <defs>
-              <linearGradient id="gradBrach" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" style="stop-color:#eebb88;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#997744;stop-opacity:1" />
-              </linearGradient>
-            </defs>
-            <path d="M 100 30 Q 160 50, 165 110 Q 160 165, 100 180 Q 40 165, 35 110 Q 40 50, 100 30 Z" 
-                  fill="url(#gradBrach)" stroke="#554422" stroke-width="3"/>
-            <line x1="100" y1="30" x2="100" y2="180" stroke="#554422" stroke-width="2.5"/>
-            <path d="M 75 55 Q 100 65, 125 55" fill="none" stroke="#554422" stroke-width="1.5" opacity="0.5"/>
-            <path d="M 65 85 Q 100 100, 135 85" fill="none" stroke="#554422" stroke-width="1.5" opacity="0.5"/>
-            <path d="M 55 120 Q 100 140, 145 120" fill="none" stroke="#554422" stroke-width="1.5" opacity="0.5"/>
-            <path d="M 50 155 Q 100 170, 150 155" fill="none" stroke="#554422" stroke-width="1.5" opacity="0.5"/>
-            <ellipse cx="100" cy="25" rx="8" ry="12" fill="#554422"/>
-          </svg>
-        `;
-
-      default:
-        return '';
+      case 'trilobite': this.drawTrilobite(ctx); break;
+      case 'ammonite': this.drawAmmonite(ctx); break;
+      case 'brachiopod': this.drawBrachiopod(ctx); break;
     }
-  }
-
-  private svgToCanvas(svgString: string, width: number, height: number): HTMLCanvasElement {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d')!;
-
-    const img = new Image();
-    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-
-    img.src = url;
-    if (!img.complete) {
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, width, height);
-        URL.revokeObjectURL(url);
-      };
-    } else {
-      ctx.drawImage(img, 0, 0, width, height);
-      URL.revokeObjectURL(url);
-    }
-
+    ctx.restore();
     return canvas;
   }
 
-  private createDepthLabel(depth: number): THREE.Sprite {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d')!;
+  private drawTrilobite(ctx: CanvasRenderingContext2D): void {
+    const cx = 100, cy = 100;
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    const g = ctx.createRadialGradient(cx, 60, 10, cx, cy, 95);
+    g.addColorStop(0, '#ffe29a');
+    g.addColorStop(0.5, '#e09a3a');
+    g.addColorStop(1, '#7a4212');
+
+    ctx.save();
     ctx.beginPath();
-    ctx.roundRect(10, 10, 236, 44, 10);
+    ctx.ellipse(cx, cy, 64, 82, 0, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#4a2907';
+    ctx.stroke();
+
+    ctx.strokeStyle = '#5a3310';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx, 22);
+    ctx.lineTo(cx, 180);
+    ctx.stroke();
+
+    const segYs = [54, 88, 122, 156];
+    ctx.lineWidth = 2.2;
+    for (const sy of segYs) {
+      ctx.beginPath();
+      const len = 58 + (sy > 100 ? (156 - sy) * 0.15 : 0);
+      ctx.moveTo(cx - len, sy);
+      for (let x = -len; x <= len; x += 14) {
+        const off = Math.sin(x * 0.09 + sy * 0.02) * 2.5;
+        ctx.lineTo(cx + x, sy + off);
+      }
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#fff3d4';
+    ctx.strokeStyle = '#5a3310';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.ellipse(cx, 34, 16, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#221608';
+    ctx.beginPath();
+    ctx.arc(cx - 6, 32, 3.2, 0, Math.PI * 2);
+    ctx.arc(cx + 6, 32, 3.2, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#aaddff';
-    ctx.font = 'bold 22px "Microsoft YaHei", sans-serif';
+    const spineOffsets = [[-54, 100], [54, 100], [-52, 62], [52, 62], [-48, 138], [48, 138]];
+    ctx.strokeStyle = '#4a2907';
+    ctx.lineWidth = 2.2;
+    for (const [ox, oy] of spineOffsets) {
+      ctx.beginPath();
+      const dx = ox < 0 ? -18 : 18;
+      ctx.moveTo(cx + ox, oy);
+      ctx.lineTo(cx + ox + dx, oy - 4 + (ox < 0 ? -4 : 2));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  private drawAmmonite(ctx: CanvasRenderingContext2D): void {
+    const cx = 100, cy = 108;
+
+    const g = ctx.createRadialGradient(75, 75, 15, cx, cy, 88);
+    g.addColorStop(0, '#ffb07a');
+    g.addColorStop(0.45, '#d55530');
+    g.addColorStop(1, '#661a10');
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 82, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#3a0f08';
+    ctx.stroke();
+
+    ctx.strokeStyle = '#3a0f08';
+    const drawSpiral = (maxR: number, lw: number, op: number) => {
+      ctx.save();
+      ctx.lineWidth = lw;
+      ctx.globalAlpha = op;
+      ctx.beginPath();
+      const a0 = 0.55, b = 0.155;
+      const step = 0.045;
+      let first = true;
+      for (let th = 0; th <= maxR; th += step) {
+        const r = a0 * Math.exp(b * th);
+        if (r > 80) break;
+        const x = cx + Math.cos(th + 2.35) * r;
+        const y = cy + Math.sin(th + 2.35) * r;
+        if (first) { ctx.moveTo(x, y); first = false; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    };
+    drawSpiral(20, 2.8, 0.78);
+    drawSpiral(16.5, 2.2, 0.58);
+    drawSpiral(13, 1.8, 0.42);
+    drawSpiral(9.5, 1.4, 0.3);
+
+    ctx.fillStyle = '#2a0a05';
+    ctx.beginPath();
+    ctx.arc(cx + 1, cy - 11, 8.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5a1a10';
+    ctx.beginPath();
+    ctx.arc(cx + 1, cy - 11, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    const suturePoints = [
+      [28, 60], [30, 118], [62, 30], [152, 56], [164, 110], [126, 170], [76, 172]
+    ];
+    ctx.strokeStyle = '#3a0f08';
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.55;
+    for (const [sx, sy] of suturePoints) {
+      ctx.beginPath();
+      for (let k = 0; k < 5; k++) {
+        const ang = k * 1.2;
+        const rr = 2 + k * 2.2;
+        const x = sx + Math.cos(ang) * rr;
+        const y = sy + Math.sin(ang * 0.8) * rr;
+        if (k === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  private drawBrachiopod(ctx: CanvasRenderingContext2D): void {
+    const cx = 100, cy = 105;
+
+    const g = ctx.createLinearGradient(cx, 25, cx, 175);
+    g.addColorStop(0, '#f2d095');
+    g.addColorStop(0.5, '#b3864c');
+    g.addColorStop(1, '#5a3d1e');
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx, 25);
+    ctx.bezierCurveTo(165, 45, 170, 102, 165, 152);
+    ctx.bezierCurveTo(158, 176, cx, 186, cx, 186);
+    ctx.bezierCurveTo(cx, 186, 42, 176, 35, 152);
+    ctx.bezierCurveTo(30, 102, 35, 45, cx, 25);
+    ctx.closePath();
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#3a2810';
+    ctx.stroke();
+
+    ctx.strokeStyle = '#4a3516';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx, 28);
+    ctx.lineTo(cx, 184);
+    ctx.stroke();
+
+    ctx.fillStyle = '#3a2810';
+    ctx.beginPath();
+    ctx.ellipse(cx, 20, 9, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const ribArcs: Array<[number, number, number, number]> = [
+      [cx, 160, 54, 58, 122],
+      [cx, 128, 60, 52, 128],
+      [cx, 92, 62, 50, 130],
+      [cx, 58, 50, 48, 132]
+    ];
+    ctx.strokeStyle = '#4a3516';
+    ctx.globalAlpha = 0.6;
+    for (const [ay, axR, s, e] of ribArcs as any) {
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ay, axR, s, (e * Math.PI) / 180, (180 - e * 0.25) * Math.PI / 180);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    const radialRibs = 16;
+    ctx.lineWidth = 1.4;
+    ctx.globalAlpha = 0.42;
+    for (let r = 0; r < radialRibs; r++) {
+      const ang = -Math.PI / 2 + (r - radialRibs / 2) * 0.08 + (r % 2 === 0 ? -0.02 : 0.03);
+      const startR = 22;
+      const endR = 62 + Math.sin(r * 1.3) * 6;
+      ctx.strokeStyle = r % 3 === 0 ? '#5a4220' : '#4a3516';
+      ctx.lineWidth = r % 4 === 0 ? 1.8 : 1.1;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * startR, 100 + Math.sin(ang) * startR);
+      ctx.lineTo(cx + Math.cos(ang) * endR, 100 + Math.sin(ang) * endR);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  private drawDepthLabelCanvas(depth: number): HTMLCanvasElement {
+    const w = 260, h = 70;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, w, h);
+
+    const pad = 6, r = 14;
+    ctx.fillStyle = 'rgba(8, 12, 20, 0.82)';
+    ctx.strokeStyle = '#5a8fd4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pad + r, pad);
+    ctx.lineTo(w - pad - r, pad);
+    ctx.quadraticCurveTo(w - pad, pad, w - pad, pad + r);
+    ctx.lineTo(w - pad, h - pad - r);
+    ctx.quadraticCurveTo(w - pad, h - pad, w - pad - r, h - pad);
+    ctx.lineTo(pad + r, h - pad);
+    ctx.quadraticCurveTo(pad, h - pad, pad, h - pad - r);
+    ctx.lineTo(pad, pad + r);
+    ctx.quadraticCurveTo(pad, pad, pad + r, pad);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#9ec9ff';
+    ctx.font = 'bold 26px "Microsoft YaHei", "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`深度: ${depth.toFixed(1)}`, canvas.width / 2, canvas.height / 2);
+    ctx.fillText(`深度 ${depth.toFixed(1)} m`, w / 2, h / 2);
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-
-    const material = new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthTest: false
-    });
-
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(0.8, 0.2, 1);
-
-    return sprite;
+    return canvas;
   }
 
   public update(deltaTime: number, camera: THREE.Camera): void {
@@ -328,73 +465,82 @@ export class FossilManager {
 
         if (elapsed >= duration) {
           marker.isAnimatingIn = false;
-          marker.currentPostHeight = marker.targetPostHeight;
-          marker.postMesh.visible = true;
           marker.postMesh.scale.y = 1;
+          marker.postMesh.position.y = marker.targetPostHeight / 2;
+          marker.postMesh.visible = true;
+          marker.glowMesh.scale.y = 1;
+          marker.glowMesh.position.y = marker.targetPostHeight / 2;
+          marker.glowMesh.visible = true;
+          (marker.glowMesh.material as THREE.MeshBasicMaterial).opacity = 0;
+          marker.iconSprite.scale.setScalar(0.5);
+          marker.iconSprite.position.y = marker.targetPostHeight + 0.28;
           marker.iconSprite.visible = true;
+          marker.depthSprite.scale.set(0.85, 0.22, 1);
+          marker.depthSprite.position.y = marker.targetPostHeight + 0.1;
           marker.depthSprite.visible = true;
         } else {
           const t = elapsed / duration;
           const eased = this.easeOutBack(t);
-          const currentHeight = marker.targetPostHeight * eased;
-          marker.currentPostHeight = currentHeight;
+          const curH = marker.targetPostHeight * eased;
 
           marker.postMesh.visible = true;
-          marker.postMesh.scale.y = eased;
-          marker.postMesh.position.y = currentHeight / 2;
+          marker.postMesh.scale.y = Math.max(0.001, eased);
+          marker.postMesh.position.y = curH / 2;
 
-          const glowMesh = marker.group.children[1] as THREE.Mesh;
-          if (glowMesh) {
-            glowMesh.visible = true;
-            glowMesh.scale.y = eased;
-            glowMesh.position.y = currentHeight / 2;
-            (glowMesh.material as THREE.MeshBasicMaterial).opacity = 0.4 * (1 - t);
-          }
+          marker.glowMesh.visible = true;
+          marker.glowMesh.scale.y = Math.max(0.001, eased);
+          marker.glowMesh.position.y = curH / 2;
+          const glowFade = Math.pow(1 - t, 1.6);
+          (marker.glowMesh.material as THREE.MeshBasicMaterial).opacity = 0.5 * glowFade + 0.08;
 
-          if (t > 0.5) {
-            const iconT = (t - 0.5) * 2;
+          if (t > 0.32) {
+            const iconT = Math.min(1, (t - 0.32) / 0.4);
+            const iconEase = this.easeOutCubic(iconT);
             marker.iconSprite.visible = true;
-            marker.iconSprite.scale.setScalar(0.5 * iconT);
-            marker.iconSprite.position.y = currentHeight + 0.25;
+            marker.iconSprite.scale.setScalar(0.5 * iconEase);
+            marker.iconSprite.position.y = curH + 0.28;
+            marker.iconSprite.material.opacity = iconEase;
+
             marker.depthSprite.visible = true;
-            marker.depthSprite.scale.y = 0.2 * iconT;
-            marker.depthSprite.position.y = currentHeight + 0.08;
+            const dScaleX = 0.85 * iconEase;
+            const dScaleY = 0.22 * iconEase;
+            marker.depthSprite.scale.set(dScaleX, dScaleY, 1);
+            marker.depthSprite.position.y = curH + 0.1;
+            marker.depthSprite.material.opacity = iconEase;
           }
         }
       }
 
-      if (marker.isHighlighted) {
+      if (marker.highlightStartTime > 0 || marker.isHighlighted) {
         const elapsed = (now - marker.highlightStartTime) / 1000;
-        const t = Math.min(elapsed / 0.3, 1);
+        let t: number;
+        if (marker.isHighlighted) {
+          t = Math.min(1, elapsed / 0.3);
+        } else {
+          t = Math.max(0, 1 - elapsed / 0.3);
+          if (t === 0) marker.highlightStartTime = 0;
+        }
         const scale = 1 + 0.2 * t;
         marker.group.scale.setScalar(scale);
 
-        const postMat = marker.postMesh.material as THREE.MeshBasicMaterial;
-        const goldR = 0xff / 255;
-        const goldG = 0xd7 / 255;
-        const goldB = 0x00 / 255;
-        const origR = 0xff / 255;
-        const origG = 0x88 / 255;
-        const origB = 0x22 / 255;
-        const r = origR + (goldR - origR) * t;
-        const g = origG + (goldG - origG) * t;
-        const b = origB + (goldB - origB) * t;
-        postMat.color.setRGB(r, g, b);
-      } else {
-        const elapsed = (now - marker.highlightStartTime) / 1000;
-        if (marker.highlightStartTime > 0 && elapsed < 0.3) {
-          const t = 1 - Math.min(elapsed / 0.3, 1);
-          const scale = 1 + 0.2 * t;
-          marker.group.scale.setScalar(scale);
-        } else {
-          marker.group.scale.setScalar(1);
-          const postMat = marker.postMesh.material as THREE.MeshBasicMaterial;
-          postMat.color.setHex(0xff8822);
-        }
+        const gold = new THREE.Color(0xffd700);
+        const orig = new THREE.Color(0xff8833);
+        const col = orig.clone().lerp(gold, t);
+        (marker.postMesh.material as THREE.MeshBasicMaterial).color.copy(col);
+        (marker.glowMesh.material as THREE.MeshBasicMaterial).color.copy(col).lerp(new THREE.Color(0xfff0aa), t * 0.5);
+        (marker.glowMesh.material as THREE.MeshBasicMaterial).opacity = 0.28 + t * 0.35;
       }
 
-      marker.iconSprite.rotation += deltaTime * 0.5;
-      marker.depthSprite.lookAt(camera.position);
+      marker.iconAngle += deltaTime * 0.6;
+      const spriteMat = marker.iconSprite.material as THREE.SpriteMaterial;
+      spriteMat.rotation = marker.iconAngle;
+
+      const dirToCam = new THREE.Vector3().subVectors(camera.position, marker.group.position);
+      const depthFwd = new THREE.Vector3(dirToCam.x, 0, dirToCam.z).normalize();
+      const billboardQ = new THREE.Quaternion();
+      const up = new THREE.Vector3(0, 1, 0);
+      const targetQ = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), depthFwd.lengthSq() > 0 ? depthFwd : new THREE.Vector3(0, 0, 1));
+      marker.depthSprite.quaternion.copy(targetQ);
     }
   }
 
@@ -404,16 +550,11 @@ export class FossilManager {
     return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
   }
 
-  private generateId(): string {
-    return `fossil_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  private easeOutCubic(t: number): number {
+    return 1 - Math.pow(1 - t, 3);
   }
 
-  public getFossilTypeLabel(type: FossilType): string {
-    const labels: Record<FossilType, string> = {
-      trilobite: '三叶虫',
-      ammonite: '菊石',
-      brachiopod: '腕足类'
-    };
-    return labels[type];
+  private generateId(): string {
+    return `f_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
   }
 }
