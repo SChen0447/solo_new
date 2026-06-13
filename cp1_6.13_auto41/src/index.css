@@ -742,7 +742,10 @@ a:hover {
   border-top-right-radius: var(--radius-xl);
   padding: 24px 32px 32px;
   z-index: 150;
-  animation: slideUp 0.35s ease;
+}
+
+.form-slide-up {
+  animation: slideUp 0.35s ease forwards;
 }
 
 .form-header {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   getDepartments,
   getDoctors,
@@ -36,6 +36,7 @@ const PatientPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [formAnimating, setFormAnimating] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     patientName: '',
     phone: '',
@@ -89,20 +90,20 @@ const PatientPage: React.FC = () => {
   const handleSelectSlot = (doctor: Doctor, slot: string) => {
     setSelectedDoctor(doctor);
     setSelectedSlot(slot);
+    setFormAnimating(true);
     setShowForm(true);
+    setTimeout(() => setFormAnimating(false), 350);
   };
 
-  const handlePrevDoctor = () => {
-    if (carouselIndex > 0) {
-      setCarouselIndex((prev) => prev - 1);
-    }
-  };
+  const handlePrevDoctor = useCallback(() => {
+    setCarouselIndex((prev) => (prev > 0 ? prev - 1 : prev));
+  }, []);
 
-  const handleNextDoctor = () => {
-    if (carouselIndex < doctors.length - 1) {
-      setCarouselIndex((prev) => prev + 1);
-    }
-  };
+  const handleNextDoctor = useCallback(() => {
+    setCarouselIndex((prev) =>
+      prev < doctors.length - 1 ? prev + 1 : prev
+    );
+  }, [doctors.length]);
 
   const validatePhone = (phone: string) => {
     return /^1[3-9]\d{9}$/.test(phone);
@@ -220,7 +221,7 @@ const PatientPage: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="doctors-view">
+        <div className="doctors-view" key={`dept-${selectedDept.id}`}>
           <button className="back-btn" onClick={handleBackToDepts}>
             <span>←</span>
             <span>返回科室列表</span>
@@ -250,13 +251,17 @@ const PatientPage: React.FC = () => {
             <div className="carousel-container">
               <div
                 className="carousel-track"
-                style={{ transform: `translateX(-${carouselIndex * 100}%)` }}
+                style={{
+                  transform: `translateX(calc(-${carouselIndex * 100}% - ${carouselIndex * 20}px))`,
+                  transition:
+                    'transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+                }}
               >
                 {doctors.map((doctor) => (
                   <div
                     className="doctor-card"
                     key={doctor.id}
-                    style={{ marginLeft: doctors.indexOf(doctor) === 0 ? '0' : undefined }}
+                    style={{ marginLeft: doctors.indexOf(doctor) === 0 ? '0' : '20px' }}
                   >
                     <div className="doctor-header">
                       <div className="doctor-avatar">
@@ -323,7 +328,7 @@ const PatientPage: React.FC = () => {
       )}
 
       {showForm && selectedDoctor && selectedDept && (
-        <div className="appointment-form-overlay">
+        <div className={`appointment-form-overlay ${formAnimating ? 'form-slide-up' : ''}`}>
           <div className="form-header">
             <h3>
               <span>📝</span>
@@ -440,7 +445,7 @@ const PatientPage: React.FC = () => {
           className="modal-overlay"
           onClick={() => modal.type === 'error' && setModal({ ...modal, show: false })}
         >
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box animate-bounce-in" onClick={(e) => e.stopPropagation()}>
             <div className="modal-icon">{modal.type === 'success' ? '🎉' : '⚠️'}</div>
             <div className={`modal-title ${modal.type}`}>{modal.title}</div>
             <div className="modal-message">{modal.message}</div>
