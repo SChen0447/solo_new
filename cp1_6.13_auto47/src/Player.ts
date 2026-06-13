@@ -19,6 +19,8 @@ export class Player {
   public isGrounded: boolean = true;
   public isJumping: boolean = false;
   public jumpAnimation: number = 0;
+  public scaleX: number = 1;
+  public scaleY: number = 1;
   public steamCharge: number = 0;
   public isGliding: boolean = false;
   public isSteamJumping: boolean = false;
@@ -44,6 +46,7 @@ export class Player {
         this.rotation = 0;
       }
       this.applyPhysics(deltaTime, false);
+      this.updateScale(deltaTime);
       return;
     }
 
@@ -84,15 +87,46 @@ export class Player {
       this.isGrounded = false;
     }
 
-    if (input.glide && this.steamCharge >= 100 && !this.isGrounded && !this.isSteamJumping) {
+    if (this.isSteamJumping) {
+      this.isGliding = input.glide && this.zVelocity < 0;
+    } else {
+      this.isGliding = input.glide && this.steamCharge >= 100 && !this.isGrounded;
+    }
+
+    if (input.glide && this.steamCharge >= 100 && !this.isGrounded && !this.isSteamJumping && this.zVelocity < 50) {
       this.isSteamJumping = true;
       this.zVelocity = STEAM_JUMP_POWER;
       this.steamCharge = 0;
     }
 
-    this.isGliding = input.glide && this.steamCharge >= 100 && !this.isGrounded;
-
     this.applyPhysics(deltaTime, this.isGliding);
+    this.updateScale(deltaTime);
+  }
+
+  private updateScale(deltaTime: number): void {
+    if (this.isJumping) {
+      const t = this.jumpAnimation / 0.2;
+      if (t < 0.3) {
+        const k = t / 0.3;
+        this.scaleX = 1 + 0.25 * k;
+        this.scaleY = 1 - 0.3 * k;
+      } else {
+        const k = (t - 0.3) / 0.7;
+        this.scaleX = 1.25 - 0.3 * k;
+        this.scaleY = 0.7 + 0.35 * k;
+      }
+    } else if (!this.isGrounded && this.zVelocity > 100) {
+      const k = Math.min(1, this.zVelocity / 400);
+      this.scaleX = 1 - 0.1 * k;
+      this.scaleY = 1 + 0.15 * k;
+    } else if (!this.isGrounded && this.zVelocity < -100) {
+      const k = Math.min(1, Math.abs(this.zVelocity) / 400);
+      this.scaleX = 1 + 0.1 * k;
+      this.scaleY = 1 - 0.1 * k;
+    } else {
+      this.scaleX += (1 - this.scaleX) * Math.min(1, deltaTime * 12);
+      this.scaleY += (1 - this.scaleY) * Math.min(1, deltaTime * 12);
+    }
   }
 
   private applyPhysics(deltaTime: number, isGliding: boolean): void {
@@ -104,6 +138,10 @@ export class Player {
     this.z += this.zVelocity * deltaTime;
 
     if (this.z <= 0) {
+      if (this.zVelocity < -200) {
+        this.scaleX = 1.3;
+        this.scaleY = 0.7;
+      }
       this.z = 0;
       this.zVelocity = 0;
       this.isGrounded = true;
@@ -145,6 +183,8 @@ export class Player {
     this.isGrounded = true;
     this.isJumping = false;
     this.jumpAnimation = 0;
+    this.scaleX = 1;
+    this.scaleY = 1;
     this.steamCharge = 0;
     this.isGliding = false;
     this.isSteamJumping = false;
