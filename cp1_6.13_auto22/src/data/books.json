@@ -1,0 +1,290 @@
+{
+  "books": [
+    {
+      "id": "book-001",
+      "title": "活着",
+      "author": "余华",
+      "coverUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=book%20cover%20of%20classic%20chinese%20novel%20To%20Live%20by%20Yu%20Hua%20warm%20colors&image_size=square",
+      "description": "讲述了农村人福贵悲惨的人生遭遇。福贵本是个阔少爷，可他嗜赌如命，终于赌光了家业。",
+      "currentHolder": "李明",
+      "currentHolderContact": "liming@example.com",
+      "status": "available",
+      "likes": 24,
+      "likedBy": ["user-001", "user-002", "user-003"],
+      "driftHistory": [
+        {
+          "id": "record-001",
+          "bookId": "book-001",
+          "eventType": "publish",
+          "date": "2026-01-15T10:30:00Z",
+          "holderName": "王芳",
+          "holderContact": "wangfang@example.com",
+          "description": "首次发布，希望这本书能遇到更多爱书人"
+        },
+        {
+          "id": "record-002",
+          "bookId": "book-001",
+          "eventType": "exchange",
+          "date": "2026-03-20T14:20:00Z",
+          "holderName": "王芳",
+          "holderContact": "wangfang@example.com",
+          "description": "与张明交换《平凡的世界》",
+          "fromHolder": "王芳",
+          "toHolder": "张明"
+        },
+        {
+          "id": "record-003",
+          "bookId": "book-001",
+          "eventType": "receive",
+          "date": "2026-03-25T09:15:00Z",
+          "holderName": "张明",
+          "holderContact": "zhangming@example.com",
+          "description": "收到图书，状态良好"
+        },
+        {
+          "id": "record-004",
+          "bookId": "book-001",
+          "eventType": "exchange",
+          "date": "2026-05-10T16:45:00Z",
+          "holderName": "张明",
+          "holderContact": "zhangming@example.com",
+          "description": "与李明交换《百年孤独》",
+          "fromHolder": "张明",
+          "toHolder": "李明"
+        },
+        {
+          "id": "record-005",
+          "bookId": "book-001",
+          "eventType": "receive",
+          "date": "2026-05-15T11:00:00Z",
+          "holderName": "李明",
+          "holderContact": "liming@example.com",
+          "description": "收到图书，书脊有轻微磨损"
+        }
+      ],
+      "createdAt": "2026-01-15T10:30:00Z",
+      "updatedAt": "2026-05-15T11:00:00Z"
+    },
+    {
+      "id": "book-002",
+      "title": "三体",
+      "author": "刘慈欣",
+      "coverUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=sci-fi%20book%20cover%20The%20Three%20Body%20Problem%20space%20universe%20dark%20blue&image_size=square",
+      "description": "文化大革命如火如荼进行的同时，军方探寻外星文明的绝秘计划'红岸工程'取得了突破性进展。",
+      "currentHolder": "张华",
+      "currentHolderContact": "zhanghua@example.com",
+      "status": "available",
+      "likes": 56,
+      "likedBy": ["user-001", "user-004", "user-005", "user-006"],
+      "driftHistory": [
+        {
+          "id": "record-006",
+          "bookId": "book-002",
+          "eventType": "publish",
+          "date": "2026-02-01T08:00:00Z",
+          "holderName": "陈静",
+          "holderContact": "chenjing@example.com",
+          "description": "首次发布，科幻迷必看"
+        },
+        {
+          "id": "record-007",
+          "bookId": "book-002",
+          "eventType": "exchange",
+          "date": "2026-04-05T13:30:00Z",
+          "holderName": "陈静",
+          "holderContact": "chenjing@example.com",
+          "description": "与张华交换《流浪地球》",
+          "fromHolder": "陈静",
+          "toHolder": "张华"
+        },
+        {
+          "id": "record-008",
+          "bookId": "book-002",
+          "eventType": "receive",
+          "date": "2026-04-10T10:00:00Z",
+          "holderName": "张华",
+          "holderContact": "zhanghua@example.com",
+          "description": "收到图书，品相极佳"
+        }
+      ],
+      "createdAt": "2026-02-01T08:00:00Z",
+      "updatedAt": "2026-04-10T10:00:00Z"
+    },
+    {
+      "id": "book-003",
+      "title": "百年孤独",
+      "author": "加西亚·马尔克斯",
+      "coverUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=magical%20realism%20book%20cover%20One%20Hundred%20Years%20of%20Solitude%20butterflies%20warm%20tropical&image_size=square",
+      "description": "《百年孤独》是魔幻现实主义文学的代表作，描写了布恩迪亚家族七代人的传奇故事。",
+      "currentHolder": "王芳",
+      "currentHolderContact": "wangfang@example.com",
+      "status": "exchanging",
+      "likes": 42,
+      "likedBy": ["user-002", "user-003", "user-007"],
+      "driftHistory": [
+        {
+          "id": "record-009",
+          "bookId": "book-003",
+          "eventType": "publish",
+          "date": "2026-01-20T15:00:00Z",
+          "holderName": "刘伟",
+          "holderContact": "liuwei@example.com",
+          "description": "首次发布，诺贝尔文学奖经典"
+        },
+        {
+          "id": "record-010",
+          "bookId": "book-003",
+          "eventType": "exchange",
+          "date": "2026-03-10T09:30:00Z",
+          "holderName": "刘伟",
+          "holderContact": "liuwei@example.com",
+          "description": "与王芳交换《活着》",
+          "fromHolder": "刘伟",
+          "toHolder": "王芳"
+        },
+        {
+          "id": "record-011",
+          "bookId": "book-003",
+          "eventType": "receive",
+          "date": "2026-03-15T14:20:00Z",
+          "holderName": "王芳",
+          "holderContact": "wangfang@example.com",
+          "description": "收到图书，有少量笔记"
+        }
+      ],
+      "createdAt": "2026-01-20T15:00:00Z",
+      "updatedAt": "2026-03-15T14:20:00Z"
+    },
+    {
+      "id": "book-004",
+      "title": "平凡的世界",
+      "author": "路遥",
+      "coverUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=chinese%20literary%20book%20cover%20Ordinary%20World%20rural%20landscape%20warm%20sunset&image_size=square",
+      "description": "《平凡的世界》是一部现实主义小说，也是小说化的家族史。作家高度浓缩了中国西北农村的历史变迁过程。",
+      "currentHolder": "赵雪",
+      "currentHolderContact": "zhaoxue@example.com",
+      "status": "available",
+      "likes": 38,
+      "likedBy": ["user-001", "user-005", "user-008"],
+      "driftHistory": [
+        {
+          "id": "record-012",
+          "bookId": "book-004",
+          "eventType": "publish",
+          "date": "2026-02-14T12:00:00Z",
+          "holderName": "孙强",
+          "holderContact": "sunqiang@example.com",
+          "description": "首次发布，茅盾文学奖获奖作品"
+        },
+        {
+          "id": "record-013",
+          "bookId": "book-004",
+          "eventType": "exchange",
+          "date": "2026-04-20T11:15:00Z",
+          "holderName": "孙强",
+          "holderContact": "sunqiang@example.com",
+          "description": "与赵雪交换《围城》",
+          "fromHolder": "孙强",
+          "toHolder": "赵雪"
+        },
+        {
+          "id": "record-014",
+          "bookId": "book-004",
+          "eventType": "receive",
+          "date": "2026-04-25T16:30:00Z",
+          "holderName": "赵雪",
+          "holderContact": "zhaoxue@example.com",
+          "description": "收到图书，保存完好"
+        }
+      ],
+      "createdAt": "2026-02-14T12:00:00Z",
+      "updatedAt": "2026-04-25T16:30:00Z"
+    },
+    {
+      "id": "book-005",
+      "title": "围城",
+      "author": "钱钟书",
+      "coverUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=classic%20chinese%20literature%20book%20cover%20Fortress%20Besieged%20vintage%20style&image_size=square",
+      "description": "《围城》是钱钟书所著的长篇小说，是中国现代文学史上一部风格独特的讽刺小说。被誉为'新儒林外史'。",
+      "currentHolder": "孙强",
+      "currentHolderContact": "sunqiang@example.com",
+      "status": "available",
+      "likes": 31,
+      "likedBy": ["user-003", "user-006", "user-009"],
+      "driftHistory": [
+        {
+          "id": "record-015",
+          "bookId": "book-005",
+          "eventType": "publish",
+          "date": "2026-03-01T09:00:00Z",
+          "holderName": "赵雪",
+          "holderContact": "zhaoxue@example.com",
+          "description": "首次发布，钱钟书经典"
+        },
+        {
+          "id": "record-016",
+          "bookId": "book-005",
+          "eventType": "exchange",
+          "date": "2026-04-20T11:15:00Z",
+          "holderName": "赵雪",
+          "holderContact": "zhaoxue@example.com",
+          "description": "与孙强交换《平凡的世界》",
+          "fromHolder": "赵雪",
+          "toHolder": "孙强"
+        },
+        {
+          "id": "record-017",
+          "bookId": "book-005",
+          "eventType": "receive",
+          "date": "2026-04-25T16:30:00Z",
+          "holderName": "孙强",
+          "holderContact": "sunqiang@example.com",
+          "description": "收到图书，有少量读书笔记"
+        }
+      ],
+      "createdAt": "2026-03-01T09:00:00Z",
+      "updatedAt": "2026-04-25T16:30:00Z"
+    },
+    {
+      "id": "book-006",
+      "title": "红楼梦",
+      "author": "曹雪芹",
+      "coverUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=chinese%20classical%20novel%20book%20cover%20Dream%20of%20the%20Red%20Chamber%20traditional%20art&image_size=square",
+      "description": "《红楼梦》是中国古典四大名著之首，以贾宝玉、林黛玉、薛宝钗的爱情婚姻悲剧为主线。",
+      "currentHolder": "陈静",
+      "currentHolderContact": "chenjing@example.com",
+      "status": "in_transit",
+      "likes": 67,
+      "likedBy": ["user-001", "user-002", "user-004", "user-007", "user-010"],
+      "driftHistory": [
+        {
+          "id": "record-018",
+          "bookId": "book-006",
+          "eventType": "publish",
+          "date": "2026-01-05T14:00:00Z",
+          "holderName": "周涛",
+          "holderContact": "zhoutao@example.com",
+          "description": "首次发布，珍藏版红楼梦"
+        },
+        {
+          "id": "record-019",
+          "bookId": "book-006",
+          "eventType": "exchange",
+          "date": "2026-05-05T10:00:00Z",
+          "holderName": "周涛",
+          "holderContact": "zhoutao@example.com",
+          "description": "与陈静交换《三国演义》",
+          "fromHolder": "周涛",
+          "toHolder": "陈静"
+        }
+      ],
+      "createdAt": "2026-01-05T14:00:00Z",
+      "updatedAt": "2026-05-05T10:00:00Z"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2026-06-13T00:00:00Z",
+    "totalBooks": 6
+  }
+}
