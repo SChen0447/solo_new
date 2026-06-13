@@ -1,13 +1,8 @@
 import { create } from 'zustand';
-import type { StoreState, Song, Playlist } from './types';
+import type { StoreState, Song, Playlist, AppState } from './types';
 import { generateId } from './types';
 
-const createMockSong = (name: string, artist: string, duration: number): Song => ({
-  id: generateId(),
-  name,
-  artist,
-  duration,
-});
+const STORAGE_KEY = 'starry-playlist-state';
 
 const defaultGradients = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -21,6 +16,13 @@ const defaultGradients = [
   'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
   'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
 ];
+
+const createMockSong = (name: string, artist: string, duration: number): Song => ({
+  id: generateId(),
+  name,
+  artist,
+  duration,
+});
 
 const createInitialPlaylists = (): Playlist[] => {
   const playlists: Playlist[] = [
@@ -76,89 +78,166 @@ const createInitialPlaylists = (): Playlist[] => {
   return playlists;
 };
 
-export const useStore = create<StoreState>((set, get) => ({
-  playlists: createInitialPlaylists(),
-  mainList: [],
-  currentSong: null,
-  isPlaying: false,
-  playProgress: 0,
+const loadFromStorage = (): Partial<AppState> | null => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        playlists: parsed.playlists,
+        mainList: parsed.mainList || [],
+      };
+    }
+  } catch {
+    // noop
+  }
+  return null;
+};
 
-  addPlaylist: (name, gradientColor) =>
-    set((state) => ({
-      playlists: [
-        ...state.playlists,
-        {
-          id: generateId(),
-          name,
-          songs: [],
-          gradientColor: gradientColor || defaultGradients[state.playlists.length % defaultGradients.length],
-        },
-      ],
-    })),
+const saveToStorage = (state: StoreState) => {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        playlists: state.playlists,
+        mainList: state.mainList,
+      })
+    );
+  } catch {
+    // noop
+  }
+};
 
-  removePlaylist: (id) =>
-    set((state) => ({
-      playlists: state.playlists.filter((p) => p.id !== id),
-    })),
+export const gradientPresets = defaultGradients;
 
-  updatePlaylistColor: (id, color) =>
-    set((state) => ({
-      playlists: state.playlists.map((p) => (p.id === id ? { ...p, gradientColor: color } : p)),
-    })),
+export const useStore = create<StoreState>((set, get) => {
+  const saved = loadFromStorage();
 
-  addSong: (playlistId, song) =>
-    set((state) => ({
-      playlists: state.playlists.map((p) =>
-        p.id === playlistId ? { ...p, songs: [...p.songs, song] } : p
-      ),
-    })),
+  return {
+    playlists: saved?.playlists || createInitialPlaylists(),
+    mainList: saved?.mainList || [],
+    currentSong: null,
+    isPlaying: false,
+    playProgress: 0,
 
-  removeSong: (playlistId, songId) =>
-    set((state) => ({
-      playlists: state.playlists.map((p) =>
-        p.id === playlistId ? { ...p, songs: p.songs.filter((s) => s.id !== songId) } : p
-      ),
-    })),
-
-  reorderSongs: (playlistId, fromIndex, toIndex) =>
-    set((state) => ({
-      playlists: state.playlists.map((p) => {
-        if (p.id !== playlistId) return p;
-        const newSongs = [...p.songs];
-        const [removed] = newSongs.splice(fromIndex, 1);
-        newSongs.splice(toIndex, 0, removed);
-        return { ...p, songs: newSongs };
+    addPlaylist: (name, gradientColor) =>
+      set((state) => {
+        const newState = {
+          playlists: [
+            ...state.playlists,
+            {
+              id: generateId(),
+              name,
+              songs: [],
+              gradientColor:
+                gradientColor ||
+                defaultGradients[state.playlists.length % defaultGradients.length],
+            },
+          ],
+        };
+        saveToStorage({ ...state, ...newState });
+        return newState;
       }),
-    })),
 
-  addToMainList: (song) =>
-    set((state) => {
-      const exists = state.mainList.some((s) => s.id === song.id);
-      if (exists) return state;
-      return { mainList: [...state.mainList, song] };
-    }),
+    removePlaylist: (id) =>
+      set((state) => {
+        const newState = {
+          playlists: state.playlists.filter((p) => p.id !== id),
+        };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
 
-  clearMainList: () => set({ mainList: [] }),
+    updatePlaylistColor: (id, color) =>
+      set((state) => {
+        const newState = {
+          playlists: state.playlists.map((p) =>
+            p.id === id ? { ...p, gradientColor: color } : p
+          ),
+        };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
 
-  removeFromMainList: (songId) =>
-    set((state) => ({
-      mainList: state.mainList.filter((s) => s.id !== songId),
-    })),
+    addSong: (playlistId, song) =>
+      set((state) => {
+        const newState = {
+          playlists: state.playlists.map((p) =>
+            p.id === playlistId ? { ...p, songs: [...p.songs, song] } : p
+          ),
+        };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
 
-  reorderMainList: (fromIndex, toIndex) =>
-    set((state) => {
-      const newList = [...state.mainList];
-      const [removed] = newList.splice(fromIndex, 1);
-      newList.splice(toIndex, 0, removed);
-      return { mainList: newList };
-    }),
+    removeSong: (playlistId, songId) =>
+      set((state) => {
+        const newState = {
+          playlists: state.playlists.map((p) =>
+            p.id === playlistId ? { ...p, songs: p.songs.filter((s) => s.id !== songId) } : p
+          ),
+        };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
 
-  setCurrentSong: (song) => set({ currentSong: song, playProgress: 0, isPlaying: song !== null }),
+    reorderSongs: (playlistId, fromIndex, toIndex) =>
+      set((state) => {
+        const newState = {
+          playlists: state.playlists.map((p) => {
+            if (p.id !== playlistId) return p;
+            const newSongs = [...p.songs];
+            const [removed] = newSongs.splice(fromIndex, 1);
+            newSongs.splice(toIndex, 0, removed);
+            return { ...p, songs: newSongs };
+          }),
+        };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
 
-  togglePlay: () =>
-    set((state) => ({
-      isPlaying: state.currentSong ? !state.isPlaying : false,
-    })),
+    addToMainList: (song) =>
+      set((state) => {
+        const exists = state.mainList.some((s) => s.id === song.id);
+        if (exists) return state;
+        const newState = { mainList: [...state.mainList, song] };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
 
-  setPlayProgress: (progress) => set({ playProgress: progress }),
-}));
+    clearMainList: () =>
+      set((state) => {
+        const newState = { mainList: [] };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
+
+    removeFromMainList: (songId) =>
+      set((state) => {
+        const newState = {
+          mainList: state.mainList.filter((s) => s.id !== songId),
+        };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
+
+    reorderMainList: (fromIndex, toIndex) =>
+      set((state) => {
+        const newList = [...state.mainList];
+        const [removed] = newList.splice(fromIndex, 1);
+        newList.splice(toIndex, 0, removed);
+        const newState = { mainList: newList };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      }),
+
+    setCurrentSong: (song) => set({ currentSong: song, playProgress: 0, isPlaying: song !== null }),
+
+    togglePlay: () =>
+      set((state) => ({
+        isPlaying: state.currentSong ? !state.isPlaying : false,
+      })),
+
+    setPlayProgress: (progress) => set({ playProgress: progress }),
+  };
+});

@@ -1,14 +1,12 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import type { Song } from '../types';
+import { useSpring, useMotionValue, useTransform } from 'framer-motion';
 
 export interface DragState {
   isDragging: boolean;
   draggingId: string | null;
   draggingIndex: number;
   overIndex: number;
-  offsetX: number;
-  offsetY: number;
-  scale: number;
 }
 
 const initialState: DragState = {
@@ -16,23 +14,7 @@ const initialState: DragState = {
   draggingId: null,
   draggingIndex: -1,
   overIndex: -1,
-  offsetX: 0,
-  offsetY: 0,
-  scale: 1,
 };
-
-const SPRING_CONFIG = {
-  stiffness: 0.18,
-  damping: 0.82,
-  mass: 1,
-};
-
-interface SpringValue {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-}
 
 export const useDragSort = (
   items: Song[],
@@ -42,12 +24,17 @@ export const useDragSort = (
 ) => {
   const [dragState, setDragState] = useState<DragState>(initialState);
   const dragStateRef = useRef<DragState>(initialState);
-  const rafIdRef = useRef<number | null>(null);
-  const springRef = useRef<SpringValue>({ x: 0, y: 0, vx: 0, vy: 0 });
-  const pointerStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const itemRectsRef = useRef<DOMRect[]>([]);
+
+  const dragX = useMotionValue(0);
+  const dragY = useMotionValue(0);
+  const scale = useSpring(1, { stiffness: 300, damping: 20, mass: 0.5 });
+  const rotate = useTransform(dragX, [-200, 200], [-5, 5]);
+
   const itemElRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const itemRectsRef = useRef<DOMRect[]>([]);
+  const pointerStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const containerRef = useRef<HTMLElement | null>(null);
+  const itemHeightRef = useRef<number>(64);
 
   useEffect(() => {
     dragStateRef.current = dragState;
@@ -55,55 +42,23 @@ export const useDragSort = (
 
   const measureItems = useCallback(() => {
     const rects: DOMRect[] = [];
-    itemElRefs.current.forEach((el) => {
-      rects.push(el.getBoundingClientRect());
-    });
+    const ids = Array.from(itemElRefs.current.keys());
+    for (const id of ids) {
+      const el = itemElRefs.current.get(id);
+      if (el) {
+        rects.push(el.getBoundingClientRect());
+      }
+    }
     itemRectsRef.current = rects;
-  }, []);
-
-  const applySpring = useCallback((targetX: number, targetY: number, targetScale: number) => {
-    const step = () => {
-      const spring = springRef.current;
-      const stiffness = SPRING_CONFIG.stiffness;
-      const damping = SPRING_CONFIG.damping;
-
-      const dx = targetX - spring.x;
-      const dy = targetY - spring.y;
-
-      spring.vx = spring.vx * damping + dx * stiffness;
-      spring.vy = spring.vy * damping + dy * stiffness;
-      spring.x += spring.vx;
-      spring.y += spring.vy;
-
-      const currentState = dragStateRef.current;
-      if (currentState.isDragging && currentState.draggingId) {
-        const el = itemElRefs.current.get(currentState.draggingId);
-        if (el) {
-          el.style.transform = `translate(${spring.x}px, ${spring.y}px) scale(${currentState.scale}) rotate(${spring.vx * 0.3}deg)`;
-          el.style.zIndex = '9999';
-          el.style.pointerEvents = 'none';
-          el.style.willChange = 'transform';
-        }
-      }
-
-      if (
-        Math.abs(targetX - spring.x) > 0.1 ||
-        Math.abs(targetY - spring.y) > 0.1 ||
-        Math.abs(spring.vx) > 0.01 ||
-        Math.abs(spring.vy) > 0.01
-      ) {
-        rafIdRef.current = requestAnimationFrame(step);
-      } else if (currentState.isDragging) {
-        rafIdRef.current = requestAnimationFrame(step);
-      }
-    };
-    if (rafIdRef.current === null) {
-      rafIdRef.current = requestAnimationFrame(step);
+    if (rects.length > 0) {
+      itemHeightRef.current = rects[0].height;
     }
   }, []);
 
   const findOverIndex = useCallback((clientY: number): number => {
     const rects = itemRectsRef.current;
+    if (rects.length === 0) return -1;
+
     for (let i = 0; i < rects.length; i++) {
       const rect = rects[i];
       if (clientY >= rect.top && clientY <= rect.bottom) {
@@ -111,57 +66,49 @@ export const useDragSort = (
         return clientY < midY ? i : i + 1;
       }
     }
-    if (rects.length > 0 && clientY < rects[0].top) return 0;
-    if (rects.length > 0 && clientY > rects[rects.length - 1].bottom) return rects.length;
+
+    if (clientY < rects[0].top) return 0;
+    if (clientY > rects[rects.length - 1].bottom) return rects.length;
     return -1;
   }, []);
 
-  const shiftItems = useCallback((fromIndex: number, toIndex: number) => {
-    const rects = itemRectsRef.current;
-    if (rects.length === 0) return;
+  const shiftOtherItems = useCallback((fromIndex: number, toIndex: number) => {
+    const ids = Array.from(itemElRefs.current.keys());
+    const itemHeight = itemHeightRef.current;
 
-    itemElRefs.current.forEach((el, id, map) => {
-      const idx = Array.from(map.keys()).indexOf(id);
-      if (idx === fromIndex || dragStateRef.current.draggingId === id) return;
+    ids.forEach((id, idx) => {
+      if (idx === dragStateRef.current.draggingIndex) return;
+      const el = itemElRefs.current.get(id);
+      if (!el) return;
 
       let offset = 0;
-      const itemHeight = rects[0]?.height || 64;
+      const draggingIdx = dragStateRef.current.draggingIndex;
 
-      if (fromIndex < toIndex) {
-        if (idx > fromIndex && idx < toIndex) {
+      if (draggingIdx < toIndex) {
+        if (idx > draggingIdx && idx < toIndex) {
           offset = -itemHeight;
         } else if (idx === toIndex - 1) {
           offset = -itemHeight;
         }
-      } else {
-        if (idx >= toIndex && idx < fromIndex) {
+      } else if (draggingIdx > toIndex) {
+        if (idx >= toIndex && idx < draggingIdx) {
           offset = itemHeight;
         }
       }
 
-      if (offset !== 0) {
-        el.style.transition = `transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)`;
-        el.style.transform = `translateY(${offset}px)`;
-      } else {
-        el.style.transition = `transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)`;
-        el.style.transform = `translateY(0px)`;
-      }
+      el.style.transition = `transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)`;
+      el.style.transform = `translateY(${offset}px)`;
     });
   }, []);
 
   const resetAllTransforms = useCallback(() => {
     itemElRefs.current.forEach((el) => {
-      el.style.transition = `transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)`;
-      el.style.transform = '';
+      el.style.transition = `transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)`;
+      el.style.transform = `translateY(0px)`;
       el.style.zIndex = '';
       el.style.pointerEvents = '';
       el.style.willChange = '';
     });
-    setTimeout(() => {
-      itemElRefs.current.forEach((el) => {
-        el.style.transition = '';
-      });
-    }, 250);
   }, []);
 
   const startDrag = useCallback(
@@ -169,31 +116,32 @@ export const useDragSort = (
       e.preventDefault();
       e.stopPropagation();
 
-      const target = e.currentTarget;
       containerRef.current = document.getElementById(containerId);
-      itemElRefs.current.forEach(() => {});
-
       measureItems();
+
       pointerStartRef.current = { x: e.clientX, y: e.clientY };
-      springRef.current = { x: 0, y: 0, vx: 0, vy: 0 };
+
+      dragX.set(0);
+      dragY.set(0);
+      scale.set(1.08);
 
       setDragState({
         isDragging: true,
         draggingId: songId,
         draggingIndex: index,
         overIndex: index,
-        offsetX: 0,
-        offsetY: 0,
-        scale: 1.06,
       });
 
-      setTimeout(() => {
-        applySpring(0, 0, 1.06);
-      }, 0);
+      const draggingEl = itemElRefs.current.get(songId);
+      if (draggingEl) {
+        draggingEl.style.zIndex = '9999';
+        draggingEl.style.pointerEvents = 'none';
+        draggingEl.style.willChange = 'transform';
+      }
 
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     },
-    [containerId, measureItems, applySpring]
+    [containerId, measureItems, dragX, dragY, scale]
   );
 
   const onDrag = useCallback(
@@ -204,23 +152,18 @@ export const useDragSort = (
       const deltaX = e.clientX - pointerStartRef.current.x;
       const deltaY = e.clientY - pointerStartRef.current.y;
 
-      setDragState((prev) => ({
-        ...prev,
-        offsetX: deltaX,
-        offsetY: deltaY,
-      }));
-
-      applySpring(deltaX, deltaY, 1.06);
+      dragX.set(deltaX);
+      dragY.set(deltaY);
 
       const newOverIndex = findOverIndex(e.clientY);
       if (newOverIndex !== -1 && newOverIndex !== current.overIndex) {
         setDragState((prev) => ({ ...prev, overIndex: newOverIndex }));
         if (current.draggingIndex !== -1) {
-          shiftItems(current.draggingIndex, newOverIndex);
+          shiftOtherItems(current.draggingIndex, newOverIndex);
         }
       }
     },
-    [applySpring, findOverIndex, shiftItems]
+    [dragX, dragY, findOverIndex, shiftOtherItems]
   );
 
   const endDrag = useCallback(
@@ -228,10 +171,12 @@ export const useDragSort = (
       const current = dragStateRef.current;
       if (!current.isDragging || !current.draggingId) return;
 
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
-      }
+      scale.set(1);
+
+      let fromIndex = current.draggingIndex;
+      let toIndex = current.overIndex;
+      if (toIndex > fromIndex) toIndex -= 1;
+      toIndex = Math.max(0, Math.min(toIndex, items.length - 1));
 
       const draggingSong = items.find((s) => s.id === current.draggingId);
 
@@ -250,25 +195,16 @@ export const useDragSort = (
         }
       }
 
-      let fromIndex = current.draggingIndex;
-      let toIndex = current.overIndex;
-
-      if (toIndex > fromIndex) toIndex -= 1;
-      toIndex = Math.max(0, Math.min(toIndex, items.length - 1));
-
       if (fromIndex !== toIndex && fromIndex >= 0 && toIndex >= 0) {
         onReorder(fromIndex, toIndex);
       }
 
-      setDragState({
-        ...initialState,
-        draggingId: current.draggingId,
-      });
-
       setTimeout(() => {
         resetAllTransforms();
         setDragState(initialState);
-      }, 50);
+        dragX.set(0);
+        dragY.set(0);
+      }, 250);
 
       try {
         (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
@@ -276,7 +212,7 @@ export const useDragSort = (
         // noop
       }
     },
-    [items, onReorder, onDropToMain, resetAllTransforms]
+    [items, onReorder, onDropToMain, resetAllTransforms, scale, dragX, dragY]
   );
 
   const registerItem = useCallback((id: string, el: HTMLElement | null) => {
@@ -287,13 +223,18 @@ export const useDragSort = (
     }
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-    };
-  }, []);
+  const getMotionProps = useCallback(
+    (songId: string) => {
+      const isDragging = dragState.draggingId === songId;
+      return {
+        x: isDragging ? dragX : 0,
+        y: isDragging ? dragY : 0,
+        scale: scale,
+        rotate: isDragging ? rotate : 0,
+      };
+    },
+    [dragState.draggingId, dragX, dragY, scale, rotate]
+  );
 
   return {
     dragState,
@@ -301,5 +242,10 @@ export const useDragSort = (
     onDrag,
     endDrag,
     registerItem,
+    getMotionProps,
+    dragX,
+    dragY,
+    scale,
+    rotate,
   };
 };
