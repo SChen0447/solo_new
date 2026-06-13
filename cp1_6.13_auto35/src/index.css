@@ -1,0 +1,40 @@
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background: #f9f4e8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (max-width: 767px) {
+  .gallery-stage {
+    max-width: 95% !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .gallery-stage {
+    max-width: 80% !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .gallery-stage {
+    max-width: 60% !important;
+  }
+}

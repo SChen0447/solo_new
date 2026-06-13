@@ -104,9 +104,9 @@ export const ArtCard = ({ artwork }: ArtCardProps) => {
             />
             <motion.div
               style={styles.underline}
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: isFocused ? 1 : 0 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
+              initial={{ scaleY: 0 }}
+              animate={{ scaleY: isFocused ? 1 : 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             />
           </motion.div>
           <span style={styles.charCount}>{localNote.length}/500</span>
@@ -194,20 +194,24 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: '80px',
     fontFamily: 'inherit',
     color: '#333',
-    background: '#fafafa',
+    background: 'transparent',
     outline: 'none',
     transition: 'border-color 0.2s, opacity 0.2s',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    position: 'relative',
+    zIndex: 1
   },
   underline: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-    height: '2px',
-    background: '#d4a373',
-    transformOrigin: 'left',
-    borderRadius: '0 0 8px 8px'
+    height: '100%',
+    background: 'linear-gradient(to bottom, transparent 0%, transparent 60%, rgba(212,163,115,0.15) 85%, #d4a373 100%)',
+    transformOrigin: 'top',
+    borderRadius: '8px',
+    pointerEvents: 'none',
+    zIndex: 0
   },
   charCount: {
     position: 'absolute',
