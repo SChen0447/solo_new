@@ -11,8 +11,8 @@ export interface ParticleParams {
 const PARTICLE_COUNT = 2200;
 const SPHERE_RADIUS = 15;
 const LINE_DISTANCE_THRESHOLD = 2.5;
-const MAX_LINES = 15000;
-const PARAM_LERP_SPEED = 8;
+const MAX_LINES = 12000;
+const PARAM_LERP_SPEED = 6;
 
 export class ParticleUniverse {
   private scene: THREE.Scene;
@@ -20,8 +20,9 @@ export class ParticleUniverse {
 
   private positions: Float32Array;
   private velocities: Float32Array;
-  private colors: Float32Array;
+  private baseHues: Float32Array;
   private sizes: Float32Array;
+  private colors: Float32Array;
 
   private currentParams: ParticleParams;
   private targetParams: ParticleParams;
@@ -37,7 +38,6 @@ export class ParticleUniverse {
   private lineColors: Float32Array;
   private lineCount = 0;
 
-  private rotationAngle = 0;
   private explosionVelocity: Float32Array | null = null;
   private explosionIntensity = 0;
 
@@ -49,8 +49,9 @@ export class ParticleUniverse {
 
     this.positions = new Float32Array(this.particleCount * 3);
     this.velocities = new Float32Array(this.particleCount * 3);
-    this.colors = new Float32Array(this.particleCount * 3);
+    this.baseHues = new Float32Array(this.particleCount);
     this.sizes = new Float32Array(this.particleCount);
+    this.colors = new Float32Array(this.particleCount * 3);
 
     this.currentParams = {
       emissionSpeed: 1.0,
@@ -71,57 +72,70 @@ export class ParticleUniverse {
     for (let i = 0; i < this.particleCount; i++) {
       const i3 = i * 3;
 
-      const radius = SPHERE_RADIUS * Math.cbrt(Math.random());
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const u = Math.random();
+      const v = Math.random();
+      const theta = 2 * Math.PI * u;
+      const phi = Math.acos(2 * v - 1);
+      const r = SPHERE_RADIUS * Math.cbrt(Math.random());
 
-      const x = radius * Math.sin(phi) * Math.cos(theta);
-      const y = radius * Math.sin(phi) * Math.sin(theta);
-      const z = radius * Math.cos(phi);
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = r * Math.sin(phi) * Math.sin(theta);
+      const z = r * Math.cos(phi);
 
       this.positions[i3] = x;
       this.positions[i3 + 1] = y;
       this.positions[i3 + 2] = z;
 
-      const speed = 0.5 + Math.random() * 0.5;
-      const tangentY = -x;
-      const tangentX = z;
-      const tangentLen = Math.sqrt(tangentX * tangentX + tangentY * tangentY);
-      
-      this.velocities[i3] = (tangentX / tangentLen) * speed * 0.3 + (Math.random() - 0.5) * 0.1;
-      this.velocities[i3 + 1] = (Math.random() - 0.5) * 0.1;
-      this.velocities[i3 + 2] = (tangentY / tangentLen) * speed * 0.3 + (Math.random() - 0.5) * 0.1;
+      const tangent = new THREE.Vector3(-z, 0, x);
+      tangent.normalize();
 
-      this.updateParticleColor(i);
+      const speed = 0.8 + Math.random() * 0.4;
+      const upJitter = (Math.random() - 0.5) * 0.3;
 
-      this.sizes[i] = 0.8 + Math.random() * 0.4;
+      this.velocities[i3] = tangent.x * speed;
+      this.velocities[i3 + 1] = upJitter;
+      this.velocities[i3 + 2] = tangent.z * speed;
+
+      this.baseHues[i] = Math.random();
+
+      this.sizes[i] = 0.7 + Math.random() * 0.6;
     }
+
+    this.updateAllColors();
   }
 
-  private updateParticleColor(i: number): void {
-    const i3 = i * 3;
+  private updateAllColors(): void {
     const gradient = this.currentParams.colorGradient;
+    const colorAttr = this.pointsGeometry.getAttribute('color') as THREE.BufferAttribute;
+    const colors = colorAttr.array as Float32Array;
 
-    const hue = 0.6 + gradient * 0.4;
-    const saturation = 0.8 + Math.random() * 0.2;
-    const lightness = 0.5 + Math.random() * 0.3;
+    for (let i = 0; i < this.particleCount; i++) {
+      const i3 = i * 3;
+      const hue = 0.6 + gradient * 0.4 + this.baseHues[i] * 0.08 - 0.04;
+      const saturation = 0.8 + this.baseHues[i] * 0.15;
+      const lightness = 0.55 + this.baseHues[i] * 0.15;
 
-    this.tempColor.setHSL(hue, saturation, lightness);
-    this.colors[i3] = this.tempColor.r;
-    this.colors[i3 + 1] = this.tempColor.g;
-    this.colors[i3 + 2] = this.tempColor.b;
+      this.tempColor.setHSL(hue, saturation, lightness);
+      colors[i3] = this.tempColor.r;
+      colors[i3 + 1] = this.tempColor.g;
+      colors[i3 + 2] = this.tempColor.b;
+    }
+
+    colorAttr.needsUpdate = true;
   }
 
   private createPoints(): void {
+    const colors = new Float32Array(this.particleCount * 3);
+
     this.pointsGeometry = new THREE.BufferGeometry();
     this.pointsGeometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
-    this.pointsGeometry.setAttribute('color', new THREE.BufferAttribute(this.colors, 3));
+    this.pointsGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     this.pointsMaterial = new THREE.PointsMaterial({
       size: this.currentParams.particleSize,
       vertexColors: true,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.95,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false
@@ -143,7 +157,7 @@ export class ParticleUniverse {
     this.linesMaterial = new THREE.LineBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -160,12 +174,9 @@ export class ParticleUniverse {
     this.generateParticles();
     this.explosionVelocity = null;
     this.explosionIntensity = 0;
-    this.rotationAngle = 0;
 
     const posAttr = this.pointsGeometry.getAttribute('position') as THREE.BufferAttribute;
-    const colorAttr = this.pointsGeometry.getAttribute('color') as THREE.BufferAttribute;
     posAttr.needsUpdate = true;
-    colorAttr.needsUpdate = true;
   }
 
   public explode(): void {
@@ -179,7 +190,7 @@ export class ParticleUniverse {
       const z = this.positions[i3 + 2];
       const len = Math.sqrt(x * x + y * y + z * z) || 1;
 
-      const force = 8 + Math.random() * 6;
+      const force = 10 + Math.random() * 8;
       this.explosionVelocity[i3] = (x / len) * force;
       this.explosionVelocity[i3 + 1] = (y / len) * force;
       this.explosionVelocity[i3 + 2] = (z / len) * force;
@@ -187,68 +198,85 @@ export class ParticleUniverse {
   }
 
   public update(deltaTime: number): void {
-    this.lerpParams(deltaTime);
-    this.updateParticles(deltaTime);
+    const dt = Math.min(deltaTime, 0.05);
+
+    this.lerpParams(dt);
+    this.updateParticles(dt);
     this.updateLines();
 
     const posAttr = this.pointsGeometry.getAttribute('position') as THREE.BufferAttribute;
-    const colorAttr = this.pointsGeometry.getAttribute('color') as THREE.BufferAttribute;
     posAttr.needsUpdate = true;
-    colorAttr.needsUpdate = true;
 
     this.pointsMaterial.size = this.currentParams.particleSize;
   }
 
-  private lerpParams(deltaTime: number): void {
-    const speed = PARAM_LERP_SPEED * deltaTime;
-    const t = Math.min(1, speed);
+  private lerpParams(dt: number): void {
+    const t = 1 - Math.exp(-PARAM_LERP_SPEED * dt);
 
-    this.currentParams.emissionSpeed += (this.targetParams.emissionSpeed - this.currentParams.emissionSpeed) * t;
-    this.currentParams.particleSize += (this.targetParams.particleSize - this.currentParams.particleSize) * t;
-    this.currentParams.colorGradient += (this.targetParams.colorGradient - this.currentParams.colorGradient) * t;
-    this.currentParams.rotationSpeed += (this.targetParams.rotationSpeed - this.currentParams.rotationSpeed) * t;
-    this.currentParams.gravityStrength += (this.targetParams.gravityStrength - this.currentParams.gravityStrength) * t;
+    let colorChanged = false;
+
+    if (this.currentParams.emissionSpeed !== this.targetParams.emissionSpeed) {
+      this.currentParams.emissionSpeed += (this.targetParams.emissionSpeed - this.currentParams.emissionSpeed) * t;
+    }
+    if (this.currentParams.particleSize !== this.targetParams.particleSize) {
+      this.currentParams.particleSize += (this.targetParams.particleSize - this.currentParams.particleSize) * t;
+    }
+    if (Math.abs(this.currentParams.colorGradient - this.targetParams.colorGradient) > 0.001) {
+      this.currentParams.colorGradient += (this.targetParams.colorGradient - this.currentParams.colorGradient) * t;
+      colorChanged = true;
+    }
+    if (this.currentParams.rotationSpeed !== this.targetParams.rotationSpeed) {
+      this.currentParams.rotationSpeed += (this.targetParams.rotationSpeed - this.currentParams.rotationSpeed) * t;
+    }
+    if (this.currentParams.gravityStrength !== this.targetParams.gravityStrength) {
+      this.currentParams.gravityStrength += (this.targetParams.gravityStrength - this.currentParams.gravityStrength) * t;
+    }
+
+    if (colorChanged) {
+      this.updateAllColors();
+    }
   }
 
-  private updateParticles(deltaTime: number): void {
-    const dt = deltaTime;
-    const speed = this.currentParams.emissionSpeed;
+  private updateParticles(dt: number): void {
+    const speedMul = this.currentParams.emissionSpeed;
     const gravity = this.currentParams.gravityStrength;
     const rotSpeed = this.currentParams.rotationSpeed;
 
-    this.rotationAngle += rotSpeed * dt * 0.2;
-    const cosR = Math.cos(this.rotationAngle);
-    const sinR = Math.sin(this.rotationAngle);
-
     if (this.explosionVelocity) {
-      this.explosionIntensity *= 0.98;
-      if (this.explosionIntensity < 0.01) {
+      this.explosionIntensity *= Math.pow(0.96, dt * 60);
+      if (this.explosionIntensity < 0.005) {
         this.explosionVelocity = null;
         this.explosionIntensity = 0;
       }
     }
 
+    const colorAttr = this.pointsGeometry.getAttribute('color') as THREE.BufferAttribute;
+    const colors = colorAttr.array as Float32Array;
+
     for (let i = 0; i < this.particleCount; i++) {
       const i3 = i * 3;
 
-      let vx = this.velocities[i3] * speed;
-      let vy = this.velocities[i3 + 1] * speed;
-      let vz = this.velocities[i3 + 2] * speed;
+      let vx = this.velocities[i3] * speedMul * rotSpeed;
+      let vy = this.velocities[i3 + 1] * speedMul * 0.3;
+      let vz = this.velocities[i3 + 2] * speedMul * rotSpeed;
 
       if (gravity !== 0) {
         const x = this.positions[i3];
         const y = this.positions[i3 + 1];
         const z = this.positions[i3 + 2];
-        const dist = Math.sqrt(x * x + y * y + z * z) || 1;
-        vx += (-x / dist) * gravity * 2 * dt;
-        vy += (-y / dist) * gravity * 2 * dt;
-        vz += (-z / dist) * gravity * 2 * dt;
+        const distSq = x * x + y * y + z * z;
+        const dist = Math.sqrt(distSq) || 1;
+        const gForce = gravity * 1.5;
+        vx += (-x / dist) * gForce * dt;
+        vy += (-y / dist) * gForce * dt;
+        vz += (-z / dist) * gForce * dt;
       }
 
       if (this.explosionVelocity && this.explosionIntensity > 0) {
-        vx += this.explosionVelocity[i3] * this.explosionIntensity * dt * 2;
-        vy += this.explosionVelocity[i3 + 1] * this.explosionIntensity * dt * 2;
-        vz += this.explosionVelocity[i3 + 2] * this.explosionIntensity * dt * 2;
+        const exp = this.explosionIntensity;
+        vx += this.explosionVelocity[i3] * exp * dt * 3;
+        vy += this.explosionVelocity[i3 + 1] * exp * dt * 3;
+        vz += this.explosionVelocity[i3 + 2] * exp * dt * 3;
       }
 
       this.positions[i3] += vx * dt;
@@ -256,35 +284,28 @@ export class ParticleUniverse {
       this.positions[i3 + 2] += vz * dt;
 
       const px = this.positions[i3];
+      const py = this.positions[i3 + 1];
       const pz = this.positions[i3 + 2];
-      this.positions[i3] = px * cosR - pz * sinR;
-      this.positions[i3 + 2] = px * sinR + pz * cosR;
+      const distFromCenter = Math.sqrt(px * px + py * py + pz * pz);
 
-      const distFromCenter = Math.sqrt(
-        this.positions[i3] * this.positions[i3] +
-        this.positions[i3 + 1] * this.positions[i3 + 1] +
-        this.positions[i3 + 2] * this.positions[i3 + 2]
-      );
-
-      if (distFromCenter > SPHERE_RADIUS * 1.5) {
-        const scale = SPHERE_RADIUS * 1.5 / distFromCenter;
+      const maxRadius = SPHERE_RADIUS * 1.8;
+      if (distFromCenter > maxRadius) {
+        const scale = maxRadius / distFromCenter;
         this.positions[i3] *= scale;
         this.positions[i3 + 1] *= scale;
         this.positions[i3 + 2] *= scale;
+
+        const nx = px / distFromCenter;
+        const ny = py / distFromCenter;
+        const nz = pz / distFromCenter;
+        const dot = this.velocities[i3] * nx + this.velocities[i3 + 1] * ny + this.velocities[i3 + 2] * nz;
+        if (dot > 0) {
+          this.velocities[i3] -= 2 * dot * nx;
+          this.velocities[i3 + 1] -= 2 * dot * ny;
+          this.velocities[i3 + 2] -= 2 * dot * nz;
+        }
       }
     }
-
-    const colorAttr = this.pointsGeometry.getAttribute('color') as THREE.BufferAttribute;
-    const colorArray = colorAttr.array as Float32Array;
-    for (let i = 0; i < this.particleCount; i++) {
-      const i3 = i * 3;
-      const hue = 0.6 + this.currentParams.colorGradient * 0.4 + Math.sin(i * 0.01) * 0.02;
-      this.tempColor.setHSL(hue, 0.85, 0.55 + Math.random() * 0.1);
-      colorArray[i3] = this.tempColor.r;
-      colorArray[i3 + 1] = this.tempColor.g;
-      colorArray[i3 + 2] = this.tempColor.b;
-    }
-    colorAttr.needsUpdate = true;
   }
 
   private updateLines(): void {
@@ -292,35 +313,41 @@ export class ParticleUniverse {
     const threshold = LINE_DISTANCE_THRESHOLD;
     const thresholdSq = threshold * threshold;
     const maxLines = MAX_LINES;
-
     const cellSize = threshold;
+
     const grid: Map<string, number[]> = new Map();
+    const pos = this.positions;
 
     for (let i = 0; i < this.particleCount; i++) {
       const i3 = i * 3;
-      const gx = Math.floor(this.positions[i3] / cellSize);
-      const gy = Math.floor(this.positions[i3 + 1] / cellSize);
-      const gz = Math.floor(this.positions[i3 + 2] / cellSize);
-      const key = `${gx},${gy},${gz}`;
+      const gx = (pos[i3] / cellSize) | 0;
+      const gy = (pos[i3 + 1] / cellSize) | 0;
+      const gz = (pos[i3 + 2] / cellSize) | 0;
+      const key = gx + ',' + gy + ',' + gz;
 
-      if (!grid.has(key)) {
-        grid.set(key, []);
+      let cell = grid.get(key);
+      if (!cell) {
+        cell = [];
+        grid.set(key, cell);
       }
-      grid.get(key)!.push(i);
+      cell.push(i);
     }
 
-    const checked = new Set<string>();
+    const colorAttr = this.pointsGeometry.getAttribute('color') as THREE.BufferAttribute;
+    const colors = colorAttr.array as Float32Array;
+    const linePos = this.linePositions;
+    const lineCol = this.lineColors;
 
     for (let i = 0; i < this.particleCount && this.lineCount < maxLines; i++) {
       const i3 = i * 3;
-      const gx = Math.floor(this.positions[i3] / cellSize);
-      const gy = Math.floor(this.positions[i3 + 1] / cellSize);
-      const gz = Math.floor(this.positions[i3 + 2] / cellSize);
+      const gx = (pos[i3] / cellSize) | 0;
+      const gy = (pos[i3 + 1] / cellSize) | 0;
+      const gz = (pos[i3 + 2] / cellSize) | 0;
 
-      for (let dx = -1; dx <= 1 && this.lineCount < maxLines; dx++) {
-        for (let dy = -1; dy <= 1 && this.lineCount < maxLines; dy++) {
-          for (let dz = -1; dz <= 1 && this.lineCount < maxLines; dz++) {
-            const key = `${gx + dx},${gy + dy},${gz + dz}`;
+      for (let cx = -1; cx <= 1 && this.lineCount < maxLines; cx++) {
+        for (let cy = -1; cy <= 1 && this.lineCount < maxLines; cy++) {
+          for (let cz = -1; cz <= 1 && this.lineCount < maxLines; cz++) {
+            const key = (gx + cx) + ',' + (gy + cy) + ',' + (gz + cz);
             const cell = grid.get(key);
             if (!cell) continue;
 
@@ -328,40 +355,35 @@ export class ParticleUniverse {
               const j = cell[k];
               if (j <= i) continue;
 
-              const pairKey = i < j ? `${i}-${j}` : `${j}-${i}`;
-              if (checked.has(pairKey)) continue;
-              checked.add(pairKey);
-
               const j3 = j * 3;
-              const ddx = this.positions[i3] - this.positions[j3];
-              const ddy = this.positions[i3 + 1] - this.positions[j3 + 1];
-              const ddz = this.positions[i3 + 2] - this.positions[j3 + 2];
-              const distSq = ddx * ddx + ddy * ddy + ddz * ddz;
+              const dx = pos[i3] - pos[j3];
+              const dy = pos[i3 + 1] - pos[j3 + 1];
+              const dz = pos[i3 + 2] - pos[j3 + 2];
+              const distSq = dx * dx + dy * dy + dz * dz;
 
               if (distSq < thresholdSq) {
                 const dist = Math.sqrt(distSq);
-                const alpha = 1 - dist / threshold;
-                const lineAlpha = alpha * 0.6;
+                const alpha = (1 - dist / threshold) * 0.5;
 
                 const li6 = this.lineCount * 6;
 
-                this.linePositions[li6] = this.positions[i3];
-                this.linePositions[li6 + 1] = this.positions[i3 + 1];
-                this.linePositions[li6 + 2] = this.positions[i3 + 2];
-                this.linePositions[li6 + 3] = this.positions[j3];
-                this.linePositions[li6 + 4] = this.positions[j3 + 1];
-                this.linePositions[li6 + 5] = this.positions[j3 + 2];
+                linePos[li6] = pos[i3];
+                linePos[li6 + 1] = pos[i3 + 1];
+                linePos[li6 + 2] = pos[i3 + 2];
+                linePos[li6 + 3] = pos[j3];
+                linePos[li6 + 4] = pos[j3 + 1];
+                linePos[li6 + 5] = pos[j3 + 2];
 
-                const cr = (this.colors[i3] + this.colors[j3]) * 0.5;
-                const cg = (this.colors[i3 + 1] + this.colors[j3 + 1]) * 0.5;
-                const cb = (this.colors[i3 + 2] + this.colors[j3 + 2]) * 0.5;
+                const cr = (colors[i3] + colors[j3]) * 0.5;
+                const cg = (colors[i3 + 1] + colors[j3 + 1]) * 0.5;
+                const cb = (colors[i3 + 2] + colors[j3 + 2]) * 0.5;
 
-                this.lineColors[li6] = cr * lineAlpha;
-                this.lineColors[li6 + 1] = cg * lineAlpha;
-                this.lineColors[li6 + 2] = cb * lineAlpha;
-                this.lineColors[li6 + 3] = cr * lineAlpha;
-                this.lineColors[li6 + 4] = cg * lineAlpha;
-                this.lineColors[li6 + 5] = cb * lineAlpha;
+                lineCol[li6] = cr * alpha;
+                lineCol[li6 + 1] = cg * alpha;
+                lineCol[li6 + 2] = cb * alpha;
+                lineCol[li6 + 3] = cr * alpha;
+                lineCol[li6 + 4] = cg * alpha;
+                lineCol[li6 + 5] = cb * alpha;
 
                 this.lineCount++;
               }

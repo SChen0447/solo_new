@@ -26,9 +26,14 @@ export class OrbitController extends EventTarget {
   private isPanning = false;
   private lastX = 0;
   private lastY = 0;
+  private lastMoveTime = 0;
 
   private touchStartDistance = 0;
   private initialDistance = 0;
+
+  private rightVector = new THREE.Vector3();
+  private upVector = new THREE.Vector3();
+  private forwardVector = new THREE.Vector3();
 
   constructor(camera: THREE.PerspectiveCamera, domElement: HTMLElement) {
     super();
@@ -53,6 +58,7 @@ export class OrbitController extends EventTarget {
     document.addEventListener('mousemove', this.onMouseMove);
     document.addEventListener('mouseup', this.onMouseUp);
     el.addEventListener('wheel', this.onWheel, { passive: false });
+    el.addEventListener('contextmenu', this.onContextMenu);
 
     el.addEventListener('touchstart', this.onTouchStart, { passive: false });
     el.addEventListener('touchmove', this.onTouchMove, { passive: false });
@@ -60,15 +66,22 @@ export class OrbitController extends EventTarget {
     el.addEventListener('touchcancel', this.onTouchEnd);
   }
 
+  private onContextMenu = (e: MouseEvent): void => {
+    e.preventDefault();
+  };
+
   private onMouseDown = (e: MouseEvent): void => {
     e.preventDefault();
     if (e.button === 0) {
       this.isDragging = true;
+      this.velocityTheta = 0;
+      this.velocityPhi = 0;
     } else if (e.button === 2) {
       this.isPanning = true;
     }
     this.lastX = e.clientX;
     this.lastY = e.clientY;
+    this.lastMoveTime = performance.now();
   };
 
   private onMouseMove = (e: MouseEvent): void => {
@@ -76,29 +89,36 @@ export class OrbitController extends EventTarget {
 
     const deltaX = e.clientX - this.lastX;
     const deltaY = e.clientY - this.lastY;
+    const now = performance.now();
+    const dt = now - this.lastMoveTime;
 
     if (this.isDragging) {
-      this.velocityTheta = -deltaX * ROTATION_SPEED;
-      this.velocityPhi = -deltaY * ROTATION_SPEED;
-      this.theta += this.velocityTheta;
-      this.phi += this.velocityPhi;
+      const dTheta = -deltaX * ROTATION_SPEED;
+      const dPhi = -deltaY * ROTATION_SPEED;
+
+      this.theta += dTheta;
+      this.phi += dPhi;
       this.phi = Math.max(MIN_PHI, Math.min(MAX_PHI, this.phi));
+
+      if (dt > 0) {
+        this.velocityTheta = dTheta;
+        this.velocityPhi = dPhi;
+      }
     }
 
     if (this.isPanning) {
       const panX = -deltaX * PAN_SPEED * this.distance * 0.01;
       const panY = deltaY * PAN_SPEED * this.distance * 0.01;
 
-      const right = new THREE.Vector3();
-      const up = new THREE.Vector3();
-      this.camera.matrix.extractBasis(right, up, new THREE.Vector3());
+      this.camera.matrix.extractBasis(this.rightVector, this.upVector, this.forwardVector);
 
-      this.target.add(right.multiplyScalar(panX));
-      this.target.add(up.multiplyScalar(panY));
+      this.target.add(this.rightVector.multiplyScalar(panX));
+      this.target.add(this.upVector.multiplyScalar(panY));
     }
 
     this.lastX = e.clientX;
     this.lastY = e.clientY;
+    this.lastMoveTime = now;
     this.updateCamera();
     this.dispatchViewChanged();
   };
@@ -121,8 +141,11 @@ export class OrbitController extends EventTarget {
     e.preventDefault();
     if (e.touches.length === 1) {
       this.isDragging = true;
+      this.velocityTheta = 0;
+      this.velocityPhi = 0;
       this.lastX = e.touches[0].clientX;
       this.lastY = e.touches[0].clientY;
+      this.lastMoveTime = performance.now();
     } else if (e.touches.length === 2) {
       this.touchStartDistance = this.getTouchDistance(e.touches);
       this.initialDistance = this.distance;
@@ -134,15 +157,24 @@ export class OrbitController extends EventTarget {
     if (e.touches.length === 1 && this.isDragging) {
       const deltaX = e.touches[0].clientX - this.lastX;
       const deltaY = e.touches[0].clientY - this.lastY;
+      const now = performance.now();
+      const dt = now - this.lastMoveTime;
 
-      this.velocityTheta = -deltaX * ROTATION_SPEED * 1.5;
-      this.velocityPhi = -deltaY * ROTATION_SPEED * 1.5;
-      this.theta += this.velocityTheta;
-      this.phi += this.velocityPhi;
+      const dTheta = -deltaX * ROTATION_SPEED * 1.5;
+      const dPhi = -deltaY * ROTATION_SPEED * 1.5;
+
+      this.theta += dTheta;
+      this.phi += dPhi;
       this.phi = Math.max(MIN_PHI, Math.min(MAX_PHI, this.phi));
+
+      if (dt > 0) {
+        this.velocityTheta = dTheta;
+        this.velocityPhi = dPhi;
+      }
 
       this.lastX = e.touches[0].clientX;
       this.lastY = e.touches[0].clientY;
+      this.lastMoveTime = now;
       this.updateCamera();
       this.dispatchViewChanged();
     } else if (e.touches.length === 2) {
@@ -170,7 +202,7 @@ export class OrbitController extends EventTarget {
   public update(): void {
     let needsUpdate = false;
 
-    if (Math.abs(this.velocityTheta) > 0.00001 || Math.abs(this.velocityPhi) > 0.00001) {
+    if (!this.isDragging && (Math.abs(this.velocityTheta) > 0.00001 || Math.abs(this.velocityPhi) > 0.00001)) {
       this.theta += this.velocityTheta;
       this.phi += this.velocityPhi;
       this.phi = Math.max(MIN_PHI, Math.min(MAX_PHI, this.phi));
@@ -230,6 +262,7 @@ export class OrbitController extends EventTarget {
     document.removeEventListener('mousemove', this.onMouseMove);
     document.removeEventListener('mouseup', this.onMouseUp);
     el.removeEventListener('wheel', this.onWheel);
+    el.removeEventListener('contextmenu', this.onContextMenu);
     el.removeEventListener('touchstart', this.onTouchStart);
     el.removeEventListener('touchmove', this.onTouchMove);
     el.removeEventListener('touchend', this.onTouchEnd);
