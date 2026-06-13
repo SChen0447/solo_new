@@ -50,8 +50,18 @@ class IdeaStatusUpdate(BaseModel):
 
 
 @app.get("/api/ideas")
-def get_ideas():
-    return read_ideas()
+def get_ideas(page: int = 1, page_size: int = 6):
+    ideas = read_ideas()
+    start = (page - 1) * page_size
+    end = start + page_size
+    paginated = ideas[start:end]
+    return {
+        "items": paginated,
+        "total": len(ideas),
+        "page": page,
+        "page_size": page_size,
+        "has_more": end < len(ideas),
+    }
 
 
 @app.get("/api/ideas/{idea_id}")

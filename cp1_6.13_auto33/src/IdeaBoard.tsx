@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Masonry from 'react-masonry-css';
 
 interface Comment {
   id: number;
@@ -24,6 +25,14 @@ interface Idea {
   comments: Comment[];
 }
 
+interface PaginatedResponse {
+  items: Idea[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+}
+
 const TAG_OPTIONS = ['文化', '科技', '生活', '艺术'];
 
 const TAG_COLORS: Record<string, string> = {
@@ -33,73 +42,229 @@ const TAG_COLORS: Record<string, string> = {
   '艺术': '#D291BC',
 };
 
-function FloatingStar({ x, y }: { x: number; y: number }) {
-  return (
-    <span
-      style={{
-        position: 'fixed',
-        left: x,
-        top: y,
-        pointerEvents: 'none',
-        fontSize: '20px',
-        zIndex: 9999,
-        animation: 'floatUp 1s ease-out forwards',
-      }}
-    >
-      ⭐
-    </span>
-  );
-}
+const breakpointColumns = {
+  default: 3,
+  900: 2,
+  600: 1,
+};
 
-function Toast({ message, visible }: { message: string; visible: boolean }) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 24,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: '#FF6B6B',
-        color: '#fff',
-        padding: '10px 28px',
-        borderRadius: 24,
-        fontWeight: 700,
-        fontSize: 15,
-        zIndex: 10000,
-        boxShadow: '0 4px 20px rgba(255,107,107,0.4)',
-        animation: visible ? 'toastIn 0.3s ease forwards' : 'toastOut 0.3s ease forwards',
-      }}
-    >
-      {message}
-    </div>
-  );
-}
+const masonryStyles = `
+  .masonry-grid {
+    display: flex;
+    margin-left: -18px;
+    width: auto;
+  }
+  .masonry-grid_column {
+    padding-left: 18px;
+    background-clip: padding-box;
+  }
+  .masonry-grid_column > .idea-card {
+    margin-bottom: 18px;
+  }
+
+  @media (max-width: 600px) {
+    .masonry-grid {
+      margin-left: 0 !important;
+    }
+    .masonry-grid_column {
+      padding-left: 0 !important;
+    }
+    .masonry-grid_column > .idea-card {
+      margin-left: 8px !important;
+      margin-right: 8px !important;
+      margin-bottom: 12px !important;
+    }
+  }
+
+  .idea-card {
+    background: linear-gradient(135deg, #FFECD2 0%, #FCB69F 40%, #A1C4FD 100%);
+    border-radius: 18px;
+    padding: 20px 18px 16px;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    break-inside: avoid;
+  }
+  .idea-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.13);
+  }
+
+  .idea-card.drop-in {
+    animation: dropIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .puto-btn {
+    background: #FF6B6B;
+    color: #fff;
+    border: none;
+    border-radius: 28px;
+    padding: 10px 24px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    box-shadow: 0 4px 14px rgba(255,107,107,0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .puto-btn.puto-bounce {
+    animation: putoBounce 0.3s ease;
+  }
+  .puto-btn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 6px 20px rgba(255,107,107,0.45);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+    animation: fadeIn 0.25s ease forwards;
+  }
+  .modal-content {
+    background: #fff;
+    border-radius: 20px;
+    padding: 32px 28px;
+    width: 90%;
+    max-width: 460px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.15);
+    animation: bounceIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .like-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border: none;
+    border-radius: 16px;
+    padding: 5px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Nunito', sans-serif;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .like-btn.liked {
+    background: #FF6B6B;
+    color: #fff;
+  }
+  .like-btn.not-liked {
+    background: rgba(255,107,107,0.12);
+    color: #FF6B6B;
+  }
+  .like-btn.pulse {
+    animation: pulse 0.4s ease;
+  }
+
+  .floating-star {
+    position: fixed;
+    pointer-events: none;
+    font-size: 20px;
+    z-index: 9999;
+    animation: floatUp 1s ease-out forwards;
+  }
+
+  .toast-notification {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #FF6B6B;
+    color: #fff;
+    padding: 10px 28px;
+    border-radius: 24px;
+    font-weight: 700;
+    font-size: 15px;
+    z-index: 10000;
+    box-shadow: 0 4px 20px rgba(255,107,107,0.4);
+  }
+  .toast-enter {
+    animation: toastIn 0.3s ease forwards;
+  }
+  .toast-exit {
+    animation: toastOut 0.3s ease forwards;
+  }
+
+  .loading-indicator {
+    text-align: center;
+    padding: 20px;
+    color: #aaa;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .sentinel {
+    height: 20px;
+  }
+`;
 
 export default function IdeaBoard() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newTags, setNewTags] = useState<string[]>([]);
   const [stars, setStars] = useState<{ id: number; x: number; y: number }[]>([]);
-  const [toast, setToast] = useState({ message: '', visible: false });
-  const [droppingId, setDroppingId] = useState<number | null>(null);
-  const [likingId, setLikingId] = useState<number | null>(null);
+  const [toast, setToast] = useState({ message: '', visible: false, exiting: false });
+  const [droppingIds, setDroppingIds] = useState<Set<number>>(new Set());
+  const [pulsingIds, setPulsingIds] = useState<Set<number>>(new Set());
+  const [buttonBounce, setButtonBounce] = useState(false);
   const starIdRef = useRef(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  const fetchIdeas = useCallback(async () => {
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore) return;
+    setLoading(true);
     try {
-      const res = await axios.get<Idea[]>('/api/ideas');
-      setIdeas(res.data);
+      const res = await axios.get<PaginatedResponse>('/api/ideas', {
+        params: { page, page_size: 6 },
+      });
+      const newItems = res.data.items;
+      setIdeas((prev) => {
+        const existingIds = new Set(prev.map((i) => i.id));
+        const filtered = newItems.filter((i) => !existingIds.has(i.id));
+        return [...prev, ...filtered];
+      });
+      setHasMore(res.data.has_more);
+      if (res.data.has_more) {
+        setPage((p) => p + 1);
+      }
     } catch {
-      setIdeas([]);
+      // ignore
+    } finally {
+      setLoading(false);
     }
+  }, [page, loading, hasMore]);
+
+  useEffect(() => {
+    loadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    fetchIdeas();
-  }, [fetchIdeas]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && ideas.length > 0) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loading, ideas.length, loadMore]);
 
   const handleLike = async (e: React.MouseEvent, idea: Idea) => {
     e.stopPropagation();
@@ -107,11 +272,21 @@ export default function IdeaBoard() {
     const x = rect.left + rect.width / 2 - 10;
     const y = rect.top - 5;
     const sid = ++starIdRef.current;
+
     setStars((prev) => [...prev, { id: sid, x, y }]);
-    setLikingId(idea.id);
+    setPulsingIds((prev) => new Set(prev).add(idea.id));
+
     setTimeout(() => {
       setStars((prev) => prev.filter((s) => s.id !== sid));
     }, 1000);
+    setTimeout(() => {
+      setPulsingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(idea.id);
+        return next;
+      });
+    }, 400);
+
     try {
       const res = await axios.post(`/api/ideas/${idea.id}/like`);
       setIdeas((prev) =>
@@ -119,8 +294,19 @@ export default function IdeaBoard() {
           i.id === idea.id ? { ...i, likes: res.data.likes, liked: res.data.liked } : i
         )
       );
-    } catch { /* ignore */ }
-    setTimeout(() => setLikingId(null), 400);
+    } catch {
+      // ignore
+    }
+  };
+
+  const showToast = (message: string) => {
+    setToast({ message, visible: true, exiting: false });
+    setTimeout(() => {
+      setToast((t) => ({ ...t, exiting: true }));
+      setTimeout(() => {
+        setToast({ message: '', visible: false, exiting: false });
+      }, 300);
+    }, 2000);
   };
 
   const handleSubmit = async () => {
@@ -131,16 +317,28 @@ export default function IdeaBoard() {
         description: newDesc.trim(),
         tags: newTags,
       });
-      setIdeas((prev) => [res.data, ...prev]);
-      setDroppingId(res.data.id);
+
+      const newIdea = res.data;
+      setIdeas((prev) => [newIdea, ...prev]);
+      setDroppingIds((prev) => new Set(prev).add(newIdea.id));
+
       setShowModal(false);
       setNewTitle('');
       setNewDesc('');
       setNewTags([]);
-      setToast({ message: '发布成功！你的灵感已点燃 ✨', visible: true });
-      setTimeout(() => setToast((t) => ({ ...t, visible: false })), 2000);
-      setTimeout(() => setDroppingId(null), 500);
-    } catch { /* ignore */ }
+
+      showToast('发布成功！你的灵感已点燃 ✨');
+
+      setTimeout(() => {
+        setDroppingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(newIdea.id);
+          return next;
+        });
+      }, 500);
+    } catch {
+      // ignore
+    }
   };
 
   const toggleTag = (tag: string) => {
@@ -149,102 +347,56 @@ export default function IdeaBoard() {
     );
   };
 
+  const handlePutoClick = () => {
+    setButtonBounce(true);
+    setTimeout(() => setButtonBounce(false), 300);
+    setShowModal(true);
+  };
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#F7F1E0',
-        padding: '0 16px 40px',
-      }}
-    >
+    <div style={{ minHeight: '100vh', background: '#F7F1E0', padding: '0 0 40px' }}>
+      <style>{masonryStyles}</style>
+
       {stars.map((s) => (
-        <FloatingStar key={s.id} x={s.x} y={s.y} />
+        <span key={s.id} className="floating-star" style={{ left: s.x, top: s.y }}>
+          ⭐
+        </span>
       ))}
-      <Toast message={toast.message} visible={toast.visible} />
+
+      {toast.visible && (
+        <div className={`toast-notification ${toast.exiting ? 'toast-exit' : 'toast-enter'}`}>
+          {toast.message}
+        </div>
+      )}
 
       <header
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '20px 0 16px',
+          padding: '20px 16px 16px',
           maxWidth: 1100,
           margin: '0 auto',
         }}
       >
-        <h1
-          style={{
-            fontSize: 28,
-            fontWeight: 800,
-            color: '#FF6B6B',
-            letterSpacing: -0.5,
-          }}
-        >
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: '#FF6B6B', letterSpacing: -0.5 }}>
           🔥 创意灵感火花板
         </h1>
         <button
-          onClick={() => setShowModal(true)}
-          style={{
-            background: '#FF6B6B',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 28,
-            padding: '10px 24px',
-            fontSize: 16,
-            fontWeight: 700,
-            cursor: 'pointer',
-            fontFamily: 'Nunito, sans-serif',
-            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-            boxShadow: '0 4px 14px rgba(255,107,107,0.35)',
-            animation: showModal ? '' : 'putoBounce 0.3s ease',
-          }}
-          onMouseDown={(e) => {
-            (e.currentTarget as HTMLElement).style.animation = 'putoBounce 0.3s ease';
-          }}
-          onMouseUp={(e) => {
-            (e.currentTarget as HTMLElement).style.animation = '';
-          }}
+          className={`puto-btn ${buttonBounce ? 'puto-bounce' : ''}`}
+          onClick={handlePutoClick}
         >
           💦 噗通！发点子
         </button>
       </header>
 
       {showModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 5000,
-            animation: 'fadeIn 0.25s ease',
-          }}
-          onClick={() => setShowModal(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#fff',
-              borderRadius: 20,
-              padding: '32px 28px',
-              width: '90%',
-              maxWidth: 460,
-              boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
-              animation: 'bounceIn 0.35s ease',
-            }}
-          >
-            <h2
-              style={{
-                fontSize: 20,
-                fontWeight: 800,
-                color: '#FF6B6B',
-                marginBottom: 20,
-              }}
-            >
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#FF6B6B', marginBottom: 20 }}>
               ✨ 新灵感来袭
             </h2>
+
             <label style={{ display: 'block', marginBottom: 4, fontWeight: 600, fontSize: 14, color: '#666' }}>
               标题
             </label>
@@ -263,15 +415,18 @@ export default function IdeaBoard() {
                 outline: 'none',
                 transition: 'border-color 0.2s',
               }}
-              onFocus={(e) => { (e.target as HTMLElement).style.borderColor = '#FF6B6B'; }}
-              onBlur={(e) => { (e.target as HTMLElement).style.borderColor = '#eee'; }}
+              onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = '#FF6B6B')}
+              onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = '#eee')}
             />
+
             <label style={{ display: 'block', marginBottom: 4, fontWeight: 600, fontSize: 14, color: '#666' }}>
               描述 <span style={{ color: '#aaa', fontWeight: 400 }}>({newDesc.length}/200)</span>
             </label>
             <textarea
               value={newDesc}
-              onChange={(e) => { if (e.target.value.length <= 200) setNewDesc(e.target.value); }}
+              onChange={(e) => {
+                if (e.target.value.length <= 200) setNewDesc(e.target.value);
+              }}
               placeholder="描述一下你的灵感..."
               rows={3}
               style={{
@@ -286,9 +441,10 @@ export default function IdeaBoard() {
                 resize: 'vertical',
                 transition: 'border-color 0.2s',
               }}
-              onFocus={(e) => { (e.target as HTMLElement).style.borderColor = '#FF6B6B'; }}
-              onBlur={(e) => { (e.target as HTMLElement).style.borderColor = '#eee'; }}
+              onFocus={(e) => ((e.target as HTMLTextAreaElement).style.borderColor = '#FF6B6B')}
+              onBlur={(e) => ((e.target as HTMLTextAreaElement).style.borderColor = '#eee')}
             />
+
             <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: '#666' }}>
               标签（可多选）
             </label>
@@ -314,6 +470,7 @@ export default function IdeaBoard() {
                 </button>
               ))}
             </div>
+
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setShowModal(false)}
@@ -355,162 +512,117 @@ export default function IdeaBoard() {
         </div>
       )}
 
-      <div
-        style={{
-          maxWidth: 1100,
-          margin: '0 auto',
-          columnCount: 3,
-          columnGap: 18,
-        }}
-        className="masonry-container"
-      >
-        <style>{`
-          .masonry-container {
-            column-count: 3;
-          }
-          @media (max-width: 900px) {
-            .masonry-container {
-              column-count: 2 !important;
-            }
-          }
-          @media (max-width: 600px) {
-            .masonry-container {
-              column-count: 1 !important;
-            }
-            .masonry-card {
-              width: calc(100% - 16px) !important;
-              margin-left: 8px !important;
-              margin-right: 8px !important;
-            }
-          }
-        `}</style>
-        {ideas.map((idea) => (
-          <div
-            key={idea.id}
-            className="masonry-card"
-            onClick={() => navigate(`/idea/${idea.id}`)}
-            style={{
-              breakInside: 'avoid',
-              marginBottom: 18,
-              background: 'linear-gradient(135deg, #FFECD2 0%, #FCB69F 40%, #A1C4FD 100%)',
-              borderRadius: 18,
-              padding: '20px 18px 16px',
-              cursor: 'pointer',
-              transition: 'transform 0.25s ease, box-shadow 0.25s ease',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-              animation: droppingId === idea.id ? 'dropIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards' : 'none',
-            }}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.transform = 'translateY(-4px)';
-              el.style.boxShadow = '0 8px 28px rgba(0,0,0,0.13)';
-            }}
-            onMouseLeave={(e) => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.transform = 'translateY(0)';
-              el.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)';
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <img
-                src={idea.authorAvatar}
-                alt={idea.author}
-                style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.7)' }}
-              />
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#666' }}>{idea.author}</span>
-              {idea.status === '已实现' && (
-                <span
-                  style={{
-                    marginLeft: 'auto',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    background: '#4CAF50',
-                    color: '#fff',
-                    padding: '2px 10px',
-                    borderRadius: 10,
-                  }}
-                >
-                  ✓ 已实现
-                </span>
-              )}
-            </div>
-            <h3
-              style={{
-                fontSize: 17,
-                fontWeight: 800,
-                color: '#333',
-                marginBottom: 8,
-                lineHeight: 1.35,
-              }}
-            >
-              {idea.title}
-            </h3>
-            <p
-              style={{
-                fontSize: 13.5,
-                color: '#555',
-                lineHeight: 1.55,
-                marginBottom: 12,
-              }}
-            >
-              {idea.description}
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-              {idea.tags.map((tag) => (
-                <span
-                  key={tag}
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '3px 10px',
-                    borderRadius: 10,
-                    background: TAG_COLORS[tag] || '#ddd',
-                    color: '#fff',
-                  }}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
+        <Masonry
+          breakpointCols={breakpointColumns}
+          className="masonry-grid"
+          columnClassName="masonry-grid_column"
+        >
+          {ideas.map((idea) => (
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderTop: '1px solid rgba(0,0,0,0.07)',
-                paddingTop: 10,
-              }}
+              key={idea.id}
+              className={`idea-card ${droppingIds.has(idea.id) ? 'drop-in' : ''}`}
+              onClick={() => navigate(`/idea/${idea.id}`)}
             >
-              <button
-                onClick={(e) => handleLike(e, idea)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <img
+                  src={idea.authorAvatar}
+                  alt={idea.author}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,0.7)',
+                  }}
+                />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#666' }}>{idea.author}</span>
+                {idea.status === '已实现' && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: '#4CAF50',
+                      color: '#fff',
+                      padding: '2px 10px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    ✓ 已实现
+                  </span>
+                )}
+              </div>
+
+              <h3
+                style={{
+                  fontSize: 17,
+                  fontWeight: 800,
+                  color: '#333',
+                  marginBottom: 8,
+                  lineHeight: 1.35,
+                }}
+              >
+                {idea.title}
+              </h3>
+              <p style={{ fontSize: 13.5, color: '#555', lineHeight: 1.55, marginBottom: 12 }}>
+                {idea.description}
+              </p>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {idea.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '3px 10px',
+                      borderRadius: 10,
+                      background: TAG_COLORS[tag] || '#ddd',
+                      color: '#fff',
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 5,
-                  background: idea.liked ? '#FF6B6B' : 'rgba(255,107,107,0.12)',
-                  border: 'none',
-                  borderRadius: 16,
-                  padding: '5px 14px',
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: idea.liked ? '#fff' : '#FF6B6B',
-                  fontFamily: 'Nunito, sans-serif',
-                  transition: 'background 0.2s',
-                  animation: likingId === idea.id ? 'pulse 0.4s ease' : 'none',
+                  justifyContent: 'space-between',
+                  borderTop: '1px solid rgba(0,0,0,0.07)',
+                  paddingTop: 10,
                 }}
               >
-                {idea.liked ? '❤️' : '🤍'} {idea.likes}
-              </button>
-              <span style={{ fontSize: 12, color: '#999', fontWeight: 600 }}>
-                💬 {idea.comments.length}
-              </span>
+                <button
+                  className={`like-btn ${idea.liked ? 'liked' : 'not-liked'} ${
+                    pulsingIds.has(idea.id) ? 'pulse' : ''
+                  }`}
+                  onClick={(e) => handleLike(e, idea)}
+                >
+                  {idea.liked ? '❤️' : '🤍'} {idea.likes}
+                </button>
+                <span style={{ fontSize: 12, color: '#999', fontWeight: 600 }}>
+                  💬 {idea.comments.length}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </Masonry>
       </div>
 
-      {ideas.length === 0 && (
+      <div ref={sentinelRef} className="sentinel" />
+
+      {loading && <div className="loading-indicator">加载更多灵感中...</div>}
+
+      {!hasMore && ideas.length > 0 && (
+        <div style={{ textAlign: 'center', color: '#ccc', fontSize: 13, padding: '20px 0' }}>
+          — 已经到底啦，去点燃更多灵感吧 —
+        </div>
+      )}
+
+      {ideas.length === 0 && !loading && (
         <div
           style={{
             textAlign: 'center',
