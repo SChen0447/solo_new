@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>都市律动 - 交互式3D音乐可视化</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0e1a;
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    }
+
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    #canvas-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .control-bar {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, rgba(77, 166, 255, 0.15), rgba(170, 68, 255, 0.15));
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4da6ff, #aa44ff);
+      border: none;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .file-upload {
+      display: none;
+    }
+
+    .sensitivity-container {
+      position: fixed;
+      bottom: 30px;
+      left: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      min-width: 200px;
+    }
+
+    .sensitivity-label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.8);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sensitivity-value {
+      font-weight: 600;
+      color: #4da6ff;
+      font-size: 14px;
+    }
+
+    .sensitivity-slider {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .sensitivity-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: linear-gradient(135deg, #4da6ff, #aa44ff);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.2s;
+      box-shadow: 0 2px 8px rgba(77, 166, 255, 0.5);
+    }
+
+    .sensitivity-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .sensitivity-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: linear-gradient(135deg, #4da6ff, #aa44ff);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 8px rgba(77, 166, 255, 0.5);
+    }
+
+    .spectrum-container {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      padding: 10px;
+      background: rgba(10, 14, 26, 0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+    }
+
+    #spectrum-canvas {
+      display: block;
+      border-radius: 8px;
+    }
+
+    .info-text {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+      text-align: center;
+      z-index: 50;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div class="control-bar">
+    <label class="btn btn-primary" for="audio-file">
+      📁 上传音频
+    </label>
+    <input type="file" id="audio-file" class="file-upload" accept=".mp3,.wav,.ogg">
+    
+    <button id="play-pause-btn" class="btn" disabled>
+      ▶ 播放
+    </button>
+    
+    <button id="reset-btn" class="btn">
+      🔄 重置
+    </button>
+  </div>
+
+  <div class="sensitivity-container">
+    <div class="sensitivity-label">
+      <span>节拍灵敏度</span>
+      <span class="sensitivity-value" id="sensitivity-value">1.0</span>
+    </div>
+    <input 
+      type="range" 
+      id="sensitivity-slider" 
+      class="sensitivity-slider"
+      min="0.5" 
+      max="2.0" 
+      step="0.1" 
+      value="1.0"
+    >
+  </div>
+
+  <div class="spectrum-container">
+    <canvas id="spectrum-canvas" width="250" height="80"></canvas>
+  </div>
+
+  <div class="info-text">
+    点击地面种植音符种子 · 拖拽旋转视角 · 滚轮缩放
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
