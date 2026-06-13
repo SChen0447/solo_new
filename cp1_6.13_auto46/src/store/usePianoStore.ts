@@ -40,7 +40,11 @@ interface PianoState {
   handleNotePlayed: (note: string, songNotes: SongNote[]) => void;
 }
 
-const savedTheme = (typeof window !== 'undefined' && localStorage.getItem('piano-theme')) as ThemeName || 'classic';
+const getSavedTheme = (): ThemeName => {
+  if (typeof window === 'undefined') return 'classic';
+  const saved = localStorage.getItem('piano-theme') as ThemeName;
+  return saved || 'classic';
+};
 
 export const usePianoStore = create<PianoState>((set, get) => ({
   currentNote: null,
@@ -54,7 +58,7 @@ export const usePianoStore = create<PianoState>((set, get) => ({
   recordStartTime: null,
   isPlayingBack: false,
   playbackSpeed: 1,
-  theme: savedTheme,
+  theme: getSavedTheme(),
 
   setCurrentNote: (note) => set({ currentNote: note }),
   addActiveNote: (note) => set((state) => {
@@ -65,7 +69,11 @@ export const usePianoStore = create<PianoState>((set, get) => ({
   removeActiveNote: (note) => set((state) => {
     const next = new Set(state.activeNotes);
     next.delete(note);
-    return { activeNotes: next, currentNote: next.size > 0 ? [...next][next.size - 1] : null };
+    const remaining = [...next];
+    return {
+      activeNotes: next,
+      currentNote: remaining.length > 0 ? remaining[remaining.length - 1] : null,
+    };
   }),
   setLearningMode: (mode) => set({ learningMode: mode, currentNoteIndex: 0, feedbackType: null }),
   setCurrentSongIndex: (index) => set({ currentSongIndex: index, currentNoteIndex: 0, feedbackType: null }),
@@ -74,7 +82,7 @@ export const usePianoStore = create<PianoState>((set, get) => ({
   startRecording: () => set({ isRecording: true, recording: [], recordStartTime: Date.now() }),
   stopRecording: () => set({ isRecording: false, recordStartTime: null }),
   addRecordedNote: (note) => set((state) => {
-    if (!state.isRecording || !state.recordStartTime) return {};
+    if (!state.isRecording || state.recordStartTime === null) return {};
     const elapsed = Date.now() - state.recordStartTime;
     if (elapsed > 60000) {
       return { isRecording: false, recordStartTime: null };
@@ -85,7 +93,9 @@ export const usePianoStore = create<PianoState>((set, get) => ({
   setPlayingBack: (playing) => set({ isPlayingBack: playing }),
   setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
   setTheme: (theme) => {
-    localStorage.setItem('piano-theme', theme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('piano-theme', theme);
+    }
     set({ theme });
   },
   handleNotePlayed: (note, songNotes) => {
@@ -96,26 +106,19 @@ export const usePianoStore = create<PianoState>((set, get) => ({
     if (note === expected.note) {
       set({ feedbackType: 'correct' });
       setTimeout(() => {
-        const s = get();
-        if (s.feedbackType === 'correct') {
+        if (get().feedbackType === 'correct') {
           set({ feedbackType: null });
         }
       }, 300);
-      const nextIndex = s_currentNoteIndex(state.currentNoteIndex, songNotes.length);
+      const nextIndex = state.currentNoteIndex + 1 >= songNotes.length ? 0 : state.currentNoteIndex + 1;
       set({ currentNoteIndex: nextIndex });
     } else {
       set({ feedbackType: 'wrong' });
       setTimeout(() => {
-        const s = get();
-        if (s.feedbackType === 'wrong') {
+        if (get().feedbackType === 'wrong') {
           set({ feedbackType: null });
         }
       }, 500);
     }
   },
 }));
-
-function s_currentNoteIndex(current: number, total: number): number {
-  if (current + 1 >= total) return 0;
-  return current + 1;
-}
