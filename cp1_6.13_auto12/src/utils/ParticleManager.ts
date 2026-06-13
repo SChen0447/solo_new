@@ -1,19 +1,20 @@
 import Phaser from 'phaser';
 
-export type ParticleEffectType = 'perfect' | 'good' | 'miss' | 'judgmentLineFlash';
+export type ParticleEffectType = 'perfect' | 'good' | 'miss';
 
-export interface ParticleEffect {
+export interface TrackedParticle {
   id: number;
   type: ParticleEffectType;
-  emitters: Phaser.GameObjects.Particles.ParticleEmitter[];
+  emitter: Phaser.GameObjects.Particles.ParticleEmitter;
   createdAt: number;
+  particleCount: number;
 }
 
 const MAX_PARTICLES = 200;
 
 export class ParticleManager {
   private scene: Phaser.Scene;
-  private effects: Map<number, ParticleEffect>;
+  private trackedParticles: TrackedParticle[];
   private nextId: number;
   private totalActiveParticles: number;
   private starTextureKey: string;
@@ -22,7 +23,7 @@ export class ParticleManager {
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.effects = new Map();
+    this.trackedParticles = [];
     this.nextId = 1;
     this.totalActiveParticles = 0;
     this.starTextureKey = 'star-particle';
@@ -78,75 +79,86 @@ export class ParticleManager {
     return points;
   }
 
+  private sortByCreatedAt(): void {
+    this.trackedParticles.sort((a, b) => a.createdAt - b.createdAt);
+  }
+
   private enforceLimit(newParticleCount: number): void {
-    while (this.totalActiveParticles + newParticleCount > MAX_PARTICLES && this.effects.size > 0) {
-      const oldestId = this.getOldestEffectId();
-      if (oldestId !== null) {
-        this.destroyEffect(oldestId);
+    this.sortByCreatedAt();
+
+    while (this.totalActiveParticles + newParticleCount > MAX_PARTICLES && this.trackedParticles.length > 0) {
+      const oldest = this.trackedParticles.shift();
+      if (oldest) {
+        this.destroyTrackedParticle(oldest);
       } else {
         break;
       }
     }
   }
 
-  private getOldestEffectId(): number | null {
-    let oldestId: number | null = null;
-    let oldestTime = Infinity;
-
-    for (const [id, effect] of this.effects.entries()) {
-      if (effect.createdAt < oldestTime) {
-        oldestTime = effect.createdAt;
-        oldestId = id;
-      }
-    }
-    return oldestId;
-  }
-
-  private registerEffect(type: ParticleEffectType, emitters: Phaser.GameObjects.Particles.ParticleEmitter[]): number {
+  private registerEmitter(
+    type: ParticleEffectType,
+    emitter: Phaser.GameObjects.Particles.ParticleEmitter
+  ): number {
     const id = this.nextId++;
     const now = Date.now();
 
-    let count = 0;
-    for (const emitter of emitters) {
-      const qty = emitter.quantity;
-      count += typeof qty === 'number' ? qty : 5;
-    }
-    this.totalActiveParticles += count;
+    const qty = emitter.quantity;
+    const particleCount = typeof qty === 'number' ? qty : 5;
 
-    this.effects.set(id, { id, type, emitters, createdAt: now });
+    const tracked: TrackedParticle = {
+      id,
+      type,
+      emitter,
+      createdAt: now,
+      particleCount,
+    };
 
-    for (const emitter of emitters) {
-      emitter.once('complete', () => {
-        this.removeEffect(id);
-      });
-    }
+    this.trackedParticles.push(tracked);
+    this.totalActiveParticles += particleCount;
+
+    emitter.once('complete', () => {
+      this.removeTrackedParticle(id);
+    });
 
     return id;
   }
 
-  private removeEffect(id: number): void {
-    const effect = this.effects.get(id);
-    if (effect) {
-      let count = 0;
-      for (const emitter of effect.emitters) {
-        const qty = emitter.quantity;
-        count += typeof qty === 'number' ? qty : 5;
-      }
-      this.totalActiveParticles = Math.max(0, this.totalActiveParticles - count);
-      this.effects.delete(id);
+  private removeTrackedParticle(id: number): void {
+    const idx = this.trackedParticles.findIndex((t) => t.id === id);
+    if (idx !== -1) {
+      const tracked = this.trackedParticles[idx];
+      this.totalActiveParticles = Math.max(0, this.totalActiveParticles - tracked.particleCount);
+      this.trackedParticles.splice(idx, 1);
+    }
+  }
+
+  private destroyTrackedParticle(tracked: TrackedParticle): void {
+    try {
+      tracked.emitter.stop();
+      tracked.emitter.destroy();
+    } catch (e) {
+    }
+    this.totalActiveParticles = Math.max(0, this.totalActiveParticles - tracked.particleCount);
+    const idx = this.trackedParticles.indexOf(tracked);
+    if (idx !== -1) {
+      this.trackedParticles.splice(idx, 1);
     }
   }
 
   spawnPerfect(x: number, y: number): number {
-    const newParticles = 30 + 15;
-    this.enforceLimit(newParticles);
+    const particleCount = 30;
+    const glowCount = 15;
+    const totalNew = particleCount + glowCount;
+
+    this.enforceLimit(totalNew);
 
     const particles = this.scene.add.particles(x, y, this.starTextureKey, {
       speed: { min: 100, max: 300 },
       angle: { min: 0, max: 360 },
       scale: { start: 1.2, end: 0 },
       lifespan: 800,
-      quantity: 30,
+      quantity: particleCount,
       tint: 0xffd700,
       blendMode: 'ADD',
       gravityY: 50,
@@ -159,7 +171,7 @@ export class ParticleManager {
       scale: { start: 2.5, end: 0 },
       alpha: { start: 0.8, end: 0 },
       lifespan: 600,
-      quantity: 15,
+      quantity: glowCount,
       tint: 0xffee88,
       blendMode: 'ADD',
       emitting: false,
@@ -168,7 +180,8 @@ export class ParticleManager {
     particles.explode();
     glow.explode();
 
-    return this.registerEffect('perfect', [particles, glow]);
+    this.registerEmitter('perfect', particles);
+    return this.registerEmitter('perfect', glow);
   }
 
   spawnGood(x: number, y: number): number {
@@ -180,7 +193,7 @@ export class ParticleManager {
       angle: { min: 0, max: 360 },
       scale: { start: 1, end: 0 },
       lifespan: 500,
-      quantity: 12,
+      quantity: newParticles,
       tint: 0xffffff,
       blendMode: 'ADD',
       emitting: false,
@@ -188,7 +201,7 @@ export class ParticleManager {
 
     particles.explode();
 
-    return this.registerEffect('good', [particles]);
+    return this.registerEmitter('good', particles);
   }
 
   spawnMiss(x: number, y: number): number {
@@ -201,7 +214,7 @@ export class ParticleManager {
       scale: { start: 1, end: 0.3 },
       alpha: { start: 1, end: 0 },
       lifespan: 700,
-      quantity: 20,
+      quantity: newParticles,
       tint: 0xff3333,
       gravityY: 300,
       rotate: { min: 0, max: 360 },
@@ -210,23 +223,19 @@ export class ParticleManager {
 
     particles.explode();
 
-    return this.registerEffect('miss', [particles]);
-  }
-
-  destroyEffect(id: number): void {
-    const effect = this.effects.get(id);
-    if (effect) {
-      for (const emitter of effect.emitters) {
-        emitter.stop();
-        emitter.destroy();
-      }
-      this.removeEffect(id);
-    }
+    return this.registerEmitter('miss', particles);
   }
 
   destroyAll(): void {
-    for (const id of Array.from(this.effects.keys())) {
-      this.destroyEffect(id);
+    while (this.trackedParticles.length > 0) {
+      const tracked = this.trackedParticles.shift();
+      if (tracked) {
+        try {
+          tracked.emitter.stop();
+          tracked.emitter.destroy();
+        } catch (e) {
+        }
+      }
     }
     this.totalActiveParticles = 0;
   }
@@ -235,7 +244,7 @@ export class ParticleManager {
     return this.totalActiveParticles;
   }
 
-  getEffectCount(): number {
-    return this.effects.size;
+  getTrackedEmitterCount(): number {
+    return this.trackedParticles.length;
   }
 }
