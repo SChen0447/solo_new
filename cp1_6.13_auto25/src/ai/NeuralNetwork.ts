@@ -1,11 +1,11 @@
 import { Architect, Network } from 'synaptic';
-import type { PerceptionInput, DecisionOutput, INeuralNetwork } from '../types';
+import type { PerceptionInput, DecisionOutput } from '../types';
 
 const INPUT_NEURONS = 8;
 const HIDDEN_NEURONS = 12;
 const OUTPUT_NEURONS = 3;
 
-export class NeuralNetwork implements INeuralNetwork {
+export class NeuralNetworkAI {
   private network: Network;
 
   constructor(network?: Network) {
@@ -55,12 +55,12 @@ export class NeuralNetwork implements INeuralNetwork {
     this.setWeights(weights);
   }
 
-  clone(): NeuralNetwork {
+  clone(): NeuralNetworkAI {
     const clonedNetwork = Network.fromJSON(this.network.toJSON());
-    return new NeuralNetwork(clonedNetwork);
+    return new NeuralNetworkAI(clonedNetwork);
   }
 
-  crossover(other: INeuralNetwork): NeuralNetwork {
+  crossover(other: NeuralNetworkAI): NeuralNetworkAI {
     const parent1Weights = this.getWeights();
     const parent2Weights = other.getWeights();
     const childWeights: number[] = [];
@@ -82,108 +82,65 @@ export class NeuralNetwork implements INeuralNetwork {
 
   getWeights(): number[] {
     const weights: number[] = [];
-    const json = this.network.toJSON() as { neurons?: Array<{ connections?: Array<{ weight: number }> }> };
-    
-    if (json.neurons) {
-      json.neurons.forEach((neuron) => {
-        if (neuron.connections) {
-          neuron.connections.forEach((conn) => {
-            weights.push(conn.weight);
-          });
-        }
-      });
-    }
+    this.network.restore();
 
-    const layers = this.network.layers;
-    if (layers.hidden) {
-      layers.hidden.forEach((layer) => {
-        layer.neurons.forEach((neuron) => {
-          weights.push(neuron.bias);
-        });
-      });
-    }
-    if (layers.output) {
-      layers.output.neurons.forEach((neuron) => {
-        weights.push(neuron.bias);
-      });
+    const neurons = this.network.neurons();
+    for (const item of neurons) {
+      const neuron = item.neuron;
+      for (const conn of Object.values(neuron.connections.projected)) {
+        weights.push(conn.weight);
+      }
+      weights.push(neuron.bias);
     }
 
     return weights;
   }
 
   setWeights(weights: number[]): void {
+    this.network.restore();
+
     let weightIndex = 0;
-    const json = this.network.toJSON() as { neurons?: Array<{ connections?: Array<{ weight: number }> }> };
+    const neurons = this.network.neurons();
 
-    if (json.neurons) {
-      json.neurons.forEach((neuron) => {
-        if (neuron.connections) {
-          neuron.connections.forEach((conn) => {
-            if (weightIndex < weights.length) {
-              conn.weight = weights[weightIndex++];
-            }
-          });
-        }
-      });
-    }
-
-    const layers = this.network.layers;
-    if (layers.hidden) {
-      layers.hidden.forEach((layer) => {
-        layer.neurons.forEach((neuron) => {
-          if (weightIndex < weights.length) {
-            neuron.bias = weights[weightIndex++];
-          }
-        });
-      });
-    }
-    if (layers.output) {
-      layers.output.neurons.forEach((neuron) => {
+    for (const item of neurons) {
+      const neuron = item.neuron;
+      for (const conn of Object.values(neuron.connections.projected)) {
         if (weightIndex < weights.length) {
-          neuron.bias = weights[weightIndex++];
+          conn.weight = weights[weightIndex++];
         }
-      });
+      }
+      if (weightIndex < weights.length) {
+        neuron.bias = weights[weightIndex++];
+      }
     }
 
-    this.network = Network.fromJSON(json);
     this.network.setOptimize(true);
   }
 
-  getNeuronActivations(): { input: number[]; hidden: number[]; output: number[] } {
-    const layers = this.network.layers;
+  getNeuronCount(): { input: number; hidden: number; output: number } {
     return {
-      input: layers.input.neurons.map((n) => n.activate()),
-      hidden: layers.hidden ? layers.hidden.flatMap((l) => l.neurons.map((n) => n.activate())) : [],
-      output: layers.output.neurons.map((n) => n.activate()),
+      input: this.network.layers.input.size,
+      hidden: this.network.layers.hidden.reduce((sum, layer) => sum + layer.size, 0),
+      output: this.network.layers.output.size,
     };
   }
 
-  getWeightMatrix(): { inputToHidden: number[][]; hiddenToOutput: number[][] } {
-    const layers = this.network.layers;
-    const inputToHidden: number[][] = [];
-    const hiddenToOutput: number[][] = [];
+  getActivations(): { input: number[]; hidden: number[]; output: number[] } {
+    this.network.restore();
+    const input = this.network.layers.input.list.map(n => n.activate());
+    const hidden = this.network.layers.hidden.flatMap(layer => layer.list.map(n => n.activate()));
+    const output = this.network.layers.output.list.map(n => n.activate());
+    return { input, hidden, output };
+  }
 
-    if (layers.hidden && layers.hidden.length > 0) {
-      const hiddenLayer = layers.hidden[0];
-      hiddenLayer.neurons.forEach((_, i) => {
-        inputToHidden[i] = [];
-        layers.input.neurons.forEach((_, j) => {
-          const conn = hiddenLayer.neurons[i].project(layers.input.neurons[j]);
-          inputToHidden[i][j] = conn ? conn.weight : 0;
-        });
-      });
+  toJSON(): object {
+    return this.network.toJSON();
+  }
 
-      layers.output.neurons.forEach((_, i) => {
-        hiddenToOutput[i] = [];
-        hiddenLayer.neurons.forEach((_, j) => {
-          const conn = layers.output.neurons[i].project(hiddenLayer.neurons[j]);
-          hiddenToOutput[i][j] = conn ? conn.weight : 0;
-        });
-      });
-    }
-
-    return { inputToHidden, hiddenToOutput };
+  static fromJSON(json: object): NeuralNetworkAI {
+    const network = Network.fromJSON(json);
+    return new NeuralNetworkAI(network);
   }
 }
 
-export default NeuralNetwork;
+export default NeuralNetworkAI;

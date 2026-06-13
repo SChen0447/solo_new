@@ -9,11 +9,11 @@ export const DEFAULT_ENVIRONMENT: EnvironmentParams = {
 };
 
 export const ENVIRONMENT_RANGES = {
-  temperature: { min: 0, max: 100, step: 1 },
-  humidity: { min: 0, max: 100, step: 1 },
-  foodDensity: { min: 0, max: 100, step: 1 },
-  obstacleDensity: { min: 0, max: 100, step: 1 },
-  mutationRate: { min: 0, max: 20, step: 0.5 },
+  temperature: { min: 0, max: 100, step: 1, label: '温度' },
+  humidity: { min: 0, max: 100, step: 1, label: '湿度' },
+  foodDensity: { min: 0, max: 100, step: 1, label: '食物密度' },
+  obstacleDensity: { min: 0, max: 100, step: 1, label: '障碍物密度' },
+  mutationRate: { min: 0, max: 20, step: 0.5, label: '突变率' },
 } as const;
 
 export const DEFAULT_GENES: Genes = {
@@ -61,7 +61,7 @@ export const SIMULATION_CONFIG = {
 } as const;
 
 export const COLOR_CONFIG = {
-  getBackgroundGradient: (humidity: number): string[] => {
+  getBackgroundGradient: (humidity: number): [string, string] => {
     const t = humidity / 100;
     const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
     
@@ -101,7 +101,7 @@ export const COLOR_CONFIG = {
       `rgb(${color2.r}, ${color2.g}, ${color2.b})`,
     ];
   },
-  
+
   getTemperatureTint: (temperature: number): number => {
     const t = temperature / 100;
     if (t < 0.33) {
@@ -114,4 +114,96 @@ export const COLOR_CONFIG = {
     }
     return 0xffffff;
   },
+
+  genesToHexColor: (genes: Genes): number => {
+    const r = Math.round(genes.colorR * 255);
+    const g = Math.round(genes.colorG * 255);
+    const b = Math.round(genes.colorB * 255);
+    return (r << 16) | (g << 8) | b;
+  },
+
+  genesToRgbString: (genes: Genes): string => {
+    const r = Math.round(genes.colorR * 255);
+    const g = Math.round(genes.colorG * 255);
+    const b = Math.round(genes.colorB * 255);
+    return `rgb(${r}, ${g}, ${b})`;
+  },
 };
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+export function distance(x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+export function angleTo(x1: number, y1: number, x2: number, y2: number): number {
+  return Math.atan2(y2 - y1, x2 - x1);
+}
+
+export function normalizeAngle(angle: number): number {
+  while (angle > Math.PI) angle -= 2 * Math.PI;
+  while (angle < -Math.PI) angle += 2 * Math.PI;
+  return angle;
+}
+
+export function relativeAngle(currentAngle: number, targetAngle: number): number {
+  return normalizeAngle(targetAngle - currentAngle);
+}
+
+export function generateId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+export function randomGenes(): Genes {
+  const genes: Partial<Genes> = {};
+  const keys = Object.keys(DEFAULT_GENES) as (keyof Genes)[];
+  keys.forEach((key) => {
+    genes[key] = Math.random();
+  });
+  return genes as Genes;
+}
+
+export function calculateGeneticDiversity(organisms: { genes: Genes }[]): number {
+  if (organisms.length < 2) return 0;
+
+  const geneKeys = Object.keys(DEFAULT_GENES) as (keyof Genes)[];
+  const geneValues: Map<keyof Genes, number[]> = new Map();
+  geneKeys.forEach((key) => geneValues.set(key, []));
+
+  organisms.forEach((org) => {
+    geneKeys.forEach((key) => {
+      geneValues.get(key)!.push(org.genes[key]);
+    });
+  });
+
+  let totalEntropy = 0;
+  const bins = 10;
+
+  geneKeys.forEach((key) => {
+    const values = geneValues.get(key)!;
+    const histogram: number[] = new Array(bins).fill(0);
+    
+    values.forEach((v) => {
+      const bin = Math.min(Math.floor(v * bins), bins - 1);
+      histogram[bin]++;
+    });
+
+    let entropy = 0;
+    const total = values.length;
+    histogram.forEach((count) => {
+      if (count > 0) {
+        const p = count / total;
+        entropy -= p * Math.log2(p);
+      }
+    });
+    
+    totalEntropy += entropy;
+  });
+
+  const maxEntropy = geneKeys.length * Math.log2(bins);
+  return totalEntropy / maxEntropy;
+}

@@ -1,18 +1,17 @@
 import { create } from 'zustand';
-import { GameState, EnvironmentParams, OrganismData, TrendRecord, EventType } from '../types';
-import { DEFAULT_ENVIRONMENT, SIMULATION_CONFIG, GENETIC_CONFIG } from '../config/envConfig';
-import eventBus from '../event/EventBus';
-import { calculateGeneticDiversity } from '../utils/helpers';
+import type { GameState, EnvironmentParams, Organism, TrendRecord, EventType } from '../types';
+import { DEFAULT_ENVIRONMENT, SIMULATION_CONFIG, GENETIC_CONFIG, calculateGeneticDiversity } from '../config/envConfig';
+import { eventBus } from '../event/EventBus';
 
 export const useGameStore = create<GameState & {
   setEnvironment: (params: Partial<EnvironmentParams>) => void;
-  updateOrganism: (id: string, data: Partial<OrganismData>) => void;
-  addOrganism: (organism: OrganismData) => void;
+  updateOrganism: (id: string, data: Partial<Organism>) => void;
+  addOrganism: (organism: Organism) => void;
   removeOrganism: (id: string) => void;
   selectOrganism: (id: string | null) => void;
   nextGeneration: () => void;
   recordTrend: () => void;
-  updateStatistics: () => void;
+  updateStatistics: (organisms: Organism[]) => void;
   setFps: (fps: number) => void;
   resetSimulation: () => void;
   setSimulationData: (data: Partial<GameState['simulation']>) => void;
@@ -42,17 +41,12 @@ export const useGameStore = create<GameState & {
   setEnvironment: (params) => {
     const newEnv = { ...get().environment, ...params };
     set({ environment: newEnv });
-    eventBus.emit(EventType.ENVIRONMENT_CHANGED, newEnv);
+    eventBus.emit(EventType.ENVIRONMENT_CHANGED as unknown as EventType, newEnv);
   },
 
-  updateOrganism: (id, data) => {
+  setSimulationData: (data) => {
     set((state) => ({
-      simulation: {
-        ...state.simulation,
-        organisms: state.simulation.organisms.map((org) =>
-          org.id === id ? { ...org, ...data } : org
-        ),
-      },
+      simulation: { ...state.simulation, ...data },
     }));
   },
 
@@ -75,6 +69,17 @@ export const useGameStore = create<GameState & {
     }));
   },
 
+  updateOrganism: (id, data) => {
+    set((state) => ({
+      simulation: {
+        ...state.simulation,
+        organisms: state.simulation.organisms.map((org) =>
+          org.id === id ? { ...org, ...data } : org
+        ),
+      },
+    }));
+  },
+
   selectOrganism: (id) => {
     const { selectedOrganismId } = get();
     if (selectedOrganismId) {
@@ -84,7 +89,7 @@ export const useGameStore = create<GameState & {
       get().updateOrganism(id, { isSelected: true });
     }
     set({ selectedOrganismId: id });
-    eventBus.emit(EventType.ORGANISM_SELECTED, id);
+    eventBus.emit(EventType.ORGANISM_SELECTED as unknown as EventType, id);
   },
 
   nextGeneration: () => {
@@ -94,7 +99,7 @@ export const useGameStore = create<GameState & {
         generation: state.simulation.generation + 1,
       },
     }));
-    eventBus.emit(EventType.GENERATION_COMPLETE, get().simulation.generation);
+    eventBus.emit(EventType.GENERATION_COMPLETE as unknown as EventType, get().simulation.generation);
     
     const { generation } = get().simulation;
     if (generation % SIMULATION_CONFIG.TREND_RECORD_INTERVAL === 0) {
@@ -119,8 +124,7 @@ export const useGameStore = create<GameState & {
     }));
   },
 
-  updateStatistics: () => {
-    const { organisms } = get().simulation;
+  updateStatistics: (organisms) => {
     const aliveOrganisms = organisms.filter((o) => o.isAlive);
     
     if (aliveOrganisms.length === 0) {
@@ -148,18 +152,18 @@ export const useGameStore = create<GameState & {
       },
     }));
     
-    eventBus.emit(EventType.STATS_UPDATED, get().statistics);
+    eventBus.emit(EventType.STATS_UPDATED as unknown as EventType, get().statistics);
   },
 
   setFps: (fps) => {
     set((state) => ({
       simulation: { ...state.simulation, fps },
     }));
-    eventBus.emit(EventType.FPS_UPDATED, fps);
+    eventBus.emit(EventType.FPS_UPDATED as unknown as EventType, fps);
   },
 
   resetSimulation: () => {
-    eventBus.emit(EventType.UI_RESET_REQUESTED);
+    eventBus.emit(EventType.UI_RESET_REQUESTED as unknown as EventType);
     set({
       environment: { ...DEFAULT_ENVIRONMENT },
       simulation: {
@@ -180,12 +184,6 @@ export const useGameStore = create<GameState & {
       },
       selectedOrganismId: null,
     });
-  },
-
-  setSimulationData: (data) => {
-    set((state) => ({
-      simulation: { ...state.simulation, ...data },
-    }));
   },
 }));
 

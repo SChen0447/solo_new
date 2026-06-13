@@ -47,13 +47,15 @@ export interface DecisionOutput {
   action: number;
 }
 
-export interface OrganismData {
+export interface Organism {
   id: string;
   generation: number;
   genes: Genes;
   x: number;
   y: number;
   rotation: number;
+  velocity: number;
+  angularVelocity: number;
   energy: number;
   maxEnergy: number;
   age: number;
@@ -62,9 +64,10 @@ export interface OrganismData {
   isSelected: boolean;
   perception: PerceptionInput;
   lastDecision: DecisionOutput;
+  networkWeights: number[];
 }
 
-export interface FoodData {
+export interface Food {
   id: string;
   x: number;
   y: number;
@@ -72,7 +75,7 @@ export interface FoodData {
   type: 'plant' | 'meat';
 }
 
-export interface ObstacleData {
+export interface Obstacle {
   id: string;
   x: number;
   y: number;
@@ -120,23 +123,14 @@ export interface EventCallback<T = unknown> {
   (data: T): void;
 }
 
-export interface INeuralNetwork {
-  predict(input: PerceptionInput): DecisionOutput;
-  mutate(rate: number): void;
-  clone(): INeuralNetwork;
-  crossover(other: INeuralNetwork): INeuralNetwork;
-  getWeights(): number[];
-  setWeights(weights: number[]): void;
-}
-
 export interface GameState {
   environment: EnvironmentParams;
   simulation: {
     generation: number;
     totalPopulation: number;
-    organisms: OrganismData[];
-    foods: FoodData[];
-    obstacles: ObstacleData[];
+    organisms: Organism[];
+    foods: Food[];
+    obstacles: Obstacle[];
     fps: number;
     timeScale: number;
     isPaused: boolean;
