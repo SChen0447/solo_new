@@ -26,380 +26,409 @@ export interface WordData {
   breakdown: WordBreakdown;
 }
 
-const COMMON_PREFIXES: Array<{ pattern: RegExp; text: string; info: RootInfo; minLenAfter: number }> = [
-  { pattern: /^un/, text: 'un', info: { root: 'un', meaning: '不，非，相反', origin: 'un- (not, opposite)', originLanguage: 'Old English' }, minLenAfter: 2 },
-  { pattern: /^re/, text: 're', info: { root: 're', meaning: '再次，返回，向后', origin: 're- (again, back)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^pre/, text: 'pre', info: { root: 'pre', meaning: '在...之前，预先', origin: 'prae (before)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^dis/, text: 'dis', info: { root: 'dis', meaning: '分离，不，相反', origin: 'dis- (apart, not)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^mis/, text: 'mis', info: { root: 'mis', meaning: '错误的，坏的', origin: 'mis- (wrong, bad)', originLanguage: 'Old English' }, minLenAfter: 2 },
-  { pattern: /^sub/, text: 'sub', info: { root: 'sub', meaning: '在...下面，次于', origin: 'sub (under)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^super/, text: 'super', info: { root: 'super', meaning: '超级，在...之上', origin: 'super (above)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^inter/, text: 'inter', info: { root: 'inter', meaning: '在...之间，相互', origin: 'inter (between)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^trans/, text: 'trans', info: { root: 'trans', meaning: '穿过，跨越，转变', origin: 'trans (across)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^anti/, text: 'anti', info: { root: 'anti', meaning: '反对，对抗', origin: 'anti (against)', originLanguage: 'Greek' }, minLenAfter: 2 },
-  { pattern: /^auto/, text: 'auto', info: { root: 'auto', meaning: '自己，自动', origin: 'autos (self)', originLanguage: 'Greek' }, minLenAfter: 2 },
-  { pattern: /^tele/, text: 'tele', info: { root: 'tele', meaning: '远，远距离', origin: 'tele (far off)', originLanguage: 'Greek' }, minLenAfter: 2 },
-  { pattern: /^ex/, text: 'ex', info: { root: 'ex', meaning: '出，外，前任', origin: 'ex- (out of)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^de/, text: 'de', info: { root: 'de', meaning: '向下，去除，完全', origin: 'de- (down, off)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^over/, text: 'over', info: { root: 'over', meaning: '过度，在...上', origin: 'ofer (over)', originLanguage: 'Old English' }, minLenAfter: 2 },
-  { pattern: /^under/, text: 'under', info: { root: 'under', meaning: '在下，不足', origin: 'under (under)', originLanguage: 'Old English' }, minLenAfter: 2 },
-  { pattern: /^out/, text: 'out', info: { root: 'out', meaning: '出，超过', origin: 'ut (out)', originLanguage: 'Old English' }, minLenAfter: 2 },
-  { pattern: /^bi/, text: 'bi', info: { root: 'bi', meaning: '二，双', origin: 'bis (twice)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^tri/, text: 'tri', info: { root: 'tri', meaning: '三', origin: 'treis (three)', originLanguage: 'Latin/Greek' }, minLenAfter: 2 },
-  { pattern: /^multi/, text: 'multi', info: { root: 'multi', meaning: '多', origin: 'multus (many)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^semi/, text: 'semi', info: { root: 'semi', meaning: '半，部分', origin: 'semi (half)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^micro/, text: 'micro', info: { root: 'micro', meaning: '微小', origin: 'mikros (small)', originLanguage: 'Greek' }, minLenAfter: 2 },
-  { pattern: /^macro/, text: 'macro', info: { root: 'macro', meaning: '大，宏观', origin: 'makros (large)', originLanguage: 'Greek' }, minLenAfter: 2 },
-  { pattern: /^poly/, text: 'poly', info: { root: 'poly', meaning: '多', origin: 'polys (many)', originLanguage: 'Greek' }, minLenAfter: 2 },
-  { pattern: /^mono/, text: 'mono', info: { root: 'mono', meaning: '单一', origin: 'monos (single)', originLanguage: 'Greek' }, minLenAfter: 2 },
-  { pattern: /^im(?=[pbm])/, text: 'im', info: { root: 'in/im', meaning: '不，无/进入', origin: 'in- (in, not)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^il(?=[l])/, text: 'il', info: { root: 'in/im', meaning: '不，无', origin: 'in- (in, not)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^ir(?=[r])/, text: 'ir', info: { root: 'in/im', meaning: '不，无', origin: 'in- (in, not)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^in/, text: 'in', info: { root: 'in/im', meaning: '不，无/进入', origin: 'in- (in, not)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^con/, text: 'con', info: { root: 'con/com', meaning: '共同，一起', origin: 'cum (with)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^com(?=[pbm])/, text: 'com', info: { root: 'con/com', meaning: '共同，一起', origin: 'cum (with)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^pro/, text: 'pro', info: { root: 'pro', meaning: '向前，支持', origin: 'pro (forward, for)', originLanguage: 'Latin' }, minLenAfter: 2 },
-  { pattern: /^per/, text: 'per', info: { root: 'per', meaning: '通过，完全', origin: 'per (through)', originLanguage: 'Latin' }, minLenAfter: 2 },
+const PREFIX_RULES: Array<{
+  patterns: RegExp[];
+  display: string;
+  info: RootInfo;
+  minAfter: number;
+}> = [
+  { patterns: [/^un(?![aeiou])/], display: 'un', info: { root: 'un', meaning: '不，非，相反', origin: 'OE un- (not)', originLanguage: 'Old English' }, minAfter: 2 },
+  { patterns: [/^re(?![aeiou])/, /^re(?=e)/], display: 're', info: { root: 're', meaning: '再次，返回', origin: 'L re- (again)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^pre(?![aeiou])/, /^pre(?=e)/], display: 'pre', info: { root: 'pre', meaning: '在...之前', origin: 'L prae (before)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^dis(?![aeiou])/, /^dif(?=f)/], display: 'dis', info: { root: 'dis', meaning: '分离，不', origin: 'L dis- (apart)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^mis(?![aeiou])/], display: 'mis', info: { root: 'mis', meaning: '错误的', origin: 'OE mis- (wrong)', originLanguage: 'Old English' }, minAfter: 2 },
+  { patterns: [/^sub(?![aeiou])/, /^suc(?=c)/, /^suf(?=f)/, /^sup(?=p)/], display: 'sub', info: { root: 'sub', meaning: '在下，次于', origin: 'L sub (under)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^super(?![aeiou])/], display: 'super', info: { root: 'super', meaning: '在上，超级', origin: 'L super (above)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^inter(?![aeiou])/], display: 'inter', info: { root: 'inter', meaning: '在...之间', origin: 'L inter (between)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^trans(?![aeiou])/], display: 'trans', info: { root: 'trans', meaning: '穿过，转变', origin: 'L trans (across)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^anti(?![aeiou])/, /^ant(?=i)/], display: 'anti', info: { root: 'anti', meaning: '反对', origin: 'Gk anti (against)', originLanguage: 'Greek' }, minAfter: 2 },
+  { patterns: [/^auto(?![aeiou])/], display: 'auto', info: { root: 'auto', meaning: '自己，自动', origin: 'Gk autos (self)', originLanguage: 'Greek' }, minAfter: 2 },
+  { patterns: [/^tele(?![aeiou])/], display: 'tele', info: { root: 'tele', meaning: '远', origin: 'Gk tele (far)', originLanguage: 'Greek' }, minAfter: 2 },
+  { patterns: [/^ex(?![aeiou])/, /^ef(?=f)/], display: 'ex', info: { root: 'ex', meaning: '出，外', origin: 'L ex- (out)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^de(?![aeiou])/], display: 'de', info: { root: 'de', meaning: '向下，去除', origin: 'L de- (down)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^over(?![aeiou])/], display: 'over', info: { root: 'over', meaning: '过度，在上', origin: 'OE ofer', originLanguage: 'Old English' }, minAfter: 2 },
+  { patterns: [/^under(?![aeiou])/], display: 'under', info: { root: 'under', meaning: '在下，不足', origin: 'OE under', originLanguage: 'Old English' }, minAfter: 2 },
+  { patterns: [/^out(?![aeiou])/], display: 'out', info: { root: 'out', meaning: '出，超过', origin: 'OE ut', originLanguage: 'Old English' }, minAfter: 2 },
+  { patterns: [/^bi(?![aeiou])/], display: 'bi', info: { root: 'bi', meaning: '二，双', origin: 'L bis (twice)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^tri(?![aeiou])/], display: 'tri', info: { root: 'tri', meaning: '三', origin: 'L/Gk treis', originLanguage: 'Latin/Greek' }, minAfter: 2 },
+  { patterns: [/^multi(?![aeiou])/], display: 'multi', info: { root: 'multi', meaning: '多', origin: 'L multus (many)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^semi(?![aeiou])/], display: 'semi', info: { root: 'semi', meaning: '半', origin: 'L semi (half)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^micro(?![aeiou])/], display: 'micro', info: { root: 'micro', meaning: '微小', origin: 'Gk mikros', originLanguage: 'Greek' }, minAfter: 2 },
+  { patterns: [/^macro(?![aeiou])/], display: 'macro', info: { root: 'macro', meaning: '大，宏观', origin: 'Gk makros', originLanguage: 'Greek' }, minAfter: 2 },
+  { patterns: [/^poly(?![aeiou])/], display: 'poly', info: { root: 'poly', meaning: '多', origin: 'Gk polys', originLanguage: 'Greek' }, minAfter: 2 },
+  { patterns: [/^mono(?![aeiou])/, /^mon(?=a)/], display: 'mono', info: { root: 'mono', meaning: '单一', origin: 'Gk monos', originLanguage: 'Greek' }, minAfter: 2 },
+  { patterns: [/^im(?=[pbm])/], display: 'im', info: { root: 'in', meaning: '不/进入', origin: 'L in- (not/in)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^il(?=[l])/], display: 'il', info: { root: 'in', meaning: '不', origin: 'L in- (not)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^ir(?=[r])/], display: 'ir', info: { root: 'in', meaning: '不', origin: 'L in- (not)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^in(?![aeiou])/], display: 'in', info: { root: 'in', meaning: '不/进入', origin: 'L in- (not/in)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^con(?![aeiou])/, /^cog(?=n)/], display: 'con', info: { root: 'con', meaning: '共同，一起', origin: 'L cum (with)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^com(?=[pbm])/], display: 'com', info: { root: 'con', meaning: '共同，一起', origin: 'L cum (with)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^pro(?![aeiou])/], display: 'pro', info: { root: 'pro', meaning: '向前，支持', origin: 'L pro (for)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^per(?![aeiou])/], display: 'per', info: { root: 'per', meaning: '通过，完全', origin: 'L per (through)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^counter(?![aeiou])/, /^contra(?![aeiou])/], display: 'counter', info: { root: 'counter', meaning: '相反，对抗', origin: 'L contra (against)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^non(?![aeiou])/], display: 'non', info: { root: 'non', meaning: '不，非', origin: 'L non (not)', originLanguage: 'Latin' }, minAfter: 2 },
+  { patterns: [/^co(?=[aeiou])/], display: 'co', info: { root: 'co', meaning: '共同', origin: 'L co- (with)', originLanguage: 'Latin' }, minAfter: 2 },
 ];
 
-const COMMON_ROOTS: Array<{ pattern: RegExp; text: string; info: RootInfo }> = [
-  { pattern: /aud/, text: 'aud', info: { root: 'aud', meaning: '听，声音', origin: 'audire (to hear)', originLanguage: 'Latin' } },
-  { pattern: /spect/, text: 'spect', info: { root: 'spect', meaning: '看，观察', origin: 'spectare (to look at)', originLanguage: 'Latin' } },
-  { pattern: /dict/, text: 'dict', info: { root: 'dict', meaning: '说，言', origin: 'dicere (to say)', originLanguage: 'Latin' } },
-  { pattern: /scrib/, text: 'scrib', info: { root: 'scrib/script', meaning: '写', origin: 'scribere (to write)', originLanguage: 'Latin' } },
-  { pattern: /script/, text: 'script', info: { root: 'scrib/script', meaning: '写', origin: 'scribere (to write)', originLanguage: 'Latin' } },
-  { pattern: /port/, text: 'port', info: { root: 'port', meaning: '携带，运送', origin: 'portare (to carry)', originLanguage: 'Latin' } },
-  { pattern: /duct/, text: 'duct', info: { root: 'duct', meaning: '引导，带领', origin: 'ducere (to lead)', originLanguage: 'Latin' } },
-  { pattern: /duc(?=e|t|i)/, text: 'duc', info: { root: 'duct', meaning: '引导，带领', origin: 'ducere (to lead)', originLanguage: 'Latin' } },
-  { pattern: /struct/, text: 'struct', info: { root: 'struct', meaning: '建造，构造', origin: 'struere (to build)', originLanguage: 'Latin' } },
-  { pattern: /tract/, text: 'tract', info: { root: 'tract', meaning: '拉，拖', origin: 'trahere (to pull)', originLanguage: 'Latin' } },
-  { pattern: /ject/, text: 'ject', info: { root: 'ject', meaning: '投，掷', origin: 'jacere (to throw)', originLanguage: 'Latin' } },
-  { pattern: /miss/, text: 'miss', info: { root: 'mit/miss', meaning: '发送，放', origin: 'mittere (to send)', originLanguage: 'Latin' } },
-  { pattern: /mit(?=t)/, text: 'mit', info: { root: 'mit/miss', meaning: '发送，放', origin: 'mittere (to send)', originLanguage: 'Latin' } },
-  { pattern: /vis(?![a])/, text: 'vis', info: { root: 'vis/vid', meaning: '看', origin: 'videre (to see)', originLanguage: 'Latin' } },
-  { pattern: /vid/, text: 'vid', info: { root: 'vis/vid', meaning: '看', origin: 'videre (to see)', originLanguage: 'Latin' } },
-  { pattern: /cept/, text: 'cept', info: { root: 'cept/ceiv', meaning: '拿，取', origin: 'capere (to take)', originLanguage: 'Latin' } },
-  { pattern: /ceiv/, text: 'ceiv', info: { root: 'cept/ceiv', meaning: '拿，取', origin: 'capere (to take)', originLanguage: 'Latin' } },
-  { pattern: /pos(?=e|i|i)/, text: 'pos', info: { root: 'pos/pon', meaning: '放置', origin: 'ponere (to put)', originLanguage: 'Latin' } },
-  { pattern: /pon/, text: 'pon', info: { root: 'pos/pon', meaning: '放置', origin: 'ponere (to put)', originLanguage: 'Latin' } },
-  { pattern: /fer(?=[^e])/, text: 'fer', info: { root: 'fer', meaning: '带来，承载', origin: 'ferre (to bring)', originLanguage: 'Latin' } },
-  { pattern: /tend/, text: 'tend', info: { root: 'tend/tens', meaning: '伸展，趋向', origin: 'tendere (to stretch)', originLanguage: 'Latin' } },
-  { pattern: /tens/, text: 'tens', info: { root: 'tend/tens', meaning: '伸展，趋向', origin: 'tendere (to stretch)', originLanguage: 'Latin' } },
-  { pattern: /vers/, text: 'vers', info: { root: 'vert/vers', meaning: '转', origin: 'vertere (to turn)', originLanguage: 'Latin' } },
-  { pattern: /vert/, text: 'vert', info: { root: 'vert/vers', meaning: '转', origin: 'vertere (to turn)', originLanguage: 'Latin' } },
-  { pattern: /graph/, text: 'graph', info: { root: 'graph', meaning: '写，画，记录', origin: 'graphein (to write)', originLanguage: 'Greek' } },
-  { pattern: /gram/, text: 'gram', info: { root: 'graph', meaning: '写，画，记录', origin: 'graphein (to write)', originLanguage: 'Greek' } },
-  { pattern: /log(?=y|ic|o)/, text: 'log', info: { root: 'log/logy', meaning: '学科，言语', origin: 'logos (word, study)', originLanguage: 'Greek' } },
-  { pattern: /logy/, text: 'logy', info: { root: 'log/logy', meaning: '学科，言语', origin: 'logos (word, study)', originLanguage: 'Greek' } },
-  { pattern: /bio(?![n])/, text: 'bio', info: { root: 'bio', meaning: '生命', origin: 'bios (life)', originLanguage: 'Greek' } },
-  { pattern: /geo/, text: 'geo', info: { root: 'geo', meaning: '地球，土地', origin: 'ge (earth)', originLanguage: 'Greek' } },
-  { pattern: /phon(?![e])/, text: 'phon', info: { root: 'phon', meaning: '声音', origin: 'phone (sound)', originLanguage: 'Greek' } },
-  { pattern: /phone/, text: 'phone', info: { root: 'phon', meaning: '声音', origin: 'phone (sound)', originLanguage: 'Greek' } },
-  { pattern: /phot(?![o])/, text: 'phot', info: { root: 'photo', meaning: '光', origin: 'phos (light)', originLanguage: 'Greek' } },
-  { pattern: /photo/, text: 'photo', info: { root: 'photo', meaning: '光', origin: 'phos (light)', originLanguage: 'Greek' } },
-  { pattern: /chrono/, text: 'chrono', info: { root: 'chrono', meaning: '时间', origin: 'chronos (time)', originLanguage: 'Greek' } },
-  { pattern: /psych/, text: 'psych', info: { root: 'psych', meaning: '心灵，精神', origin: 'psyche (soul)', originLanguage: 'Greek' } },
-  { pattern: /morph/, text: 'morph', info: { root: 'morph', meaning: '形态', origin: 'morphe (form)', originLanguage: 'Greek' } },
-  { pattern: /path(?![e])/, text: 'path', info: { root: 'path', meaning: '感情，疾病', origin: 'pathos (suffering)', originLanguage: 'Greek' } },
-  { pattern: /phil(?![l])/, text: 'phil', info: { root: 'phil', meaning: '爱', origin: 'philos (loving)', originLanguage: 'Greek' } },
-  { pattern: /phob/, text: 'phob', info: { root: 'phob', meaning: '恐惧', origin: 'phobos (fear)', originLanguage: 'Greek' } },
-  { pattern: /mem(?![o])/, text: 'mem', info: { root: 'mem', meaning: '记忆', origin: 'memor (mindful)', originLanguage: 'Latin' } },
-  { pattern: /voc(?=[aie])/, text: 'voc', info: { root: 'voc/vok', meaning: '叫，声音', origin: 'vocare (to call)', originLanguage: 'Latin' } },
-  { pattern: /vok/, text: 'vok', info: { root: 'voc/vok', meaning: '叫，声音', origin: 'vocare (to call)', originLanguage: 'Latin' } },
-  { pattern: /act/, text: 'act', info: { root: 'act', meaning: '做，行动', origin: 'agere (to do)', originLanguage: 'Latin' } },
-  { pattern: /rupt/, text: 'rupt', info: { root: 'rupt', meaning: '破裂', origin: 'rumpere (to break)', originLanguage: 'Latin' } },
-  { pattern: /fact/, text: 'fact', info: { root: 'fac/fect', meaning: '做，制造', origin: 'facere (to make)', originLanguage: 'Latin' } },
-  { pattern: /fect/, text: 'fect', info: { root: 'fac/fect', meaning: '做，制造', origin: 'facere (to make)', originLanguage: 'Latin' } },
-  { pattern: /fac(?=e|t)/, text: 'fac', info: { root: 'fac/fect', meaning: '做，制造', origin: 'facere (to make)', originLanguage: 'Latin' } },
-  { pattern: /cide/, text: 'cide', info: { root: 'cide/cis', meaning: '切，杀', origin: 'caedere (to cut)', originLanguage: 'Latin' } },
-  { pattern: /cis/, text: 'cis', info: { root: 'cide/cis', meaning: '切，杀', origin: 'caedere (to cut)', originLanguage: 'Latin' } },
-  { pattern: /mot/, text: 'mot', info: { root: 'mov/mot', meaning: '移动', origin: 'movere (to move)', originLanguage: 'Latin' } },
-  { pattern: /mov(?=e)/, text: 'mov', info: { root: 'mov/mot', meaning: '移动', origin: 'movere (to move)', originLanguage: 'Latin' } },
-  { pattern: /cred/, text: 'cred', info: { root: 'cred', meaning: '相信', origin: 'credere (to believe)', originLanguage: 'Latin' } },
-  { pattern: /cur(?=[rs])/, text: 'cur', info: { root: 'cur/curs', meaning: '跑，流', origin: 'currere (to run)', originLanguage: 'Latin' } },
-  { pattern: /curs/, text: 'curs', info: { root: 'cur/curs', meaning: '跑，流', origin: 'currere (to run)', originLanguage: 'Latin' } },
-  { pattern: /fin/, text: 'fin', info: { root: 'fin', meaning: '结束，界限', origin: 'finis (end)', originLanguage: 'Latin' } },
-  { pattern: /flu(?=[xeu])/, text: 'flu', info: { root: 'flu', meaning: '流', origin: 'fluere (to flow)', originLanguage: 'Latin' } },
-  { pattern: /flux/, text: 'flux', info: { root: 'flu', meaning: '流', origin: 'fluere (to flow)', originLanguage: 'Latin' } },
-  { pattern: /form/, text: 'form', info: { root: 'form', meaning: '形状，形式', origin: 'forma (shape)', originLanguage: 'Latin' } },
-  { pattern: /grad/, text: 'grad', info: { root: 'grad/gress', meaning: '步，走', origin: 'gradus (step)', originLanguage: 'Latin' } },
-  { pattern: /gress/, text: 'gress', info: { root: 'grad/gress', meaning: '步，走', origin: 'gradus (step)', originLanguage: 'Latin' } },
-  { pattern: /jud/, text: 'jud', info: { root: 'jud', meaning: '判断', origin: 'judex (judge)', originLanguage: 'Latin' } },
-  { pattern: /leg(?=[iaes])/, text: 'leg', info: { root: 'leg/lig', meaning: '法律，选择，读', origin: 'legere (to read, choose)', originLanguage: 'Latin' } },
-  { pattern: /lig(?=[aie])/, text: 'lig', info: { root: 'leg/lig', meaning: '法律，选择，读', origin: 'legere (to read, choose)', originLanguage: 'Latin' } },
-  { pattern: /loc(?=[aio])/, text: 'loc', info: { root: 'loc', meaning: '地方', origin: 'locus (place)', originLanguage: 'Latin' } },
-  { pattern: /man(?=[u])/, text: 'man', info: { root: 'man/manu', meaning: '手', origin: 'manus (hand)', originLanguage: 'Latin' } },
-  { pattern: /manu/, text: 'manu', info: { root: 'man/manu', meaning: '手', origin: 'manus (hand)', originLanguage: 'Latin' } },
-  { pattern: /nat(?=[iue])/, text: 'nat', info: { root: 'nat', meaning: '出生，天生', origin: 'natus (born)', originLanguage: 'Latin' } },
-  { pattern: /ped(?=[aie])/, text: 'ped', info: { root: 'ped', meaning: '脚，儿童', origin: 'pes/pais (foot/child)', originLanguage: 'Latin/Greek' } },
-  { pattern: /sens/, text: 'sens', info: { root: 'sent/sens', meaning: '感觉', origin: 'sentire (to feel)', originLanguage: 'Latin' } },
-  { pattern: /sent(?=[ie])/, text: 'sent', info: { root: 'sent/sens', meaning: '感觉', origin: 'sentire (to feel)', originLanguage: 'Latin' } },
-  { pattern: /press/, text: 'press', info: { root: 'press', meaning: '压', origin: 'pressare (to press)', originLanguage: 'Latin' } },
-  { pattern: /pend(?=[se])/, text: 'pend', info: { root: 'pend/pens', meaning: '悬挂，称重', origin: 'pendere (to hang, weigh)', originLanguage: 'Latin' } },
-  { pattern: /pens/, text: 'pens', info: { root: 'pend/pens', meaning: '悬挂，称重', origin: 'pendere (to hang, weigh)', originLanguage: 'Latin' } },
-  { pattern: /cap(?=[tai])/, text: 'cap', info: { root: 'cap/capt', meaning: '头，拿取', origin: 'caput (head)', originLanguage: 'Latin' } },
-  { pattern: /capt/, text: 'capt', info: { root: 'cap/capt', meaning: '头，拿取', origin: 'capere (to take)', originLanguage: 'Latin' } },
-  { pattern: /sect/, text: 'sect', info: { root: 'sect/sec', meaning: '切', origin: 'secare (to cut)', originLanguage: 'Latin' } },
-  { pattern: /sec(?=[t])/, text: 'sec', info: { root: 'sect/sec', meaning: '切', origin: 'secare (to cut)', originLanguage: 'Latin' } },
-  { pattern: /quest/, text: 'quest', info: { root: 'quest/quir', meaning: '寻求，询问', origin: 'quaerere (to seek)', originLanguage: 'Latin' } },
-  { pattern: /quir/, text: 'quir', info: { root: 'quest/quir', meaning: '寻求，询问', origin: 'quaerere (to seek)', originLanguage: 'Latin' } },
-  { pattern: /quis/, text: 'quis', info: { root: 'quest/quir', meaning: '寻求，询问', origin: 'quaerere (to seek)', originLanguage: 'Latin' } },
-  { pattern: /sign/, text: 'sign', info: { root: 'sign', meaning: '标记，信号', origin: 'signum (mark)', originLanguage: 'Latin' } },
-  { pattern: /simil/, text: 'simil', info: { root: 'simil', meaning: '相似', origin: 'similis (like)', originLanguage: 'Latin' } },
-  { pattern: /sol(?=[uv])/, text: 'sol', info: { root: 'sol', meaning: '太阳，单独', origin: 'sol/solus (sun/alone)', originLanguage: 'Latin' } },
-  { pattern: /spec(?=[i])/, text: 'spec', info: { root: 'spect', meaning: '看，观察', origin: 'specere (to look)', originLanguage: 'Latin' } },
-  { pattern: /stat/, text: 'stat', info: { root: 'stat/st', meaning: '站立，状态', origin: 'stare (to stand)', originLanguage: 'Latin' } },
-  { pattern: /st(?=[aieo])/, text: 'st', info: { root: 'stat/st', meaning: '站立，状态', origin: 'stare (to stand)', originLanguage: 'Latin' } },
-  { pattern: /tain/, text: 'tain', info: { root: 'tain/tin', meaning: '保持，拿住', origin: 'tenere (to hold)', originLanguage: 'Latin' } },
-  { pattern: /ten(?=[de])/, text: 'ten', info: { root: 'tain/tin', meaning: '保持，拿住', origin: 'tenere (to hold)', originLanguage: 'Latin' } },
-  { pattern: /tin(?=[ue])/, text: 'tin', info: { root: 'tain/tin', meaning: '保持，拿住', origin: 'tenere (to hold)', originLanguage: 'Latin' } },
-  { pattern: /techn/, text: 'techn', info: { root: 'techn', meaning: '技术，工艺', origin: 'techne (art)', originLanguage: 'Greek' } },
-  { pattern: /therm/, text: 'therm', info: { root: 'therm', meaning: '热', origin: 'therme (heat)', originLanguage: 'Greek' } },
-  { pattern: /trop/, text: 'trop', info: { root: 'trop', meaning: '转，变化', origin: 'tropos (turn)', originLanguage: 'Greek' } },
-  { pattern: /scop/, text: 'scop', info: { root: 'scop', meaning: '看，观察', origin: 'skopein (to look)', originLanguage: 'Greek' } },
-  { pattern: /crit/, text: 'crit', info: { root: 'crit', meaning: '判断，分离', origin: 'krinein (to judge)', originLanguage: 'Greek' } },
-  { pattern: /cycl/, text: 'cycl', info: { root: 'cycl', meaning: '圆，环', origin: 'kyklos (circle)', originLanguage: 'Greek' } },
-  { pattern: /dem(?=[oi])/, text: 'dem', info: { root: 'dem', meaning: '人民', origin: 'demos (people)', originLanguage: 'Greek' } },
-  { pattern: /gen(?=[eois])/, text: 'gen', info: { root: 'gen', meaning: '产生，种类', origin: 'genos (race, kind)', originLanguage: 'Greek' } },
-  { pattern: /hydr(?=[o])/, text: 'hydr', info: { root: 'hydr', meaning: '水', origin: 'hydor (water)', originLanguage: 'Greek' } },
-  { pattern: /lith/, text: 'lith', info: { root: 'lith', meaning: '石头', origin: 'lithos (stone)', originLanguage: 'Greek' } },
-  { pattern: /metr/, text: 'metr', info: { root: 'metr', meaning: '测量', origin: 'metron (measure)', originLanguage: 'Greek' } },
-  { pattern: /morph/, text: 'morph', info: { root: 'morph', meaning: '形态', origin: 'morphe (form)', originLanguage: 'Greek' } },
-  { pattern: /onym/, text: 'onym', info: { root: 'onym', meaning: '名字', origin: 'onoma (name)', originLanguage: 'Greek' } },
-  { pattern: /path(?=[oi])/, text: 'path', info: { root: 'path', meaning: '感情，疾病', origin: 'pathos (suffering)', originLanguage: 'Greek' } },
-  { pattern: /petr/, text: 'petr', info: { root: 'petr', meaning: '岩石', origin: 'petra (rock)', originLanguage: 'Greek' } },
-  { pattern: /phon(?=[eo])/, text: 'phon', info: { root: 'phon', meaning: '声音', origin: 'phone (sound)', originLanguage: 'Greek' } },
-  { pattern: /phys(?=[ic])/, text: 'phys', info: { root: 'phys', meaning: '自然，身体', origin: 'physis (nature)', originLanguage: 'Greek' } },
-  { pattern: /polit(?=[ei])/, text: 'polit', info: { root: 'polit', meaning: '城市，政治', origin: 'polis (city)', originLanguage: 'Greek' } },
-  { pattern: /syn/, text: 'syn', info: { root: 'syn/sym', meaning: '共同，一起', origin: 'syn (with)', originLanguage: 'Greek' } },
-  { pattern: /sym(?=[pbm])/, text: 'sym', info: { root: 'syn/sym', meaning: '共同，一起', origin: 'syn (with)', originLanguage: 'Greek' } },
-  { pattern: /tax(?=[i])/, text: 'tax', info: { root: 'tax', meaning: '排列，顺序', origin: 'taxis (arrangement)', originLanguage: 'Greek' } },
-  { pattern: /top(?=[i])/, text: 'top', info: { root: 'top', meaning: '地方', origin: 'topos (place)', originLanguage: 'Greek' } },
-  { pattern: /zoo/, text: 'zoo', info: { root: 'zoo', meaning: '动物', origin: 'zoon (animal)', originLanguage: 'Greek' } },
+const SUFFIX_RULES: Array<{
+  patterns: RegExp[];
+  display: string;
+  info: RootInfo;
+  minBefore: number;
+  stripVowel?: boolean;
+}> = [
+  { patterns: [/ization$/], display: 'ization', info: { root: 'ization', meaning: '...化的过程', origin: '-izare + -tio', originLanguage: 'Greek/Latin' }, minBefore: 1 },
+  { patterns: [/ification$/], display: 'ification', info: { root: 'ification', meaning: '使成为...', origin: '-ficare + -tio', originLanguage: 'Latin' }, minBefore: 1 },
+  { patterns: [/ableness$/], display: 'ableness', info: { root: 'able+ness', meaning: '可...性', origin: '-abilis + -nes', originLanguage: 'Latin/Old English' }, minBefore: 1 },
+  { patterns: [/ibility$/], display: 'ibility', info: { root: 'ible+ness', meaning: '可...性', origin: '-ibilis + -itas', originLanguage: 'Latin' }, minBefore: 1 },
+  { patterns: [/ational$/], display: 'ational', info: { root: 'ate+al', meaning: '具有...性质的', origin: '-atus + -alis', originLanguage: 'Latin' }, minBefore: 1 },
+  { patterns: [/tional$/], display: 'tional', info: { root: 'tion+al', meaning: '与...相关的', origin: '-tio + -alis', originLanguage: 'Latin' }, minBefore: 1 },
+  { patterns: [/sional$/], display: 'sional', info: { root: 'sion+al', meaning: '与...相关的', origin: '-sio + -alis', originLanguage: 'Latin' }, minBefore: 1 },
+  { patterns: [/ginal$/], display: 'ginal', info: { root: 'gin+al', meaning: '起源的', origin: '-gen + -alis', originLanguage: 'Latin' }, minBefore: 1 },
+  { patterns: [/fulness$/], display: 'fulness', info: { root: 'ful+ness', meaning: '充满...的状态', origin: '-full + -nes', originLanguage: 'Old English' }, minBefore: 1 },
+  { patterns: [/lessness$/], display: 'lessness', info: { root: 'less+ness', meaning: '缺乏...的状态', origin: '-leas + -nes', originLanguage: 'Old English' }, minBefore: 1 },
+  { patterns: [/ousness$/], display: 'ousness', info: { root: 'ous+ness', meaning: '...的状态', origin: '-osus + -nes', originLanguage: 'Latin/Old English' }, minBefore: 1 },
+  { patterns: [/ivity$/], display: 'ivity', info: { root: 'ive+ity', meaning: '...的性质', origin: '-ivus + -itas', originLanguage: 'Latin' }, minBefore: 1 },
+  { patterns: [/ality$/], display: 'ality', info: { root: 'al+ity', meaning: '...的性质', origin: '-alis + -itas', originLanguage: 'Latin' }, minBefore: 1 },
+  { patterns: [/ically$/], display: 'ically', info: { root: 'ic+al+ly', meaning: '以...方式', origin: '-ikos + -alis + -lice', originLanguage: 'Greek/Latin/OE' }, minBefore: 2 },
+  { patterns: [/tion$/], display: 'tion', info: { root: 'tion', meaning: '动作/状态', origin: 'L -tio', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/sion$/], display: 'sion', info: { root: 'sion', meaning: '动作/状态', origin: 'L -sio', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/ment$/], display: 'ment', info: { root: 'ment', meaning: '结果/状态', origin: 'L -mentum', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/ness$/], display: 'ness', info: { root: 'ness', meaning: '性质/状态', origin: 'OE -nes', originLanguage: 'Old English' }, minBefore: 2 },
+  { patterns: [/ship$/], display: 'ship', info: { root: 'ship', meaning: '身份/状态', origin: 'OE -scipe', originLanguage: 'Old English' }, minBefore: 2 },
+  { patterns: [/hood$/], display: 'hood', info: { root: 'hood', meaning: '身份/状态', origin: 'OE -had', originLanguage: 'Old English' }, minBefore: 2 },
+  { patterns: [/dom$/], display: 'dom', info: { root: 'dom', meaning: '领域/状态', origin: 'OE -dom', originLanguage: 'Old English' }, minBefore: 2 },
+  { patterns: [/able$/], display: 'able', info: { root: 'able', meaning: '能够的', origin: 'L -abilis', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/ible$/], display: 'ible', info: { root: 'ible', meaning: '能够的', origin: 'L -ibilis', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/ful$/], display: 'ful', info: { root: 'ful', meaning: '充满的', origin: 'OE -full', originLanguage: 'Old English' }, minBefore: 2 },
+  { patterns: [/less$/], display: 'less', info: { root: 'less', meaning: '没有的', origin: 'OE -leas', originLanguage: 'Old English' }, minBefore: 2 },
+  { patterns: [/ous$/], display: 'ous', info: { root: 'ous', meaning: '具有...的', origin: 'L -osus', originLanguage: 'Latin' }, minBefore: 2, stripVowel: true },
+  { patterns: [/ive$/], display: 'ive', info: { root: 'ive', meaning: '倾向于', origin: 'L -ivus', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/ical$/], display: 'ical', info: { root: 'ical', meaning: '与...相关的', origin: '-ikos + -alis', originLanguage: 'Greek/Latin' }, minBefore: 2 },
+  { patterns: [/al$/], display: 'al', info: { root: 'al', meaning: '关于...的', origin: 'L -alis', originLanguage: 'Latin' }, minBefore: 3 },
+  { patterns: [/ly$/], display: 'ly', info: { root: 'ly', meaning: '以...方式', origin: 'OE -lice', originLanguage: 'Old English' }, minBefore: 3 },
+  { patterns: [/er$/], display: 'er', info: { root: 'er', meaning: '做...的人/物', origin: 'OE -ere', originLanguage: 'Old English' }, minBefore: 3 },
+  { patterns: [/or$/], display: 'or', info: { root: 'or', meaning: '做...的人/物', origin: 'L -or', originLanguage: 'Latin' }, minBefore: 3 },
+  { patterns: [/ist$/], display: 'ist', info: { root: 'ist', meaning: '从事...的人', origin: 'Gk -istes', originLanguage: 'Greek' }, minBefore: 2 },
+  { patterns: [/ism$/], display: 'ism', info: { root: 'ism', meaning: '主义/学说', origin: 'Gk -ismos', originLanguage: 'Greek' }, minBefore: 2 },
+  { patterns: [/ity$/], display: 'ity', info: { root: 'ity', meaning: '性质/状态', origin: 'L -itas', originLanguage: 'Latin' }, minBefore: 3, stripVowel: true },
+  { patterns: [/ology$/], display: 'ology', info: { root: 'ology', meaning: '...学', origin: 'Gk -logos', originLanguage: 'Greek' }, minBefore: 2 },
+  { patterns: [/onomy$/], display: 'onomy', info: { root: 'onomy', meaning: '法则/学科', origin: 'Gk -nomos', originLanguage: 'Greek' }, minBefore: 2 },
+  { patterns: [/graphy$/], display: 'graphy', info: { root: 'graphy', meaning: '记录/描述', origin: 'Gk -graphia', originLanguage: 'Greek' }, minBefore: 2 },
+  { patterns: [/logue$/], display: 'logue', info: { root: 'logue', meaning: '说话/论述', origin: 'Gk -logos', originLanguage: 'Greek' }, minBefore: 2 },
+  { patterns: [/scope$/], display: 'scope', info: { root: 'scope', meaning: '观察仪器', origin: 'Gk -skopion', originLanguage: 'Greek' }, minBefore: 2 },
+  { patterns: [/ize$/], display: 'ize', info: { root: 'ize', meaning: '使成为', origin: 'Gk -izein', originLanguage: 'Greek' }, minBefore: 2 },
+  { patterns: [/ify$/], display: 'ify', info: { root: 'ify', meaning: '使...化', origin: 'L -ficare', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/ate$/], display: 'ate', info: { root: 'ate', meaning: '使成为', origin: 'L -atus', originLanguage: 'Latin' }, minBefore: 3 },
+  { patterns: [/en$/], display: 'en', info: { root: 'en', meaning: '使成为', origin: 'OE -jan', originLanguage: 'Old English' }, minBefore: 3 },
+  { patterns: [/ic$/], display: 'ic', info: { root: 'ic', meaning: '具有...性质', origin: 'Gk -ikos', originLanguage: 'Greek' }, minBefore: 3 },
+  { patterns: [/ary$/], display: 'ary', info: { root: 'ary', meaning: '与...相关', origin: 'L -arius', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/ory$/], display: 'ory', info: { root: 'ory', meaning: '与...相关', origin: 'L -orius', originLanguage: 'Latin' }, minBefore: 2 },
+  { patterns: [/ward$/], display: 'ward', info: { root: 'ward', meaning: '向...方向', origin: 'OE -weard', originLanguage: 'Old English' }, minBefore: 2 },
+  { patterns: [/ical$/], display: 'ical', info: { root: 'ical', meaning: '与...相关的', origin: '-ikos + -alis', originLanguage: 'Greek/Latin' }, minBefore: 2 },
 ];
 
-const COMMON_SUFFIXES: Array<{ pattern: RegExp; text: string; info: RootInfo; minLenBefore: number }> = [
-  { pattern: /ization$/, text: 'ization', info: { root: 'ization', meaning: '名词：...化过程', origin: '-izare + -tio', originLanguage: 'Greek/Latin' }, minLenBefore: 1 },
-  { pattern: /ification$/, text: 'ification', info: { root: 'ification', meaning: '名词：使成为...', origin: '-ficare + -tio', originLanguage: 'Latin' }, minLenBefore: 1 },
-  { pattern: /ability$/, text: 'ability', info: { root: 'able/ible', meaning: '名词：可...性', origin: '-abilitas', originLanguage: 'Latin' }, minLenBefore: 1 },
-  { pattern: /ibility$/, text: 'ibility', info: { root: 'able/ible', meaning: '名词：可...性', origin: '-ibilitas', originLanguage: 'Latin' }, minLenBefore: 1 },
-  { pattern: /ousness$/, text: 'ousness', info: { root: 'ous+ness', meaning: '名词：...的状态', origin: '-osus + -nes', originLanguage: 'Latin/Old English' }, minLenBefore: 1 },
-  { pattern: /tional$/, text: 'tional', info: { root: 'tion+al', meaning: '形容词：与...相关的', origin: '-tio + -alis', originLanguage: 'Latin' }, minLenBefore: 1 },
-  { pattern: /sional$/, text: 'sional', info: { root: 'sion+al', meaning: '形容词：与...相关的', origin: '-sio + -alis', originLanguage: 'Latin' }, minLenBefore: 1 },
-  { pattern: /ational$/, text: 'ational', info: { root: 'ate+al', meaning: '形容词：具有...性质', origin: '-atus + -alis', originLanguage: 'Latin' }, minLenBefore: 1 },
-  { pattern: /tion$/, text: 'tion', info: { root: 'tion/sion', meaning: '名词：动作或状态', origin: '-tio', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /sion$/, text: 'sion', info: { root: 'tion/sion', meaning: '名词：动作或状态', origin: '-sio', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ment$/, text: 'ment', info: { root: 'ment', meaning: '名词：结果或状态', origin: '-mentum', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ness$/, text: 'ness', info: { root: 'ness', meaning: '名词：性质或状态', origin: '-nes', originLanguage: 'Old English' }, minLenBefore: 2 },
-  { pattern: /ship$/, text: 'ship', info: { root: 'ship', meaning: '名词：身份或状态', origin: '-scipe', originLanguage: 'Old English' }, minLenBefore: 2 },
-  { pattern: /hood$/, text: 'hood', info: { root: 'hood', meaning: '名词：身份或状态', origin: '-had', originLanguage: 'Old English' }, minLenBefore: 2 },
-  { pattern: /dom$/, text: 'dom', info: { root: 'dom', meaning: '名词：领域或状态', origin: '-dom', originLanguage: 'Old English' }, minLenBefore: 2 },
-  { pattern: /able$/, text: 'able', info: { root: 'able/ible', meaning: '形容词：能够的', origin: '-abilis', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ible$/, text: 'ible', info: { root: 'able/ible', meaning: '形容词：能够的', origin: '-ibilis', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ful$/, text: 'ful', info: { root: 'ful', meaning: '形容词：充满的', origin: '-full', originLanguage: 'Old English' }, minLenBefore: 2 },
-  { pattern: /less$/, text: 'less', info: { root: 'less', meaning: '形容词：没有的', origin: '-leas', originLanguage: 'Old English' }, minLenBefore: 2 },
-  { pattern: /ous$/, text: 'ous', info: { root: 'ous', meaning: '形容词：具有...的', origin: '-osus', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ive$/, text: 'ive', info: { root: 'ive', meaning: '形容词：倾向于', origin: '-ivus', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ical$/, text: 'ical', info: { root: 'ic+al', meaning: '形容词：与...相关的', origin: '-ikos + -alis', originLanguage: 'Greek/Latin' }, minLenBefore: 2 },
-  { pattern: /al$/, text: 'al', info: { root: 'al', meaning: '形容词：关于...的', origin: '-alis', originLanguage: 'Latin' }, minLenBefore: 3 },
-  { pattern: /ly$/, text: 'ly', info: { root: 'ly', meaning: '副词：以...方式', origin: '-lice', originLanguage: 'Old English' }, minLenBefore: 3 },
-  { pattern: /er$/, text: 'er', info: { root: 'er/or', meaning: '名词：做...的人/物', origin: '-ere', originLanguage: 'Old English' }, minLenBefore: 3 },
-  { pattern: /or$/, text: 'or', info: { root: 'er/or', meaning: '名词：做...的人/物', origin: '-or', originLanguage: 'Latin' }, minLenBefore: 3 },
-  { pattern: /ist$/, text: 'ist', info: { root: 'ist', meaning: '名词：从事...的人', origin: '-istes', originLanguage: 'Greek' }, minLenBefore: 2 },
-  { pattern: /ism$/, text: 'ism', info: { root: 'ism', meaning: '名词：主义或学说', origin: '-ismos', originLanguage: 'Greek' }, minLenBefore: 2 },
-  { pattern: /ity$/, text: 'ity', info: { root: 'ity', meaning: '名词：性质或状态', origin: '-itas', originLanguage: 'Latin' }, minLenBefore: 3 },
-  { pattern: /ology$/, text: 'ology', info: { root: 'log/logy', meaning: '名词：...学科', origin: '-logos', originLanguage: 'Greek' }, minLenBefore: 2 },
-  { pattern: /graphy$/, text: 'graphy', info: { root: 'graph', meaning: '名词：记录或描述', origin: '-graphia', originLanguage: 'Greek' }, minLenBefore: 2 },
-  { pattern: /ize$/, text: 'ize', info: { root: 'ize', meaning: '动词：使成为', origin: '-izein', originLanguage: 'Greek' }, minLenBefore: 2 },
-  { pattern: /ify$/, text: 'ify', info: { root: 'ify', meaning: '动词：使...化', origin: '-ficare', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ate$/, text: 'ate', info: { root: 'ate', meaning: '动词：使成为', origin: '-atus', originLanguage: 'Latin' }, minLenBefore: 3 },
-  { pattern: /en$/, text: 'en', info: { root: 'en', meaning: '动词：使成为', origin: '-jan', originLanguage: 'Old English' }, minLenBefore: 3 },
-  { pattern: /ic$/, text: 'ic', info: { root: 'ic', meaning: '形容词：具有...性质', origin: '-ikos', originLanguage: 'Greek' }, minLenBefore: 3 },
-  { pattern: /ary$/, text: 'ary', info: { root: 'ary', meaning: '形容词/名词：与...相关', origin: '-arius', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ory$/, text: 'ory', info: { root: 'ory', meaning: '形容词/名词：与...相关', origin: '-orius', originLanguage: 'Latin' }, minLenBefore: 2 },
-  { pattern: /ward$/, text: 'ward', info: { root: 'ward', meaning: '副词：向...方向', origin: '-weard', originLanguage: 'Old English' }, minLenBefore: 2 },
+const ROOT_RULES: Array<{
+  patterns: RegExp[];
+  display: string;
+  info: RootInfo;
+}> = [
+  { patterns: [/aud/], display: 'aud', info: { root: 'aud', meaning: '听，声音', origin: 'L audire', originLanguage: 'Latin' } },
+  { patterns: [/spect/], display: 'spect', info: { root: 'spect', meaning: '看，观察', origin: 'L spectare', originLanguage: 'Latin' } },
+  { patterns: [/spec(?=[ti])/], display: 'spec', info: { root: 'spect', meaning: '看', origin: 'L specere', originLanguage: 'Latin' } },
+  { patterns: [/dict/], display: 'dict', info: { root: 'dict', meaning: '说，言', origin: 'L dicere', originLanguage: 'Latin' } },
+  { patterns: [/scrib/], display: 'scrib', info: { root: 'scrib', meaning: '写', origin: 'L scribere', originLanguage: 'Latin' } },
+  { patterns: [/script/], display: 'script', info: { root: 'script', meaning: '写', origin: 'L scriptus', originLanguage: 'Latin' } },
+  { patterns: [/port/], display: 'port', info: { root: 'port', meaning: '携带', origin: 'L portare', originLanguage: 'Latin' } },
+  { patterns: [/duct/], display: 'duct', info: { root: 'duct', meaning: '引导', origin: 'L ducere', originLanguage: 'Latin' } },
+  { patterns: [/duc(?=[ae])/], display: 'duc', info: { root: 'duc', meaning: '引导', origin: 'L ducere', originLanguage: 'Latin' } },
+  { patterns: [/struct/], display: 'struct', info: { root: 'struct', meaning: '建造', origin: 'L struere', originLanguage: 'Latin' } },
+  { patterns: [/tract/], display: 'tract', info: { root: 'tract', meaning: '拉，拖', origin: 'L trahere', originLanguage: 'Latin' } },
+  { patterns: [/ject/], display: 'ject', info: { root: 'ject', meaning: '投，掷', origin: 'L jacere', originLanguage: 'Latin' } },
+  { patterns: [/miss/], display: 'miss', info: { root: 'miss', meaning: '发送', origin: 'L mittere', originLanguage: 'Latin' } },
+  { patterns: [/mit(?=[st])/], display: 'mit', info: { root: 'mit', meaning: '发送', origin: 'L mittere', originLanguage: 'Latin' } },
+  { patterns: [/vis(?![a])/], display: 'vis', info: { root: 'vis', meaning: '看', origin: 'L videre', originLanguage: 'Latin' } },
+  { patterns: [/vid/], display: 'vid', info: { root: 'vid', meaning: '看', origin: 'L videre', originLanguage: 'Latin' } },
+  { patterns: [/cept/], display: 'cept', info: { root: 'cept', meaning: '拿，取', origin: 'L capere', originLanguage: 'Latin' } },
+  { patterns: [/ceiv/], display: 'ceiv', info: { root: 'ceiv', meaning: '拿，取', origin: 'L capere', originLanguage: 'Latin' } },
+  { patterns: [/pos(?=[eit])/], display: 'pos', info: { root: 'pos', meaning: '放置', origin: 'L ponere', originLanguage: 'Latin' } },
+  { patterns: [/pon/], display: 'pon', info: { root: 'pon', meaning: '放置', origin: 'L ponere', originLanguage: 'Latin' } },
+  { patterns: [/fer(?=[^e])/], display: 'fer', info: { root: 'fer', meaning: '带来，承载', origin: 'L ferre', originLanguage: 'Latin' } },
+  { patterns: [/tend/], display: 'tend', info: { root: 'tend', meaning: '伸展', origin: 'L tendere', originLanguage: 'Latin' } },
+  { patterns: [/tens/], display: 'tens', info: { root: 'tens', meaning: '伸展', origin: 'L tendere', originLanguage: 'Latin' } },
+  { patterns: [/vers/], display: 'vers', info: { root: 'vers', meaning: '转', origin: 'L vertere', originLanguage: 'Latin' } },
+  { patterns: [/vert/], display: 'vert', info: { root: 'vert', meaning: '转', origin: 'L vertere', originLanguage: 'Latin' } },
+  { patterns: [/graph/], display: 'graph', info: { root: 'graph', meaning: '写，画', origin: 'Gk graphein', originLanguage: 'Greek' } },
+  { patterns: [/gram/], display: 'gram', info: { root: 'gram', meaning: '写，记录', origin: 'Gk gramma', originLanguage: 'Greek' } },
+  { patterns: [/log(?=[yio])/], display: 'log', info: { root: 'log', meaning: '学科，言语', origin: 'Gk logos', originLanguage: 'Greek' } },
+  { patterns: [/bio(?![n])/], display: 'bio', info: { root: 'bio', meaning: '生命', origin: 'Gk bios', originLanguage: 'Greek' } },
+  { patterns: [/geo/], display: 'geo', info: { root: 'geo', meaning: '地球', origin: 'Gk ge', originLanguage: 'Greek' } },
+  { patterns: [/phon(?=[yeoi])/], display: 'phon', info: { root: 'phon', meaning: '声音', origin: 'Gk phone', originLanguage: 'Greek' } },
+  { patterns: [/phot(?=[o])/], display: 'phot', info: { root: 'phot', meaning: '光', origin: 'Gk phos', originLanguage: 'Greek' } },
+  { patterns: [/photo/], display: 'photo', info: { root: 'photo', meaning: '光', origin: 'Gk phos', originLanguage: 'Greek' } },
+  { patterns: [/chrono/], display: 'chrono', info: { root: 'chrono', meaning: '时间', origin: 'Gk chronos', originLanguage: 'Greek' } },
+  { patterns: [/psych/], display: 'psych', info: { root: 'psych', meaning: '心灵', origin: 'Gk psyche', originLanguage: 'Greek' } },
+  { patterns: [/morph/], display: 'morph', info: { root: 'morph', meaning: '形态', origin: 'Gk morphe', originLanguage: 'Greek' } },
+  { patterns: [/path(?=[oyie])/], display: 'path', info: { root: 'path', meaning: '感情，疾病', origin: 'Gk pathos', originLanguage: 'Greek' } },
+  { patterns: [/phil(?=[lio])/], display: 'phil', info: { root: 'phil', meaning: '爱', origin: 'Gk philos', originLanguage: 'Greek' } },
+  { patterns: [/phob/], display: 'phob', info: { root: 'phob', meaning: '恐惧', origin: 'Gk phobos', originLanguage: 'Greek' } },
+  { patterns: [/mem(?=[orbe])/], display: 'mem', info: { root: 'mem', meaning: '记忆', origin: 'L memor', originLanguage: 'Latin' } },
+  { patterns: [/voc(?=[aike])/], display: 'voc', info: { root: 'voc', meaning: '叫，声音', origin: 'L vocare', originLanguage: 'Latin' } },
+  { patterns: [/vok/], display: 'vok', info: { root: 'vok', meaning: '叫', origin: 'L vocare', originLanguage: 'Latin' } },
+  { patterns: [/act/], display: 'act', info: { root: 'act', meaning: '做，行动', origin: 'L agere', originLanguage: 'Latin' } },
+  { patterns: [/rupt/], display: 'rupt', info: { root: 'rupt', meaning: '破裂', origin: 'L rumpere', originLanguage: 'Latin' } },
+  { patterns: [/fact/], display: 'fact', info: { root: 'fact', meaning: '做，制造', origin: 'L facere', originLanguage: 'Latin' } },
+  { patterns: [/fect/], display: 'fect', info: { root: 'fect', meaning: '做，制造', origin: 'L facere', originLanguage: 'Latin' } },
+  { patterns: [/fac(?=[eite])/], display: 'fac', info: { root: 'fac', meaning: '做', origin: 'L facere', originLanguage: 'Latin' } },
+  { patterns: [/cide/], display: 'cide', info: { root: 'cide', meaning: '切，杀', origin: 'L caedere', originLanguage: 'Latin' } },
+  { patterns: [/cis/], display: 'cis', info: { root: 'cis', meaning: '切', origin: 'L caedere', originLanguage: 'Latin' } },
+  { patterns: [/mot/], display: 'mot', info: { root: 'mot', meaning: '移动', origin: 'L movere', originLanguage: 'Latin' } },
+  { patterns: [/mov(?=e)/], display: 'mov', info: { root: 'mov', meaning: '移动', origin: 'L movere', originLanguage: 'Latin' } },
+  { patterns: [/cred/], display: 'cred', info: { root: 'cred', meaning: '相信', origin: 'L credere', originLanguage: 'Latin' } },
+  { patterns: [/cur(?=[rs])/], display: 'cur', info: { root: 'cur', meaning: '跑，流', origin: 'L currere', originLanguage: 'Latin' } },
+  { patterns: [/curs/], display: 'curs', info: { root: 'curs', meaning: '跑，流', origin: 'L currere', originLanguage: 'Latin' } },
+  { patterns: [/fin(?=[ide])/], display: 'fin', info: { root: 'fin', meaning: '结束，界限', origin: 'L finis', originLanguage: 'Latin' } },
+  { patterns: [/flu(?=[xue])/], display: 'flu', info: { root: 'flu', meaning: '流', origin: 'L fluere', originLanguage: 'Latin' } },
+  { patterns: [/form/], display: 'form', info: { root: 'form', meaning: '形状', origin: 'L forma', originLanguage: 'Latin' } },
+  { patterns: [/grad/], display: 'grad', info: { root: 'grad', meaning: '步，走', origin: 'L gradus', originLanguage: 'Latin' } },
+  { patterns: [/gress/], display: 'gress', info: { root: 'gress', meaning: '步，走', origin: 'L gradior', originLanguage: 'Latin' } },
+  { patterns: [/jud/], display: 'jud', info: { root: 'jud', meaning: '判断', origin: 'L judex', originLanguage: 'Latin' } },
+  { patterns: [/leg(?=[iae])/], display: 'leg', info: { root: 'leg', meaning: '法律，读', origin: 'L legere', originLanguage: 'Latin' } },
+  { patterns: [/lig(?=[aei])/], display: 'lig', info: { root: 'lig', meaning: '选择', origin: 'L legere', originLanguage: 'Latin' } },
+  { patterns: [/loc(?=[aio])/], display: 'loc', info: { root: 'loc', meaning: '地方', origin: 'L locus', originLanguage: 'Latin' } },
+  { patterns: [/manu/], display: 'manu', info: { root: 'manu', meaning: '手', origin: 'L manus', originLanguage: 'Latin' } },
+  { patterns: [/man(?=[u])/], display: 'man', info: { root: 'man', meaning: '手', origin: 'L manus', originLanguage: 'Latin' } },
+  { patterns: [/nat(?=[iue])/], display: 'nat', info: { root: 'nat', meaning: '出生', origin: 'L natus', originLanguage: 'Latin' } },
+  { patterns: [/ped(?=[iae])/], display: 'ped', info: { root: 'ped', meaning: '脚', origin: 'L pes', originLanguage: 'Latin' } },
+  { patterns: [/sens/], display: 'sens', info: { root: 'sens', meaning: '感觉', origin: 'L sentire', originLanguage: 'Latin' } },
+  { patterns: [/sent(?=[ient])/], display: 'sent', info: { root: 'sent', meaning: '感觉', origin: 'L sentire', originLanguage: 'Latin' } },
+  { patterns: [/press/], display: 'press', info: { root: 'press', meaning: '压', origin: 'L pressare', originLanguage: 'Latin' } },
+  { patterns: [/pend(?=[sen])/], display: 'pend', info: { root: 'pend', meaning: '悬挂', origin: 'L pendere', originLanguage: 'Latin' } },
+  { patterns: [/pens/], display: 'pens', info: { root: 'pens', meaning: '悬挂，称重', origin: 'L pendere', originLanguage: 'Latin' } },
+  { patterns: [/sign/], display: 'sign', info: { root: 'sign', meaning: '标记', origin: 'L signum', originLanguage: 'Latin' } },
+  { patterns: [/stat/], display: 'stat', info: { root: 'stat', meaning: '站立', origin: 'L stare', originLanguage: 'Latin' } },
+  { patterns: [/stant/], display: 'stant', info: { root: 'stant', meaning: '站立', origin: 'L stare', originLanguage: 'Latin' } },
+  { patterns: [/st(?=[aio])/], display: 'st', info: { root: 'st', meaning: '站立', origin: 'L stare', originLanguage: 'Latin' } },
+  { patterns: [/tain/], display: 'tain', info: { root: 'tain', meaning: '保持，拿住', origin: 'L tenere', originLanguage: 'Latin' } },
+  { patterns: [/ten(?=[dnt])/], display: 'ten', info: { root: 'ten', meaning: '保持', origin: 'L tenere', originLanguage: 'Latin' } },
+  { patterns: [/techn/], display: 'techn', info: { root: 'techn', meaning: '技术', origin: 'Gk techne', originLanguage: 'Greek' } },
+  { patterns: [/therm/], display: 'therm', info: { root: 'therm', meaning: '热', origin: 'Gk therme', originLanguage: 'Greek' } },
+  { patterns: [/scop/], display: 'scop', info: { root: 'scop', meaning: '看', origin: 'Gk skopein', originLanguage: 'Greek' } },
+  { patterns: [/crit/], display: 'crit', meaning: '判断', info: { root: 'crit', meaning: '判断', origin: 'Gk krinein', originLanguage: 'Greek' } } as any,
+  { patterns: [/cycl/], display: 'cycl', info: { root: 'cycl', meaning: '圆，环', origin: 'Gk kyklos', originLanguage: 'Greek' } },
+  { patterns: [/dem(?=[oi])/], display: 'dem', info: { root: 'dem', meaning: '人民', origin: 'Gk demos', originLanguage: 'Greek' } },
+  { patterns: [/gen(?=[eois])/], display: 'gen', info: { root: 'gen', meaning: '产生，种类', origin: 'Gk/L genos', originLanguage: 'Greek' } },
+  { patterns: [/hydr(?=[o])/], display: 'hydr', info: { root: 'hydr', meaning: '水', origin: 'Gk hydor', originLanguage: 'Greek' } },
+  { patterns: [/logy/], display: 'logy', info: { root: 'logy', meaning: '学科', origin: 'Gk -logia', originLanguage: 'Greek' } },
+  { patterns: [/metr/], display: 'metr', info: { root: 'metr', meaning: '测量', origin: 'Gk metron', originLanguage: 'Greek' } },
+  { patterns: [/onym/], display: 'onym', info: { root: 'onym', meaning: '名字', origin: 'Gk onoma', originLanguage: 'Greek' } },
+  { patterns: [/polit(?=[ei])/], display: 'polit', info: { root: 'polit', meaning: '城市，政治', origin: 'Gk polis', originLanguage: 'Greek' } },
+  { patterns: [/syn/], display: 'syn', info: { root: 'syn', meaning: '共同', origin: 'Gk syn', originLanguage: 'Greek' } },
+  { patterns: [/sym(?=[pbm])/], display: 'sym', info: { root: 'sym', meaning: '共同', origin: 'Gk syn', originLanguage: 'Greek' } },
+  { patterns: [/tax(?=[i])/], display: 'tax', info: { root: 'tax', meaning: '排列', origin: 'Gk taxis', originLanguage: 'Greek' } },
+  { patterns: [/top(?=[io])/], display: 'top', info: { root: 'top', meaning: '地方', origin: 'Gk topos', originLanguage: 'Greek' } },
+  { patterns: [/zoo/], display: 'zoo', info: { root: 'zoo', meaning: '动物', origin: 'Gk zoon', originLanguage: 'Greek' } },
 ];
 
 const VOWELS = 'aeiou';
 
-function generatePhonetic(word: string): string {
-  const w = word.toLowerCase();
-  let phonetic = '';
-  for (let i = 0; i < w.length; i++) {
-    const char = w[i];
-    const prev = i > 0 ? w[i - 1] : '';
-    const next = i < w.length - 1 ? w[i + 1] : '';
-    if (VOWELS.includes(char)) {
-      if (char === 'a') phonetic += (i === w.length - 1 && next === '') ? 'ə' : next === 'e' ? 'eɪ' : 'æ';
-      else if (char === 'e') phonetic += (i === w.length - 1) ? '' : prev === 'i' || next === 'e' ? 'iː' : 'ɛ';
-      else if (char === 'i') phonetic += next === 'e' ? 'aɪ' : 'ɪ';
-      else if (char === 'o') phonetic += next === 'e' ? 'oʊ' : 'ɒ';
-      else if (char === 'u') phonetic += 'ʌ';
-    } else if (char === 'c') {
-      phonetic += (['e', 'i', 'y'].includes(next)) ? 's' : 'k';
-    } else if (char === 'g') {
-      phonetic += (['e', 'i', 'y'].includes(next)) ? 'dʒ' : 'ɡ';
-    } else if (char === 's' && next === 'h') {
-      phonetic += 'ʃ';
-      i++;
-    } else if (char === 'c' && next === 'h') {
-      phonetic += 'tʃ';
-      i++;
-    } else if (char === 't' && next === 'h') {
-      phonetic += 'θ';
-      i++;
-    } else if (char === 'p' && next === 'h') {
-      phonetic += 'f';
-      i++;
-    } else if (char === 'y') {
-      phonetic += (i === 0 || VOWELS.includes(prev)) ? 'j' : 'i';
-    } else if (char === 'q') {
-      phonetic += 'kw';
-      if (next === 'u') i++;
-    } else if (char === 'x') {
-      phonetic += 'ks';
-    } else {
-      phonetic += char;
+function matchPrefix(word: string): { consumed: number; part: WordPart } | null {
+  for (const rule of PREFIX_RULES) {
+    for (const pattern of rule.patterns) {
+      const m = word.match(pattern);
+      if (m && m.index === 0 && word.length - m[0].length >= rule.minAfter) {
+        return {
+          consumed: m[0].length,
+          part: { text: rule.display, type: 'prefix', rootInfo: rule.info },
+        };
+      }
     }
   }
-  return `/${phonetic}/`;
+  return null;
 }
 
-function guessPartOfSpeech(word: string, breakdown: WordBreakdown): string {
-  const last = breakdown.parts[breakdown.parts.length - 1];
-  if (!last) return 'v.';
-  if (last.type === 'suffix') {
-    const t = last.text;
-    if (['tion', 'sion', 'ment', 'ness', 'ship', 'hood', 'dom', 'ity', 'ist', 'ism', 'ology', 'graphy'].includes(t)) return 'n.';
-    if (['able', 'ible', 'ful', 'less', 'ous', 'ive', 'al', 'ic', 'ary', 'ory', 'ical'].includes(t)) return 'adj.';
-    if (['ly', 'ward'].includes(t)) return 'adv.';
-    if (['ize', 'ify', 'ate', 'en'].includes(t)) return 'v.';
-  }
-  const w = word.toLowerCase();
-  if (w.endsWith('e') || w.endsWith('t') || w.endsWith('d') || w.endsWith('ct')) return 'v.';
-  return 'n./v.';
-}
-
-function guessMeaning(breakdown: WordBreakdown): string {
-  const meaningful = breakdown.parts.filter(p => p.rootInfo && p.type !== 'connector');
-  if (meaningful.length === 0) return '请查阅词典获取准确释义';
-  const meanings = meaningful.map(p => p.rootInfo!.meaning).join(' + ');
-  return `根据词根推断：${meanings}`;
-}
-
-function generateEtymology(word: string, breakdown: WordBreakdown): string {
-  const parts = breakdown.parts;
-  if (parts.length === 0) return `单词 "${word}" 的词源信息暂无记录。`;
-
-  const partsDesc = parts.map(p => {
-    if (p.rootInfo) {
-      const typeLabel = p.type === 'prefix' ? '前缀' : p.type === 'suffix' ? '后缀' : p.type === 'root' ? '词根' : '连接成分';
-      return `"${p.text}"（${typeLabel}：${p.rootInfo.meaning}，源自${p.rootInfo.originLanguage}的${p.rootInfo.origin}）`;
+function matchSuffix(word: string): { consumed: number; part: WordPart; needsStem: boolean } | null {
+  for (const rule of SUFFIX_RULES) {
+    for (const pattern of rule.patterns) {
+      const m = word.match(pattern);
+      if (m) {
+        const stemLen = m.index!;
+        if (stemLen >= rule.minBefore) {
+          return {
+            consumed: word.length - m.index!,
+            part: { text: rule.display, type: 'suffix', rootInfo: rule.info },
+            needsStem: !!rule.stripVowel,
+          };
+        }
+      }
     }
-    return `"${p.text}"`;
-  }).join('、');
-
-  const construction = parts
-    .filter(p => p.type !== 'connector')
-    .map(p => {
-      const lang = p.rootInfo?.originLanguage ? `（${p.rootInfo.originLanguage}）` : '';
-      return `${p.text}${lang}`;
-    }).join(' + ');
-
-  return `单词 "${word}" 由 ${construction} 构成。拆解分析：${partsDesc}。`;
+  }
+  return null;
 }
 
-export function analyzeWord(wordInput: string): WordBreakdown {
-  const word = wordInput.toLowerCase().trim();
+function matchRoots(text: string): WordPart[] {
   const parts: WordPart[] = [];
-  let remaining = word;
-  let startIdx = 0;
+  if (!text) return parts;
 
-  for (const prefix of COMMON_PREFIXES) {
-    const match = remaining.match(prefix.pattern);
-    if (match && remaining.length - match[0].length >= prefix.minLenAfter) {
-      if (match[0].length > startIdx) {
-        const before = remaining.slice(0, match.index || 0);
-        if (before) {
-          parts.push({ text: before, type: 'root' });
-        }
-      }
-      parts.push({ text: match[0], type: 'prefix', rootInfo: prefix.info });
-      remaining = remaining.slice((match.index || 0) + match[0].length);
-      startIdx = 0;
-      break;
-    }
-  }
-
-  let foundSuffix: typeof COMMON_SUFFIXES[0] | null = null;
-  let suffixMatch: RegExpMatchArray | null = null;
-  for (const suffix of COMMON_SUFFIXES) {
-    const match = remaining.match(suffix.pattern);
-    if (match) {
-      const matchIdx = match.index!;
-      if (matchIdx >= suffix.minLenBefore) {
-        if (!foundSuffix || (suffixMatch && matchIdx < (suffixMatch.index || 0))) {
-          foundSuffix = suffix;
-          suffixMatch = match;
-        }
+  const matches: Array<{ start: number; end: number; part: WordPart }> = [];
+  for (const rule of ROOT_RULES) {
+    for (const pattern of rule.patterns) {
+      const re = new RegExp(pattern.source, 'g');
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        matches.push({
+          start: m.index,
+          end: m.index + rule.display.length,
+          part: { text: rule.display, type: 'root', rootInfo: rule.info },
+        });
+        if (m.index === re.lastIndex) re.lastIndex++;
       }
     }
   }
 
-  let rootPart = remaining;
-  if (foundSuffix && suffixMatch) {
-    rootPart = remaining.slice(0, suffixMatch.index);
-  }
-
-  const rootMatches: Array<{ start: number; end: number; entry: typeof COMMON_ROOTS[0] }> = [];
-  for (const root of COMMON_ROOTS) {
-    const regex = new RegExp(root.pattern.source, 'g');
-    let m: RegExpExecArray | null;
-    while ((m = regex.exec(rootPart)) !== null) {
-      rootMatches.push({ start: m.index, end: m.index + m[0].length, entry: root });
-      if (m.index === regex.lastIndex) regex.lastIndex++;
-    }
-  }
-
-  rootMatches.sort((a, b) => a.start - b.start || b.end - a.end - (b.end - a.end));
-  const selected: typeof rootMatches = [];
+  matches.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  const selected: typeof matches = [];
   let lastEnd = -1;
-  for (const m of rootMatches) {
+  for (const m of matches) {
     if (m.start >= lastEnd) {
       selected.push(m);
       lastEnd = m.end;
     }
   }
 
-  if (selected.length === 0) {
-    if (rootPart) {
-      parts.push({ text: rootPart, type: 'root' });
+  let cursor = 0;
+  for (const m of selected) {
+    if (m.start > cursor) {
+      const before = text.slice(cursor, m.start);
+      if (before) parts.push({ text: before, type: before.length === 1 && VOWELS.includes(before) ? 'connector' : 'root' });
     }
-  } else {
-    let cursor = 0;
-    for (const m of selected) {
-      if (m.start > cursor) {
-        const before = rootPart.slice(cursor, m.start);
-        if (before) parts.push({ text: before, type: 'connector' });
-      }
-      parts.push({ text: m.entry.text, type: 'root', rootInfo: m.entry.info });
-      cursor = m.end;
-    }
-    if (cursor < rootPart.length) {
-      const after = rootPart.slice(cursor);
-      if (after) parts.push({ text: after, type: 'connector' });
-    }
+    parts.push(m.part);
+    cursor = m.end;
   }
-
-  if (foundSuffix && suffixMatch && foundSuffix) {
-    parts.push({ text: suffixMatch[0], type: 'suffix', rootInfo: foundSuffix.info });
+  if (cursor < text.length) {
+    const after = text.slice(cursor);
+    if (after) parts.push({ text: after, type: after.length === 1 && VOWELS.includes(after) ? 'connector' : 'root' });
   }
 
   if (parts.length === 0) {
-    parts.push({ text: word, type: 'root' });
+    parts.push({ text, type: 'root' });
+  }
+  return parts;
+}
+
+export function analyzeWord(input: string): WordBreakdown {
+  const word = input.toLowerCase().trim();
+  const allParts: WordPart[] = [];
+  let working = word;
+
+  let prefixGuard = 0;
+  while (working.length > 3 && prefixGuard < 3) {
+    const pf = matchPrefix(working);
+    if (!pf) break;
+    allParts.push(pf.part);
+    working = working.slice(pf.consumed);
+    prefixGuard++;
   }
 
-  return { parts, etymology: generateEtymology(word, { parts, etymology: '' }) };
+  type SuffixEntry = { part: WordPart; consumed: number };
+  const suffixStack: SuffixEntry[] = [];
+  let suffixGuard = 0;
+  let tempWorking = working;
+
+  while (tempWorking.length > 3 && suffixGuard < 4) {
+    const sf = matchSuffix(tempWorking);
+    if (!sf) break;
+    suffixStack.push({ part: sf.part, consumed: sf.consumed });
+    tempWorking = tempWorking.slice(0, tempWorking.length - sf.consumed);
+    if (sf.needsStem && VOWELS.includes(tempWorking[tempWorking.length - 1]) && tempWorking.length > 2) {
+      tempWorking = tempWorking.slice(0, -1);
+    }
+    suffixGuard++;
+  }
+
+  working = tempWorking;
+
+  const rootParts = matchRoots(working);
+  allParts.push(...rootParts);
+
+  for (let i = suffixStack.length - 1; i >= 0; i--) {
+    allParts.push(suffixStack[i].part);
+  }
+
+  if (allParts.length === 0) {
+    allParts.push({ text: word, type: 'root' });
+  }
+
+  const etymology = buildEtymology(word, allParts);
+  return { parts: allParts, etymology };
+}
+
+function buildEtymology(word: string, parts: WordPart[]): string {
+  if (parts.length === 0) return `单词 "${word}" 暂无词源信息。`;
+
+  const meaningful = parts.filter(p => p.type !== 'connector');
+  if (meaningful.length === 0) return `单词 "${word}" 暂无词源信息。`;
+
+  const construction = meaningful
+    .map(p => {
+      const lang = p.rootInfo?.originLanguage ? `（${p.rootInfo.originLanguage}）` : '';
+      return `${p.text}${lang}`;
+    }).join(' + ');
+
+  const desc = parts.map(p => {
+    if (p.rootInfo && p.type !== 'connector') {
+      const label = p.type === 'prefix' ? '前缀' : p.type === 'suffix' ? '后缀' : '词根';
+      return `"${p.text}"（${label}：${p.rootInfo.meaning}）`;
+    }
+    return p.type === 'connector' ? `连接符"${p.text}"` : `"${p.text}"`;
+  }).join('、');
+
+  return `单词 "${word}" 由 ${construction} 构成。${desc}。`;
+}
+
+function generatePhonetic(word: string): string {
+  const w = word.toLowerCase();
+  let p = '';
+  for (let i = 0; i < w.length; i++) {
+    const c = w[i], prev = i > 0 ? w[i - 1] : '', next = i < w.length - 1 ? w[i + 1] : '';
+    if (VOWELS.includes(c)) {
+      if (c === 'a') p += next === 'e' ? 'eɪ' : next === 'l' ? 'ɔː' : 'æ';
+      else if (c === 'e') p += (i === w.length - 1) ? '' : prev === 'i' || next === 'e' ? 'iː' : 'ɛ';
+      else if (c === 'i') p += next === 'e' ? 'aɪ' : 'ɪ';
+      else if (c === 'o') p += next === 'e' ? 'oʊ' : 'ɒ';
+      else if (c === 'u') p += next === 'e' ? 'juː' : 'ʌ';
+    } else if (c === 'c') p += (['e', 'i', 'y'].includes(next)) ? 's' : 'k';
+    else if (c === 'g') p += (['e', 'i', 'y'].includes(next)) ? 'dʒ' : 'ɡ';
+    else if (c === 's' && next === 'h') { p += 'ʃ'; i++; }
+    else if (c === 'c' && next === 'h') { p += 'tʃ'; i++; }
+    else if (c === 't' && next === 'h') { p += i === 0 ? 'θ' : 'ð'; i++; }
+    else if (c === 'p' && next === 'h') { p += 'f'; i++; }
+    else if (c === 'y') p += (i === 0 || VOWELS.includes(prev)) ? 'j' : (VOWELS.includes(next) ? 'aɪ' : 'i');
+    else if (c === 'q') { p += 'kw'; if (next === 'u') i++; }
+    else if (c === 'x') p += 'ks';
+    else if (c === 'w') p += next && VOWELS.includes(next) ? 'w' : '';
+    else p += c;
+  }
+  return `/${p}/`;
+}
+
+function guessPos(parts: WordPart[]): string {
+  const last = [...parts].reverse().find(p => p.type !== 'connector');
+  if (!last) return 'n.';
+  if (last.type === 'suffix') {
+    const t = last.text.toLowerCase();
+    if (['tion', 'sion', 'ment', 'ness', 'ship', 'hood', 'dom', 'ity', 'ist', 'ism', 'ity', 'er', 'or', 'logy', 'graphy', 'ology', 'ization', 'ification'].some(s => t.includes(s))) return 'n.';
+    if (['able', 'ible', 'ful', 'less', 'ous', 'ive', 'al', 'ic', 'ary', 'ory', 'ical'].some(s => t.includes(s))) return 'adj.';
+    if (['ly', 'ward'].some(s => t.includes(s))) return 'adv.';
+    if (['ize', 'ify', 'ate', 'en'].some(s => t.includes(s))) return 'v.';
+  }
+  return 'n./v.';
+}
+
+function guessMeaning(parts: WordPart[]): string {
+  const m = parts.filter(p => p.rootInfo && p.type !== 'connector');
+  if (m.length === 0) return '请查阅词典获取准确释义';
+  return `根据词根推断：${m.map(p => p.rootInfo!.meaning).join(' + ')}`;
 }
 
 export function queryWord(word: string): WordData {
@@ -408,14 +437,14 @@ export function queryWord(word: string): WordData {
   return {
     word: trimmed,
     phonetic: generatePhonetic(trimmed),
-    partOfSpeech: guessPartOfSpeech(trimmed, breakdown),
-    meaning: guessMeaning(breakdown),
+    partOfSpeech: guessPos(breakdown.parts),
+    meaning: guessMeaning(breakdown.parts),
     breakdown,
   };
 }
 
 export const rootsDatabase: RootInfo[] = [
-  ...COMMON_ROOTS.map(r => r.info),
-  ...COMMON_PREFIXES.map(p => p.info),
-  ...COMMON_SUFFIXES.map(s => s.info),
+  ...ROOT_RULES.map(r => r.info),
+  ...PREFIX_RULES.map(r => r.info),
+  ...SUFFIX_RULES.map(r => r.info),
 ];
