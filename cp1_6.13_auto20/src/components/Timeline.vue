@@ -153,10 +153,12 @@ function handleEcho(event: HistoryEvent, evt: Event) {
   position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 700ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 600ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
   border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(212, 165, 116, 0.6),
+    0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .card:hover .card-inner {
