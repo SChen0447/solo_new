@@ -1,172 +1,171 @@
 <template>
   <div class="bookshelf-page">
-    <!-- 状态栏（拖拽目标区） -->
-    <div
-      class="status-zones"
-      @dragover.prevent="onZoneDragOver"
-      @dragleave="onZoneDragLeave"
-      @drop="onZoneDrop"
-    >
+    <!-- 拖拽状态栏（顶部放置区） -->
+    <div class="drop-zones">
       <div
-        v-for="zone in statusZones"
+        v-for="zone in dropZones"
         :key="zone.value"
-        class="status-zone"
-        :class="{ 'is-active': activeDropZone === zone.value, 'is-drag-hover': dragHoverZone === zone.value }"
+        class="drop-zone"
+        :class="{
+          'is-dragging': draggingId != null,
+          'is-hover': hoverZone === zone.value,
+          'is-active': activeZone === zone.value
+        }"
         :data-status="zone.value"
+        @dragover.prevent="onZoneDragOver($event, zone.value)"
+        @dragenter.prevent="onZoneDragEnter(zone.value)"
+        @dragleave="onZoneDragLeave(zone.value)"
+        @drop="onZoneDrop($event, zone.value)"
       >
         <span class="zone-icon">{{ zone.icon }}</span>
-        <span class="zone-label">{{ zone.label }}</span>
+        <div class="zone-meta">
+          <div class="zone-label">{{ zone.label }}</div>
+          <div class="zone-sub">拖到此处切换为「{{ zone.label }}」</div>
+        </div>
         <span class="zone-count">{{ zoneCount(zone.value) }}</span>
       </div>
     </div>
 
     <!-- 工具栏 -->
     <div class="toolbar">
-      <div class="toolbar-left">
-        <div class="tag-filter">
-          <button
-            class="tag-btn"
-            :class="{ active: currentTag === 'all' }"
-            @click="onTagSelect('all', $event)"
-          >
-            <span class="tag-dot" style="background: #3e2723"></span>
-            全部
-          </button>
-          <button
-            v-for="t in ALL_TAGS"
-            :key="t"
-            class="tag-btn"
-            :class="{ active: currentTag === t }"
-            @click="onTagSelect(t, $event)"
-          >
-            <span class="tag-dot" :style="{ background: tagColor(t) }"></span>
-            {{ t }}
-          </button>
-        </div>
+      <div class="tag-bar">
+        <button
+          class="tag-btn"
+          :class="{ active: currentTag === 'all' }"
+          @click="pickTag('all', $event)"
+        >
+          <span class="tag-dot dot-all"></span>
+          全部
+          <span class="tag-count">{{ books.length }}</span>
+        </button>
+        <button
+          v-for="t in ALL_TAGS"
+          :key="t"
+          class="tag-btn"
+          :class="{ active: currentTag === t }"
+          @click="pickTag(t, $event)"
+        >
+          <span class="tag-dot" :style="{ background: tagColor(t) }"></span>
+          {{ t }}
+          <span class="tag-count">{{ tagCount(t) }}</span>
+        </button>
       </div>
 
-      <div class="toolbar-right">
+      <div class="actions">
         <button
           class="fate-btn"
-          :disabled="isSlotRunning || displayBooks.length === 0"
-          @click="onFateClick($event)"
+          :disabled="slotting || visibleBooks.length === 0"
+          @click="onFate($event)"
         >
-          <span class="fate-icon">{{ isSlotRunning ? '🎰' : '🎲' }}</span>
-          <span>{{ isSlotRunning ? '命运抽取中...' : '命运之书' }}</span>
+          <span class="fate-icon" :class="{ spin: slotting }">{{ slotting ? '🎰' : '🎲' }}</span>
+          <span class="fate-label">{{ slotting ? '命运抽取中…' : '命运之书' }}</span>
         </button>
-        <button class="add-btn" @click="toggleAddForm($event)">
-          <span class="add-icon">+</span>
+        <button class="add-btn" @click="toggleForm($event)">
+          <span class="plus">{{ showAddForm ? '−' : '+' }}</span>
           <span>{{ showAddForm ? '收起' : '添加书籍' }}</span>
         </button>
       </div>
     </div>
 
-    <!-- 添加书籍表单（淡入动画） -->
-    <Transition name="form-fade">
-      <form v-if="showAddForm" class="add-form" @submit.prevent="onSubmitForm">
+    <!-- 添加表单（淡入动画） -->
+    <Transition name="form-slide">
+      <form v-if="showAddForm" class="add-form" @submit.prevent="onSubmit">
+        <div class="form-title">
+          <span>📝</span>
+          往书架里加一本新书
+        </div>
         <div class="form-grid">
-          <div class="form-item">
-            <label>书名 *</label>
-            <input
-              v-model="formData.title"
-              type="text"
-              placeholder="请输入书名"
-              required
-            />
+          <div class="field">
+            <label>书名 <i>*</i></label>
+            <input v-model="form.title" type="text" placeholder="如：百年孤独" required />
           </div>
-          <div class="form-item">
-            <label>作者 *</label>
-            <input
-              v-model="formData.author"
-              type="text"
-              placeholder="请输入作者"
-              required
-            />
+          <div class="field">
+            <label>作者 <i>*</i></label>
+            <input v-model="form.author" type="text" placeholder="如：加西亚·马尔克斯" required />
           </div>
-          <div class="form-item form-item-wide">
+          <div class="field field-wide">
             <label>封面图片 URL</label>
-            <input
-              v-model="formData.coverUrl"
-              type="url"
-              placeholder="https://... (留空使用默认)"
-            />
+            <input v-model="form.coverUrl" type="url" placeholder="https://… 留空会根据首个标签生成默认封面" />
           </div>
-          <div class="form-item form-item-wide">
-            <label>标签 *</label>
-            <div class="tag-picker">
+          <div class="field field-wide">
+            <label>标签 <i>*</i>（至少选一个）</label>
+            <div class="tag-options">
               <label
                 v-for="t in ALL_TAGS"
                 :key="t"
                 class="tag-opt"
-                :class="{ checked: formData.tags.includes(t) }"
+                :class="{ checked: form.tags.includes(t) }"
               >
                 <input
                   type="checkbox"
                   :value="t"
-                  v-model="formData.tags"
-                  :style="{ display: 'none' }"
+                  v-model="form.tags"
+                  style="display:none"
+                  @change="noop"
                 />
-                <span>{{ t }}</span>
+                <span class="opt-dot" :style="{ background: tagColor(t) }"></span>
+                <span class="opt-label">{{ t }}</span>
               </label>
             </div>
           </div>
         </div>
-        <div class="form-actions">
-          <button type="button" class="btn-ghost" @click.stop="toggleAddForm">取消</button>
-          <button type="submit" class="btn-primary" :disabled="formData.tags.length === 0 || !formData.title || !formData.author">
-            添加到书架
+        <div class="form-foot">
+          <button type="button" class="btn-cancel" @click.stop="toggleForm">取消</button>
+          <button
+            type="submit"
+            class="btn-submit"
+            :disabled="!canSubmit"
+          >
+            🏷️ 添加到书架
           </button>
         </div>
       </form>
     </Transition>
 
-    <!-- 书架网格（标签切换 0.4s 淡入淡出） -->
-    <TransitionGroup
-      name="shelf-fade"
-      tag="div"
-      class="shelf-grid"
-      @before-enter="onCardBeforeEnter"
-      @enter="onCardEnter"
-      @leave="onCardLeave"
-    >
-      <BookCard
-        v-for="(b, idx) in displayBooks"
-        :key="b.id"
-        :book="b"
-        :is-slotting="isSlotRunning && slotIdxMap.get(b.id) !== undefined"
-        :is-highlighted="highlightId === b.id"
-        :flow-in-delay="flowInDelayMap.get(b.id) ?? 0"
-        @update:status="(s) => emit('update-status', { id: b.id, status: s })"
-        @drag-start="onCardDragStart"
-        @drag-end="onCardDragEnd"
-        @delete="emit('delete-book', b.id)"
-        @highlight-done="onHighlightDone"
-      />
-    </TransitionGroup>
+    <!-- 书架网格：响应式 + 0.4s 淡入淡出 -->
+    <div class="grid-wrap">
+      <TransitionGroup
+        name="shelf"
+        tag="div"
+        class="shelf-grid"
+      >
+        <BookCard
+          v-for="(b, idx) in visibleBooks"
+          :key="b.id"
+          :book="b"
+          :is-slot-cursor="slotCursorId === b.id"
+          :is-winner="winnerId === b.id"
+          :flow-in-delay="flowDelayOf(b.id, idx)"
+          @update:status="(s) => emit('update-status', { id: b.id, status: s })"
+          @drag-start="onCardDragStart"
+          @drag-end="onCardDragEnd"
+          @delete="emit('delete-book', b.id)"
+          @winner-ready="onWinnerReady"
+        />
+      </TransitionGroup>
 
-    <Transition name="empty-fade">
-      <div v-if="displayBooks.length === 0 && !isSlotRunning" class="empty-state">
-        <div class="empty-icon">📭</div>
-        <h3 class="empty-title">
-          {{ currentTag === 'all' ? '书架空空如也' : `暂无「${currentTag}」类书籍` }}
-        </h3>
-        <p class="empty-hint">点击右上角「添加书籍」开始构建你的私人藏书阁</p>
-      </div>
-    </Transition>
+      <Transition name="empty">
+        <div v-if="visibleBooks.length === 0 && !slotting" class="empty">
+          <div class="empty-illustration">�</div>
+          <h3>{{ currentTag === 'all' ? '书架空空如也' : `暂无「${currentTag}」分类的书籍` }}</h3>
+          <p>点击右上角 <b>添加书籍</b> 开始构建你的私人藏书阁吧～</p>
+        </div>
+      </Transition>
+    </div>
 
-    <!-- 拖拽幽灵提示 -->
+    <!-- 拖拽期间的悬浮提示 -->
     <div
-      v-if="draggingBookId"
-      class="drag-ghost-hint"
-      :style="ghostStyle"
+      v-if="draggingId"
+      class="drag-tip"
+      :style="tipStyle"
     >
-      拖到上方状态栏切换阅读状态
+      ↑ 拖到上方状态栏切换阅读状态
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, reactive, onBeforeUnmount, nextTick } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import BookCard from './BookCard.vue'
 import type { Book, TagType, ReadingStatus } from '@/types'
 import { ALL_TAGS, Tag, STATUS_LABELS } from '@/types'
@@ -183,267 +182,283 @@ const emit = defineEmits<{
   (e: 'delete-book', id: string): void
 }>()
 
+/* ---------- 常量 ---------- */
 const TAG_COLORS: Record<string, string> = {
   [Tag.NOVEL]: '#e57373',
-  [Tag.TECHNOLOGY]: '#64b5f6',
+  [Tag.TECHNOLOGY]: '#42a5f5',
   [Tag.HISTORY]: '#a1887f',
-  [Tag.PHILOSOPHY]: '#ba68c8',
-  [Tag.SCIENCE]: '#81c784',
-  [Tag.BIOGRAPHY]: '#ffb74d'
+  [Tag.PHILOSOPHY]: '#ab47bc',
+  [Tag.SCIENCE]: '#66bb6a',
+  [Tag.BIOGRAPHY]: '#ffa726'
 }
+const tagColor = (t: string) => TAG_COLORS[t] ?? '#90a4ae'
 
-const tagColor = (t: string): string => TAG_COLORS[t] ?? '#90a4ae'
-
-const statusZones: { value: ReadingStatus; label: string; icon: string }[] = [
+const dropZones: { value: ReadingStatus; label: string; icon: string }[] = [
   { value: 'unread', label: STATUS_LABELS.unread, icon: '📕' },
   { value: 'reading', label: STATUS_LABELS.reading, icon: '📖' },
   { value: 'read', label: STATUS_LABELS.read, icon: '✅' }
 ]
 
-const zoneCount = (s: ReadingStatus) => props.books.filter(b => b.status === s).length
-const activeDropZone = ref<ReadingStatus | null>(null)
-const dragHoverZone = ref<ReadingStatus | null>(null)
-
+/* ---------- 状态 ---------- */
 const currentTag = ref<TagType | 'all'>(props.selectedTag ?? 'all')
-watch(() => props.selectedTag, (v) => {
-  if (v !== undefined) currentTag.value = v
-})
+watch(() => props.selectedTag, (v) => { if (v !== undefined) currentTag.value = v })
 
 const showAddForm = ref(false)
-const formData = reactive({
+const form = reactive<{ title: string; author: string; coverUrl: string; tags: TagType[] }>({
   title: '',
   author: '',
   coverUrl: '',
-  tags: [] as TagType[]
+  tags: []
 })
-const pendingInsertIds = ref<Set<string>>(new Set())
-const flowInDelayMap = ref<Map<string, number>>(new Map())
 
-const draggingBookId = ref<string | null>(null)
-const ghostPos = reactive({ x: 0, y: 0 })
+const slotting = ref(false)
+const slotCursorId = ref<string | null>(null)
+const winnerId = ref<string | null>(null)
 
-const isSlotRunning = ref(false)
-const slotIdxMap = ref<Map<string, number>>(new Map())
-const highlightId = ref<string | null>(null)
+const draggingId = ref<string | null>(null)
+const hoverZone = ref<ReadingStatus | null>(null)
+const activeZone = ref<ReadingStatus | null>(null)
+const tip = reactive({ x: 0, y: 0 })
 
-let slotIntervalId: ReturnType<typeof setInterval> | null = null
-let slotTimeoutId: ReturnType<typeof setTimeout> | null = null
-let rafId: number | null = null
+const flowDelayMap = ref<Map<string, number>>(new Map())
+const mountedIds = ref<Set<string>>(new Set())
+let lastSeenTag: TagType | 'all' = currentTag.value
 
-const displayBooks = computed(() => {
-  const filtered = currentTag.value === 'all'
+/* ---------- 计算 ---------- */
+const visibleBooks = computed(() => {
+  const arr = currentTag.value === 'all'
     ? [...props.books]
     : props.books.filter(b => b.tags.includes(currentTag.value as TagType))
-  return filtered.sort((a, b) => b.createdAt - a.createdAt)
+  return arr.sort((a, b) => b.createdAt - a.createdAt)
 })
 
-const createRipple = (e: MouseEvent) => {
+const canSubmit = computed(() => form.title.trim() && form.author.trim() && form.tags.length > 0)
+
+const zoneCount = (s: ReadingStatus) => props.books.filter(b => b.status === s).length
+const tagCount = (t: TagType) => props.books.filter(b => b.tags.includes(t)).length
+
+const tipStyle = computed(() => ({
+  left: `${tip.x + 20}px`,
+  top: `${tip.y + 20}px`
+}))
+
+/* ---------- 行为：涟漪 ---------- */
+const addRipple = (e: MouseEvent) => {
   const target = e.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
-  const size = Math.max(rect.width, rect.height)
-  const ripple = document.createElement('span')
-  ripple.style.cssText = `
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.55);
-    width: ${size}px;
-    height: ${size}px;
-    left: ${e.clientX - rect.left - size / 2}px;
-    top: ${e.clientY - rect.top - size / 2}px;
-    transform: scale(0);
-    pointer-events: none;
-    animation: ripple 0.6s ease-out forwards;
-    z-index: 5;
+  const size = Math.max(rect.width, rect.height) * 1.5
+  const r = document.createElement('span')
+  r.style.cssText = `
+    position:absolute;
+    border-radius:50%;
+    background:rgba(255,255,255,0.55);
+    width:${size}px;height:${size}px;
+    left:${e.clientX - rect.left - size / 2}px;
+    top:${e.clientY - rect.top - size / 2}px;
+    transform:scale(0);
+    pointer-events:none;
+    animation:ripple 0.6s ease-out forwards;
+    z-index:5;
   `
-  target.appendChild(ripple)
-  setTimeout(() => ripple.remove(), 650)
+  target.style.position = target.style.position || 'relative'
+  target.style.overflow = 'hidden'
+  target.appendChild(r)
+  setTimeout(() => r.remove(), 650)
 }
 
-const onTagSelect = (tag: TagType | 'all', e: MouseEvent) => {
-  createRipple(e)
+/* ---------- 行为：标签切换 ---------- */
+const pickTag = (tag: TagType | 'all', e: MouseEvent) => {
+  addRipple(e)
+  if (currentTag.value === tag) return
   currentTag.value = tag
   emit('select-tag', tag)
 }
 
-const toggleAddForm = (e?: MouseEvent) => {
-  if (e) createRipple(e)
-  showAddForm.value = !showAddForm.value
-  if (!showAddForm.value) {
-    formData.title = ''
-    formData.author = ''
-    formData.coverUrl = ''
-    formData.tags = []
+/* 标签切换后给新显示的卡片按索引分配 flow-in delay */
+watch(visibleBooks, () => {
+  const changed = lastSeenTag !== currentTag.value
+  lastSeenTag = currentTag.value
+  if (changed) {
+    mountedIds.value.clear()
   }
+}, { flush: 'post' })
+
+const flowDelayOf = (id: string, idx: number) => {
+  if (flowDelayMap.value.has(id)) return flowDelayMap.value.get(id)!
+  const d = Math.min(idx * 55, 500)
+  flowDelayMap.value.set(id, d)
+  return d
+}
+
+/* ---------- 行为：添加表单 ---------- */
+const toggleForm = (e?: MouseEvent) => {
+  if (e) addRipple(e)
+  showAddForm.value = !showAddForm.value
+  if (!showAddForm.value) resetForm()
 }
 
 const resetForm = () => {
-  formData.title = ''
-  formData.author = ''
-  formData.coverUrl = ''
-  formData.tags = []
+  form.title = ''
+  form.author = ''
+  form.coverUrl = ''
+  form.tags = []
 }
 
-const onSubmitForm = async () => {
-  if (!formData.title || !formData.author || formData.tags.length === 0) return
+const defaultCoverFor = (t: TagType) => {
+  const c = tagColor(t).replace('#', '')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#${c}"/><stop offset="1" stop-color="#3e2723"/></linearGradient></defs><rect fill="url(#g)" width="300" height="400" rx="6"/><rect x="18" y="16" width="264" height="368" fill="none" stroke="rgba(255,248,225,0.35)" stroke-width="2" rx="4"/><text x="50%" y="44%" font-size="72" text-anchor="middle" dominant-baseline="middle" fill="#fff8e1" opacity="0.92">📖</text><text x="50%" y="62%" font-family="sans-serif" font-size="22" font-weight="800" text-anchor="middle" dominant-baseline="middle" fill="#fff8e1" letter-spacing="2">${t}</text></svg>`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
+
+const onSubmit = async () => {
+  if (!canSubmit.value) return
   const payload: Omit<Book, 'id' | 'createdAt' | 'status'> = {
-    title: formData.title.trim(),
-    author: formData.author.trim(),
-    coverUrl: formData.coverUrl.trim() || getDefaultCover(formData.tags[0]),
-    tags: [...formData.tags]
+    title: form.title.trim(),
+    author: form.author.trim(),
+    coverUrl: form.coverUrl.trim() || defaultCoverFor(form.tags[0]),
+    tags: [...form.tags]
   }
   emit('add-book', payload)
-  pendingInsertIds.value.add(`__new_${Date.now()}`)
   await nextTick()
-  const newBook = props.books[0]
-  if (newBook) {
-    const idx = displayBooks.value.findIndex(b => b.id === newBook.id)
-    flowInDelayMap.value.set(newBook.id, (idx >= 0 ? idx : 0) * 50)
+  /* 把新出现的顶条卡片分配 delay，实现从左到右流动 */
+  const list = visibleBooks.value
+  for (let i = 0; i < list.length; i++) {
+    if (!flowDelayMap.value.has(list[i].id)) {
+      flowDelayMap.value.set(list[i].id, Math.min(i * 55, 500))
+    }
   }
   resetForm()
   showAddForm.value = false
 }
 
-const getDefaultCover = (t: TagType): string => {
-  const colors: Record<string, string> = {
-    [Tag.NOVEL]: 'e57373',
-    [Tag.TECHNOLOGY]: '64b5f6',
-    [Tag.HISTORY]: 'a1887f',
-    [Tag.PHILOSOPHY]: 'ba68c8',
-    [Tag.SCIENCE]: '81c784',
-    [Tag.BIOGRAPHY]: 'ffb74d'
-  }
-  const c = colors[t] ?? '90a4ae'
-  return `data:image/svg+xml;utf8,` + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#${c}"/><stop offset="1" stop-color="#3e2723"/></linearGradient></defs><rect fill="url(#g)" width="300" height="400"/><text x="50%" y="45%" font-family="serif" font-size="60" text-anchor="middle" dominant-baseline="middle" fill="#fff8e1" opacity="0.9">📖</text><text x="50%" y="65%" font-family="sans-serif" font-size="18" font-weight="700" text-anchor="middle" dominant-baseline="middle" fill="#fff8e1">${t}</text></svg>`
-  )
+const noop = () => {}
+
+/* ---------- 行为：拖拽 ---------- */
+const _onDocDragMove = (e: DragEvent) => {
+  if (e.clientX != null) tip.x = e.clientX
+  if (e.clientY != null) tip.y = e.clientY
 }
 
-const onCardBeforeEnter = () => { /* hook */ }
-const onCardEnter = (_el: Element, done: () => void) => {
-  done()
-}
-const onCardLeave = (_el: Element, done: () => void) => {
-  done()
-}
-
-const onCardDragStart = (p: { id: string; el: HTMLElement }) => {
-  draggingBookId.value = p.id
-  const onMove = (e: MouseEvent) => {
-    ghostPos.x = e.clientX
-    ghostPos.y = e.clientY
-  }
-  window.addEventListener('dragover', onMove as unknown as EventListener)
-  const cleanup = () => window.removeEventListener('dragover', onMove as unknown as EventListener)
-  onBeforeUnmount(cleanup)
-  const storedCleanup = (window as unknown as { __dragCleanup?: () => void }).__dragCleanup
-  if (storedCleanup) storedCleanup()
-  ;(window as unknown as { __dragCleanup?: () => void }).__dragCleanup = cleanup
+const onCardDragStart = (p: { id: string; rect: DOMRect }) => {
+  draggingId.value = p.id
+  tip.x = p.rect.left
+  tip.y = p.rect.top
+  document.addEventListener('dragover', _onDocDragMove as unknown as EventListener)
+  document.addEventListener('drop', _onDocDrop as unknown as EventListener, true)
 }
 
-const onCardDragEnd = () => {
-  draggingBookId.value = null
-  activeDropZone.value = null
-  dragHoverZone.value = null
-  const cleanup = (window as unknown as { __dragCleanup?: () => void }).__dragCleanup
-  if (cleanup) { cleanup(); (window as unknown as { __dragCleanup?: () => void }).__dragCleanup = undefined }
+const _onDocDrop = (e: DragEvent) => {
+  /* 兜底：在任何地方 drop 都清理 */
+  setTimeout(cleanupDrag, 0)
+  void e
 }
 
-const onZoneDragOver = (e: DragEvent) => {
-  if (!draggingBookId.value || !e.dataTransfer) return
+const cleanupDrag = () => {
+  draggingId.value = null
+  hoverZone.value = null
+  activeZone.value = null
+  document.removeEventListener('dragover', _onDocDragMove as unknown as EventListener)
+  document.removeEventListener('drop', _onDocDrop as unknown as EventListener, true)
+}
+
+const onCardDragEnd = () => cleanupDrag()
+
+const onZoneDragOver = (e: DragEvent, s: ReadingStatus) => {
+  if (!draggingId.value || !e.dataTransfer) return
   e.dataTransfer.dropEffect = 'move'
-  const target = (e.target as HTMLElement).closest('[data-status]') as HTMLElement | null
-  if (target) {
-    const s = target.dataset.status as ReadingStatus
-    dragHoverZone.value = s
-    activeDropZone.value = s
-  } else {
-    dragHoverZone.value = null
-  }
+  activeZone.value = s
 }
 
-const onZoneDragLeave = () => {
-  dragHoverZone.value = null
+const onZoneDragEnter = (s: ReadingStatus) => {
+  hoverZone.value = s
+  activeZone.value = s
 }
 
-const onZoneDrop = (e: DragEvent) => {
-  const target = (e.target as HTMLElement).closest('[data-status]') as HTMLElement | null
-  const bookId = draggingBookId.value
-  if (target && bookId) {
-    const status = target.dataset.status as ReadingStatus
-    emit('update-status', { id: bookId, status })
-  }
-  onCardDragEnd()
+const onZoneDragLeave = (s: ReadingStatus) => {
+  if (hoverZone.value === s) hoverZone.value = null
 }
 
-const ghostStyle = computed(() => ({
-  left: `${ghostPos.x + 18}px`,
-  top: `${ghostPos.y + 18}px`
-}))
+const onZoneDrop = (e: DragEvent, s: ReadingStatus) => {
+  e.preventDefault()
+  e.stopPropagation()
+  const bookId = draggingId.value
+  if (!bookId) return
+  emit('update-status', { id: bookId, status: s })
+  cleanupDrag()
+}
 
-const onFateClick = (e: MouseEvent) => {
-  createRipple(e)
-  if (isSlotRunning.value || displayBooks.value.length === 0) return
-  const books = displayBooks.value
-  const len = books.length
-  const totalDuration = 2000
-  const startInterval = 60
-  const step = 1.06
+/* ---------- 行为：命运之书老虎机（2秒快速来回滚动） ---------- */
+const SLOT_DURATION = 2000
+const SLOT_START_INTERVAL = 55
+const SLOT_EASE_FACTOR = 1.07
 
-  isSlotRunning.value = true
-  highlightId.value = null
-  slotIdxMap.value.clear()
+let slotIntervalId: ReturnType<typeof setTimeout> | null = null
+let slotFinishTimer: ReturnType<typeof setTimeout> | null = null
 
-  let interval = startInterval
+const clearSlotTimers = () => {
+  if (slotIntervalId) { clearTimeout(slotIntervalId); slotIntervalId = null }
+  if (slotFinishTimer) { clearTimeout(slotFinishTimer); slotFinishTimer = null }
+}
+
+const onFate = (e: MouseEvent) => {
+  addRipple(e)
+  if (slotting.value || visibleBooks.value.length === 0) return
+  clearSlotTimers()
+  winnerId.value = null
+
+  const pool = visibleBooks.value
+  const len = pool.length
+  if (len === 0) return
+
+  slotting.value = true
+  let cursor = 0
+  let interval = SLOT_START_INTERVAL
   let elapsed = 0
-  let round = 0
 
   const tick = () => {
-    slotIdxMap.value.clear()
-    for (let i = 0; i < len; i++) {
-      slotIdxMap.value.set(books[i].id, (round + i) % len)
-    }
-    round++
-    elapsed += interval
-    interval = Math.min(interval * step, 260)
+    /* 来回滚动：先向右递增，过半后可以回跳制造「来回」观感 */
+    const step = elapsed < SLOT_DURATION * 0.6
+      ? 1
+      : (Math.random() < 0.55 ? 1 : -1)
+    cursor = (cursor + step + len) % len
+    slotCursorId.value = pool[cursor].id
 
-    if (elapsed < totalDuration) {
+    elapsed += interval
+    interval = Math.min(interval * SLOT_EASE_FACTOR, 250)
+
+    if (elapsed < SLOT_DURATION) {
       slotIntervalId = setTimeout(tick, interval)
     } else {
-      finishSlot()
+      finalizeSlot(pool, cursor)
     }
   }
   tick()
 
-  slotTimeoutId = setTimeout(() => {
-    if (isSlotRunning.value) finishSlot()
-  }, totalDuration + 200)
+  slotFinishTimer = setTimeout(() => {
+    if (slotting.value) finalizeSlot(pool, cursor)
+  }, SLOT_DURATION + 250)
 }
 
-const finishSlot = () => {
-  if (slotIntervalId) { clearTimeout(slotIntervalId); slotIntervalId = null }
-  if (slotTimeoutId) { clearTimeout(slotTimeoutId); slotTimeoutId = null }
-  slotIdxMap.value.clear()
-  isSlotRunning.value = false
-
-  const pool = displayBooks.value
+const finalizeSlot = (pool: Book[], cursor: number) => {
+  clearSlotTimers()
+  slotting.value = false
+  slotCursorId.value = null
   if (pool.length === 0) return
-  const winner = pool[Math.floor(Math.random() * pool.length)]
-  highlightId.value = winner.id
+  /* 在最后位置 ±1 中随机，模拟老虎机「咔哒停住」 */
+  const len = pool.length
+  const finalIdx = (cursor + (Math.floor(Math.random() * 3) - 1) + len) % len
+  const winner = pool[finalIdx]
+  winnerId.value = winner.id
 }
 
-const onHighlightDone = () => {
-  if (highlightId.value !== null) {
-    const t = setTimeout(() => {
-      highlightId.value = null
-    }, 800)
-    onBeforeUnmount(() => clearTimeout(t))
-  }
+const onWinnerReady = () => {
+  const t = setTimeout(() => { winnerId.value = null }, 900)
+  onBeforeUnmount(() => clearTimeout(t))
 }
 
 onBeforeUnmount(() => {
-  if (slotIntervalId) clearTimeout(slotIntervalId)
-  if (slotTimeoutId) clearTimeout(slotTimeoutId)
-  if (rafId !== null) cancelAnimationFrame(rafId)
+  clearSlotTimers()
+  cleanupDrag()
 })
 </script>
 
@@ -452,65 +467,91 @@ onBeforeUnmount(() => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 
-/* ============ 状态栏 ============ */
-.status-zones {
+/* ============ 状态栏（拖拽放置区） ============ */
+.drop-zones {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
-  padding: 4px;
 }
 
-.status-zone {
+.drop-zone {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  gap: 14px;
   padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(255, 248, 225, 0.85), rgba(255, 236, 179, 0.6));
+  background: linear-gradient(135deg, rgba(255, 248, 225, 0.9), rgba(255, 236, 179, 0.75));
   border: 2px dashed #a1887f;
-  border-radius: 14px;
-  transition: all 0.25s ease;
-  cursor: pointer;
+  border-radius: 16px;
+  transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
 }
 
-.status-zone.is-drag-hover {
-  background: linear-gradient(135deg, #ffcc80, #ffb74d);
+.drop-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255, 152, 0, 0.22), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+}
+
+.drop-zone.is-dragging {
+  background: linear-gradient(135deg, #fff3c4, #ffe082);
+  border-color: #8d6e63;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(62, 39, 35, 0.2);
+}
+
+.drop-zone.is-hover,
+.drop-zone.is-active {
   border-style: solid;
   border-color: #e65100;
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 20px rgba(230, 81, 0, 0.3);
+  background: linear-gradient(135deg, #ffcc80, #ffb74d);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 32px rgba(230, 81, 0, 0.35);
 }
 
-.status-zone.is-active {
-  border-color: #ff6f00;
-  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.18);
-}
+.drop-zone.is-hover::before,
+.drop-zone.is-active::before { opacity: 1; }
 
 .zone-icon {
-  font-size: 26px;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
+  font-size: 34px;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.18));
+  flex-shrink: 0;
 }
 
+.zone-meta { flex: 1; min-width: 0; }
+
 .zone-label {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   color: #3e2723;
   letter-spacing: 1px;
+}
+
+.zone-sub {
+  font-size: 12px;
+  color: #795548;
+  margin-top: 2px;
+  opacity: 0.85;
 }
 
 .zone-count {
   background: #3e2723;
   color: #ffe082;
-  min-width: 28px;
-  padding: 2px 10px;
-  border-radius: 14px;
-  font-size: 13px;
-  font-weight: 700;
+  min-width: 34px;
+  padding: 4px 12px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 800;
   text-align: center;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 2px rgba(255, 224, 130, 0.25);
 }
 
 /* ============ 工具栏 ============ */
@@ -518,39 +559,38 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
   flex-wrap: wrap;
-  padding: 12px 18px;
-  background: rgba(255, 248, 225, 0.7);
-  backdrop-filter: blur(6px);
+  padding: 14px 18px;
+  background: rgba(255, 248, 225, 0.78);
+  backdrop-filter: blur(8px);
   border: 2px solid #8d6e63;
-  border-radius: 16px;
-  box-shadow: 0 4px 14px rgba(62, 39, 35, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 6px 16px rgba(62, 39, 35, 0.12);
 }
 
-.toolbar-left { flex: 1; min-width: 280px; }
-
-.tag-filter {
+.tag-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  flex: 1;
+  min-width: 280px;
 }
 
 .tag-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 9px 16px;
   border: 2px solid #bcaaa4;
-  background: #fff8e1;
+  background: #fffdf7;
   color: #5d4037;
-  border-radius: 22px;
+  border-radius: 24px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tag-btn:hover {
@@ -560,11 +600,16 @@ onBeforeUnmount(() => {
 }
 
 .tag-btn.active {
-  background: linear-gradient(135deg, #5d4037, #3e2723);
-  border-color: #2c1810;
-  color: #ffe082;
-  box-shadow: 0 4px 12px rgba(62, 39, 35, 0.35), inset 0 0 0 1px rgba(255, 224, 130, 0.2);
+  background: linear-gradient(135deg, #ff9800, #e65100);
+  border-color: #bf360c;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(230, 81, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
+}
+
+.tag-btn.active .tag-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
 }
 
 .tag-dot {
@@ -574,334 +619,442 @@ onBeforeUnmount(() => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.toolbar-right {
+.dot-all {
+  background: conic-gradient(#e57373, #42a5f5, #a1887f, #ab47bc, #66bb6a, #ffa726, #e57373);
+}
+
+.tag-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 1px 8px;
+  background: rgba(141, 110, 99, 0.15);
+  color: #5d4037;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.actions {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .fate-btn, .add-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
+  gap: 10px;
+  padding: 11px 22px;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
   letter-spacing: 0.5px;
 }
 
 .fate-btn {
-  background: linear-gradient(135deg, #ff9800 0%, #f57c00 50%, #e65100 100%);
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 55%, #d84315 100%);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(245, 124, 0, 0.4);
+  box-shadow: 0 6px 18px rgba(245, 124, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .fate-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(245, 124, 0, 0.5);
+  box-shadow: 0 10px 26px rgba(245, 124, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-.fate-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
+.fate-btn:active:not(:disabled) { transform: translateY(0); }
 
 .fate-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
 .fate-icon {
-  font-size: 18px;
+  font-size: 20px;
   display: inline-block;
-  animation: none;
 }
 
-.fate-btn:disabled .fate-icon {
-  animation: spin 0.6s linear infinite;
+.fate-icon.spin {
+  animation: spin3d 0.55s linear infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes spin3d {
+  0% { transform: rotateY(0deg) scale(1); }
+  50% { transform: rotateY(180deg) scale(1.15); }
+  100% { transform: rotateY(360deg) scale(1); }
 }
 
 .add-btn {
-  background: linear-gradient(135deg, #3e2723, #5d4037);
+  background: linear-gradient(135deg, #5d4037, #3e2723);
   color: #fff8e1;
-  box-shadow: 0 4px 14px rgba(62, 39, 35, 0.35);
+  box-shadow: 0 6px 18px rgba(62, 39, 35, 0.4);
 }
 
 .add-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(62, 39, 35, 0.5);
+  box-shadow: 0 10px 26px rgba(62, 39, 35, 0.55);
 }
 
-.add-icon {
-  font-size: 18px;
-  font-weight: 700;
+.plus {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
 }
 
-/* ============ 表单 ============ */
+/* ============ 添加表单 ============ */
 .add-form {
   background: linear-gradient(135deg, #fff8e1, #fff3c4);
   border: 2px solid #8d6e63;
-  border-radius: 16px;
-  padding: 24px 28px;
-  box-shadow: 0 8px 26px rgba(62, 39, 35, 0.18);
+  border-radius: 18px;
+  padding: 26px 28px;
+  box-shadow: 0 12px 32px rgba(62, 39, 35, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.add-form::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -15%;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(255, 152, 0, 0.18), transparent 65%);
+  pointer-events: none;
+}
+
+.form-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #3e2723;
+  margin-bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: 0.5px;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 18px;
+  position: relative;
 }
 
-.form-item-wide {
-  grid-column: 1 / -1;
-}
+.field-wide { grid-column: 1 / -1; }
 
-.form-item label {
+.field label {
   display: block;
   font-size: 13px;
   font-weight: 700;
   color: #5d4037;
-  margin-bottom: 6px;
-  letter-spacing: 0.5px;
+  margin-bottom: 7px;
+  letter-spacing: 0.3px;
 }
 
-.form-item input[type="text"],
-.form-item input[type="url"] {
+.field label i {
+  color: #e53935;
+  font-style: normal;
+  margin-left: 2px;
+}
+
+.field input[type="text"],
+.field input[type="url"] {
   width: 100%;
-  padding: 10px 14px;
+  padding: 11px 16px;
   border: 2px solid #d7ccc8;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #fffdf7;
   font-size: 14px;
   color: #3e2723;
-  transition: all 0.2s ease;
+  transition: all 0.22s ease;
   outline: none;
+  font-family: inherit;
 }
 
-.form-item input:focus {
+.field input:focus {
   border-color: #ff9800;
-  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.15);
   background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.15);
 }
 
-.tag-picker {
+.tag-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .tag-opt {
-  position: relative;
   display: inline-flex;
   align-items: center;
-  padding: 7px 14px;
+  gap: 8px;
+  padding: 8px 16px;
   background: #fff;
   border: 2px solid #bcaaa4;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 22px;
+  font-size: 14px;
+  font-weight: 700;
   color: #5d4037;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tag-opt:hover {
   border-color: #8d6e63;
   background: #ffe0b2;
+  transform: translateY(-1px);
 }
 
 .tag-opt.checked {
   background: linear-gradient(135deg, #5d4037, #3e2723);
   border-color: #2c1810;
   color: #ffe082;
-  transform: scale(1.04);
-  box-shadow: 0 2px 8px rgba(62, 39, 35, 0.3);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 6px 14px rgba(62, 39, 35, 0.35);
 }
 
-.form-actions {
+.opt-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.tag-opt.checked .opt-dot {
+  box-shadow: 0 0 0 2px rgba(255, 224, 130, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.form-foot {
   margin-top: 22px;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  position: relative;
 }
 
-.btn-ghost, .btn-primary {
+.btn-cancel, .btn-submit {
   position: relative;
-  padding: 10px 22px;
-  border-radius: 10px;
+  padding: 10px 24px;
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.24s ease;
   overflow: hidden;
 }
 
-.btn-ghost {
+.btn-cancel {
   background: transparent;
   border: 2px solid #8d6e63;
   color: #5d4037;
 }
 
-.btn-ghost:hover {
-  background: rgba(141, 110, 99, 0.1);
+.btn-cancel:hover {
+  background: rgba(141, 110, 99, 0.12);
+  transform: translateY(-1px);
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #ff9800, #f57c00);
+.btn-submit {
+  background: linear-gradient(135deg, #ff9800, #e65100);
   color: #fff;
   border: none;
-  box-shadow: 0 4px 12px rgba(245, 124, 0, 0.35);
+  box-shadow: 0 6px 16px rgba(245, 124, 0, 0.4);
 }
 
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(245, 124, 0, 0.5);
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(245, 124, 0, 0.55);
 }
 
-.btn-primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
+.btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* 表单淡入 */
-.form-fade-enter-active,
-.form-fade-leave-active {
-  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+.form-slide-enter-active,
+.form-slide-leave-active {
+  transition:
+    opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 0.4s ease;
+  overflow: hidden;
 }
-.form-fade-enter-from {
+.form-slide-enter-from {
   opacity: 0;
-  transform: translateY(-14px) scale(0.98);
+  transform: translateY(-18px) scale(0.98);
+  max-height: 0;
 }
-.form-fade-leave-to {
+.form-slide-leave-to {
   opacity: 0;
-  transform: translateY(-8px) scale(0.98);
+  transform: translateY(-10px) scale(0.98);
+  max-height: 0;
 }
 
-/* ============ 书架网格 ============ */
+/* ============ 书架网格 & 响应式 ============ */
+.grid-wrap {
+  position: relative;
+  min-height: 220px;
+}
+
 .shelf-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 22px;
-  padding: 10px 4px;
+  gap: 24px;
+  padding: 6px 4px 24px;
 }
 
-/* 响应式断点 */
+/* 响应式断点：桌面4列、平板2列、手机1列 */
+@media (min-width: 1600px) {
+  .shelf-grid { gap: 28px; }
+}
+
 @media (max-width: 1100px) {
-  .shelf-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-  }
+  .shelf-grid { grid-template-columns: repeat(3, 1fr); gap: 20px; }
 }
 
 @media (max-width: 820px) {
-  .shelf-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
+  .shelf-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
 }
 
 @media (max-width: 520px) {
   .shelf-grid {
     grid-template-columns: 1fr;
-    gap: 18px;
+    gap: 20px;
     max-width: 340px;
     margin: 0 auto;
   }
 }
 
-/* 0.4s 卡片淡入淡出（标签过滤） */
-.shelf-fade-enter-active,
-.shelf-fade-leave-active {
-  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+/* 0.4s 标签过滤：卡片淡入淡出 + 位移 */
+.shelf-enter-active,
+.shelf-leave-active {
+  transition:
+    opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.shelf-fade-enter-from {
+.shelf-enter-from {
   opacity: 0;
-  transform: translateY(10px) scale(0.96);
+  transform: translateY(14px) scale(0.94);
 }
-.shelf-fade-leave-to {
+.shelf-leave-to {
   opacity: 0;
-  transform: translateY(-10px) scale(0.96);
+  transform: translateY(-14px) scale(0.94);
 }
-.shelf-fade-move {
+.shelf-leave-active {
+  position: absolute !important;
+  width: calc((100% - 3 * 24px) / 4);
+}
+@media (max-width: 1100px) {
+  .shelf-leave-active { width: calc((100% - 2 * 20px) / 3); }
+}
+@media (max-width: 820px) {
+  .shelf-leave-active { width: calc((100% - 18px) / 2); }
+}
+@media (max-width: 520px) {
+  .shelf-leave-active { width: 100%; max-width: 340px; left: 50%; transform: translateX(-50%); }
+}
+.shelf-move {
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ============ 空状态 ============ */
-.empty-state {
-  padding: 80px 24px;
+.empty {
+  padding: 72px 24px;
   text-align: center;
-  background: rgba(255, 248, 225, 0.6);
+  background: rgba(255, 248, 225, 0.7);
   border: 2px dashed #a1887f;
-  border-radius: 20px;
+  border-radius: 22px;
 }
 
-.empty-icon {
-  font-size: 68px;
-  margin-bottom: 18px;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+.empty-illustration {
+  font-size: 72px;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.12));
 }
 
-.empty-title {
+.empty h3 {
   font-size: 22px;
   color: #5d4037;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-weight: 800;
+  margin: 0 0 10px;
 }
 
-.empty-hint {
+.empty p {
   font-size: 14px;
   color: #8d6e63;
+  margin: 0;
 }
 
-.empty-fade-enter-active,
-.empty-fade-leave-active {
-  transition: opacity 0.4s ease, transform 0.4s ease;
+.empty p b { color: #e65100; }
+
+.empty-enter-active,
+.empty-leave-active {
+  transition: all 0.4s ease;
 }
-.empty-fade-enter-from,
-.empty-fade-leave-to {
+.empty-enter-from,
+.empty-leave-to {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(12px);
 }
 
-/* ============ 拖拽幽灵提示 ============ */
-.drag-ghost-hint {
+/* ============ 拖拽提示 ============ */
+.drag-tip {
   position: fixed;
   z-index: 9999;
   pointer-events: none;
-  padding: 8px 14px;
-  background: rgba(62, 39, 35, 0.92);
+  padding: 9px 16px;
+  background: rgba(62, 39, 35, 0.94);
   color: #ffe082;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 10px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(4px);
-  animation: pulseHint 1s ease-in-out infinite;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 224, 130, 0.3);
+  animation: dragPulse 1.1s ease-in-out infinite;
+  white-space: nowrap;
 }
 
-@keyframes pulseHint {
-  0%, 100% { opacity: 0.9; transform: translate(0, 0); }
-  50% { opacity: 1; transform: translate(0, -2px); }
+@keyframes dragPulse {
+  0%, 100% { opacity: 0.92; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4); }
 }
 
-@media (max-width: 768px) {
-  .status-zones {
+/* ripple keyframes */
+@keyframes ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* 响应式适配：平板/手机的状态栏和表单 */
+@media (max-width: 820px) {
+  .drop-zones {
     grid-template-columns: 1fr;
     gap: 10px;
   }
-  .status-zone { padding: 12px 16px; }
+  .drop-zone { padding: 12px 16px; }
+  .zone-icon { font-size: 28px; }
+  .zone-label { font-size: 16px; }
+  .zone-sub { display: none; }
+
   .form-grid { grid-template-columns: 1fr; }
-  .toolbar { padding: 10px 12px; }
+  .toolbar { padding: 12px; }
   .add-form { padding: 18px 16px; }
+}
+
+@media (max-width: 520px) {
+  .actions { width: 100%; }
+  .fate-btn, .add-btn { flex: 1; justify-content: center; }
+  .tag-bar { width: 100%; }
 }
 </style>
