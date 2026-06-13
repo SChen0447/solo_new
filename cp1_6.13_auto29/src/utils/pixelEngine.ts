@@ -4,7 +4,8 @@ const MAX_HISTORY = 50;
 export type PixelGrid = string[][];
 
 interface HistoryEntry {
-  grid: PixelGrid;
+  beforeGrid: PixelGrid;
+  afterGrid: PixelGrid;
   changedPixels: { x: number; y: number }[];
 }
 
@@ -31,8 +32,12 @@ export class PixelEngine {
     return grid;
   }
 
+  private cloneGrid(grid: PixelGrid): PixelGrid {
+    return grid.map(row => [...row]);
+  }
+
   getGrid(): PixelGrid {
-    return this.grid.map(row => [...row]);
+    return this.cloneGrid(this.grid);
   }
 
   getGridSize(): number {
@@ -43,15 +48,16 @@ export class PixelEngine {
     const changedPixels: { x: number; y: number }[] = [];
     const half = Math.floor(brushSize / 2);
 
-    const snapshot = this.grid.map(row => [...row]);
+    const beforeGrid = this.cloneGrid(this.grid);
+    const afterGrid = this.cloneGrid(this.grid);
 
     for (let dy = -half; dy <= half; dy++) {
       for (let dx = -half; dx <= half; dx++) {
         const px = x + dx;
         const py = y + dy;
         if (px >= 0 && px < this.gridSize && py >= 0 && py < this.gridSize) {
-          if (this.grid[py][px] !== color) {
-            this.grid[py][px] = color;
+          if (afterGrid[py][px] !== color) {
+            afterGrid[py][px] = color;
             changedPixels.push({ x: px, y: py });
           }
         }
@@ -59,8 +65,9 @@ export class PixelEngine {
     }
 
     if (changedPixels.length > 0) {
+      this.grid = afterGrid;
       this.history = this.history.slice(0, this.historyIndex + 1);
-      this.history.push({ grid: snapshot, changedPixels });
+      this.history.push({ beforeGrid, afterGrid, changedPixels });
       if (this.history.length > MAX_HISTORY) {
         this.history.shift();
       } else {
@@ -77,13 +84,12 @@ export class PixelEngine {
     }
 
     const entry = this.history[this.historyIndex];
-    const currentChanged = entry.changedPixels;
-    this.grid = entry.grid.map(row => [...row]);
+    this.grid = this.cloneGrid(entry.beforeGrid);
     this.historyIndex--;
 
     return {
       grid: this.getGrid(),
-      changedPixels: currentChanged
+      changedPixels: entry.changedPixels
     };
   }
 
@@ -94,32 +100,12 @@ export class PixelEngine {
 
     this.historyIndex++;
     const entry = this.history[this.historyIndex];
-
-    const changedPixels: { x: number; y: number }[] = [];
-    const snapshot = this.grid.map(row => [...row]);
-
-    for (const pixel of entry.changedPixels) {
-      if (snapshot[pixel.y][pixel.x] !== entry.grid[pixel.y][pixel.x]) {
-        changedPixels.push(pixel);
-      }
-    }
-
-    this.applyEntryToGrid(entry);
+    this.grid = this.cloneGrid(entry.afterGrid);
 
     return {
       grid: this.getGrid(),
       changedPixels: entry.changedPixels
     };
-  }
-
-  private applyEntryToGrid(entry: HistoryEntry): void {
-    const prevGrid = this.historyIndex > 0 ? this.history[this.historyIndex - 1].grid : null;
-    if (prevGrid) {
-      this.grid = prevGrid.map(row => [...row]);
-      for (const pixel of entry.changedPixels) {
-        this.grid[pixel.y][pixel.x] = entry.grid[pixel.y][pixel.x];
-      }
-    }
   }
 
   canUndo(): boolean {
@@ -130,29 +116,34 @@ export class PixelEngine {
     return this.historyIndex < this.history.length - 1;
   }
 
-  clear(): void {
-    const snapshot = this.grid.map(row => [...row]);
+  clear(): { grid: PixelGrid; changedPixels: { x: number; y: number }[] } {
+    const beforeGrid = this.cloneGrid(this.grid);
+    const afterGrid = this.createEmptyGrid();
     const changedPixels: { x: number; y: number }[] = [];
 
     for (let y = 0; y < this.gridSize; y++) {
       for (let x = 0; x < this.gridSize; x++) {
-        if (this.grid[y][x] !== '#FFFFFF') {
+        if (beforeGrid[y][x] !== '#FFFFFF') {
           changedPixels.push({ x, y });
         }
       }
     }
 
-    this.grid = this.createEmptyGrid();
-
     if (changedPixels.length > 0) {
+      this.grid = afterGrid;
       this.history = this.history.slice(0, this.historyIndex + 1);
-      this.history.push({ grid: snapshot, changedPixels });
+      this.history.push({ beforeGrid, afterGrid, changedPixels });
       if (this.history.length > MAX_HISTORY) {
         this.history.shift();
       } else {
         this.historyIndex++;
       }
     }
+
+    return {
+      grid: this.getGrid(),
+      changedPixels
+    };
   }
 
   exportPNG(scale: number = 8): string {
@@ -165,6 +156,8 @@ export class PixelEngine {
     if (!ctx) {
       throw new Error('Could not get canvas context');
     }
+
+    ctx.imageSmoothingEnabled = false;
 
     for (let y = 0; y < this.gridSize; y++) {
       for (let x = 0; x < this.gridSize; x++) {

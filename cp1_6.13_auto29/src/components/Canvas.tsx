@@ -22,10 +22,12 @@ const Canvas: React.FC<CanvasProps> = ({
 }) => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
-  const [pulsingPixels, setPulsingPixels] = useState<Set<string>>(new Set());
+  const [pulsingPixels, setPulsingPixels] = useState<Map<string, number>>(new Map());
   const [cellSize, setCellSize] = useState(20);
+  const [animatingColorState, setAnimatingColorState] = useState<'from' | 'to'>('from');
   const containerRef = useRef<HTMLDivElement>(null);
   const lastDrawnRef = useRef<Set<string>>(new Set());
+  const pulseIdRef = useRef(0);
 
   useEffect(() => {
     const updateCellSize = () => {
@@ -33,7 +35,7 @@ const Canvas: React.FC<CanvasProps> = ({
       if (isMobile) {
         const maxWidth = window.innerWidth - 32;
         const size = Math.floor(maxWidth / gridSize);
-        setCellSize(Math.max(20, size));
+        setCellSize(Math.max(20, Math.min(size, 28)));
       } else {
         setCellSize(20);
       }
@@ -43,6 +45,21 @@ const Canvas: React.FC<CanvasProps> = ({
     window.addEventListener('resize', updateCellSize);
     return () => window.removeEventListener('resize', updateCellSize);
   }, [gridSize]);
+
+  useEffect(() => {
+    if (animatingPixels.length > 0) {
+      setAnimatingColorState('from');
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setAnimatingColorState('to');
+        });
+      });
+      const timer = setTimeout(() => {
+        setAnimatingColorState('from');
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [animatingPixels]);
 
   const getPixelKey = (x: number, y: number) => `${x},${y}`;
 
@@ -61,6 +78,32 @@ const Canvas: React.FC<CanvasProps> = ({
     return pixels;
   }, [brushSize, gridSize]);
 
+  const triggerPulseAnimation = useCallback((pixels: { x: number; y: number }[]) => {
+    pulseIdRef.current++;
+    const currentPulseId = pulseIdRef.current;
+
+    setPulsingPixels(prev => {
+      const next = new Map(prev);
+      pixels.forEach(p => {
+        next.set(getPixelKey(p.x, p.y), currentPulseId);
+      });
+      return next;
+    });
+
+    setTimeout(() => {
+      setPulsingPixels(prev => {
+        const next = new Map(prev);
+        pixels.forEach(p => {
+          const k = getPixelKey(p.x, p.y);
+          if (next.get(k) === currentPulseId) {
+            next.delete(k);
+          }
+        });
+        return next;
+      });
+    }, 100);
+  }, []);
+
   const handlePixelAction = useCallback((x: number, y: number) => {
     const key = getPixelKey(x, y);
     if (lastDrawnRef.current.has(key)) {
@@ -73,29 +116,13 @@ const Canvas: React.FC<CanvasProps> = ({
     });
 
     onPixelFill(x, y, currentColor, brushSize);
-
-    const newPulsing = new Set(pulsingPixels);
-    brushPixels.forEach(p => {
-      const k = getPixelKey(p.x, p.y);
-      newPulsing.add(k);
-    });
-    setPulsingPixels(newPulsing);
-
-    setTimeout(() => {
-      setPulsingPixels(prev => {
-        const next = new Set(prev);
-        brushPixels.forEach(p => {
-          next.delete(getPixelKey(p.x, p.y));
-        });
-        return next;
-      });
-    }, 100);
-  }, [currentColor, brushSize, onPixelFill, getBrushPixels, pulsingPixels]);
+    triggerPulseAnimation(brushPixels);
+  }, [currentColor, brushSize, onPixelFill, getBrushPixels, triggerPulseAnimation]);
 
   const getGridPosition = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     const rect = target.getBoundingClientRect();
-    
+
     let clientX: number, clientY: number;
     if ('touches' in e) {
       clientX = e.touches[0].clientX;
@@ -107,7 +134,7 @@ const Canvas: React.FC<CanvasProps> = ({
 
     const x = Math.floor((clientX - rect.left) / cellSize);
     const y = Math.floor((clientY - rect.top) / cellSize);
-    
+
     return {
       x: Math.max(0, Math.min(gridSize - 1, x)),
       y: Math.max(0, Math.min(gridSize - 1, y))
@@ -167,7 +194,7 @@ const Canvas: React.FC<CanvasProps> = ({
   };
 
   const getPreviewPixels = () => {
-    if (!hoverPos || brushSize === 1) return [];
+    if (!hoverPos) return [];
     return getBrushPixels(hoverPos.x, hoverPos.y);
   };
 
@@ -179,7 +206,7 @@ const Canvas: React.FC<CanvasProps> = ({
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="canvas-container"
       onMouseDown={handleMouseDown}
@@ -190,7 +217,7 @@ const Canvas: React.FC<CanvasProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div 
+      <div
         className="pixel-grid"
         style={{
           display: 'grid',
@@ -212,38 +239,52 @@ const Canvas: React.FC<CanvasProps> = ({
             const isPreview = previewSet.has(key);
             const animating = getAnimatingPixel(x, y);
 
+            let displayColor = color;
+            let needsTransition = false;
+
+            if (animating) {
+              if (animatingColorState === 'from') {
+                displayColor = animating.fromColor;
+              } else {
+                displayColor = animating.toColor;
+              }
+              needsTransition = true;
+            }
+
             return (
               <div
                 key={key}
-                className="pixel-cell"
+                className={`pixel-cell ${isPulsing ? 'pulsing' : ''}`}
                 style={{
                   width: cellSize,
                   height: cellSize,
-                  backgroundColor: animating ? animating.fromColor : color,
+                  backgroundColor: displayColor,
                   border: '1px dashed #d0d0d0',
                   boxSizing: 'border-box',
                   cursor: 'crosshair',
-                  transition: isPulsing ? 'transform 0.1s ease-out' : 'none',
-                  transform: isPulsing ? 'scale(1.1)' : 'scale(1)',
                   position: 'relative',
-                  ...(animating ? { transition: 'background-color 0.1s ease-out' } : {}),
-                  ...(isPulsing ? { zIndex: 1 } : {})
+                  transition: needsTransition
+                    ? 'background-color 0.1s ease-out'
+                    : (isPulsing ? 'transform 0.1s ease-out' : 'none'),
+                  transformOrigin: 'center center',
+                  zIndex: isPulsing ? 2 : 1
                 }}
                 data-x={x}
                 data-y={y}
               >
-                {isPreview && !isDrawing && (
+                {isPreview && brushSize > 1 && !isDrawing && (
                   <div
                     className="brush-preview"
                     style={{
                       position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
+                      top: -1,
+                      left: -1,
+                      right: -1,
+                      bottom: -1,
                       backgroundColor: currentColor,
                       opacity: 0.4,
-                      pointerEvents: 'none'
+                      pointerEvents: 'none',
+                      zIndex: 3
                     }}
                   />
                 )}
@@ -261,13 +302,33 @@ const Canvas: React.FC<CanvasProps> = ({
           padding: 20px;
         }
 
+        .pixel-cell {
+          will-change: transform;
+        }
+
+        .pixel-cell.pulsing {
+          animation: pixelPulse 0.1s ease-out;
+        }
+
+        @keyframes pixelPulse {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.15);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+
         .pixel-cell:hover {
           filter: brightness(0.95);
         }
 
         @media (max-width: 768px) {
           .canvas-container {
-            padding: 10px;
+            padding: 10px 5px 80px 5px;
           }
         }
       `}</style>

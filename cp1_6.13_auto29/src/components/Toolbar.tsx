@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface ToolbarProps {
   currentColor: string;
@@ -20,25 +20,25 @@ const PRESET_COLORS = [
   '#FF0000',
   '#FF6B00',
   '#FFD700',
-  '#00FF00',
+  '#32CD32',
   '#00CED1',
   '#4169E1',
   '#9932CC',
   '#FF69B4',
   '#8B4513',
-  '#A0522D',
-  '#F5F5DC',
-  '#D3D3D3',
+  '#D2691E',
+  '#F5DEB3',
+  '#C0C0C0',
   '#808080',
-  '#696969',
+  '#404040',
   '#000000',
   '#FFFFFF',
   '#DC143C',
   '#FF4500',
-  '#32CD32',
   '#00BFFF',
   '#FF1493',
-  '#9400D3'
+  '#9400D3',
+  '#228B22'
 ];
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -58,6 +58,12 @@ const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
   const [customColor, setCustomColor] = useState(currentColor);
   const [activeBrushBtn, setActiveBrushBtn] = useState(brushSize);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState<'none' | 'colors' | 'tools'>('none');
+  const mobilePanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCustomColor(currentColor);
+  }, [currentColor]);
 
   const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -75,62 +81,107 @@ const Toolbar: React.FC<ToolbarProps> = ({
     onBrushSizeChange(size);
   };
 
-  const ToolbarContent = () => (
-    <>
+  const RadialLoading = ({ size = 18 }: { size?: number }) => (
+    <span
+      className="radial-loading"
+      style={{ width: size, height: size, display: 'inline-block', position: 'relative' }}
+    >
+      <span className="radial-ring radial-ring-1" />
+      <span className="radial-ring radial-ring-2" />
+      <span className="radial-ring radial-ring-3" />
+      <span className="radial-center" />
+    </span>
+  );
+
+  const ColorSwatches = ({ compact = false }: { compact?: boolean }) => (
+    <div
+      className="color-grid"
+      style={compact ? { gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px' } : {}}
+    >
+      {PRESET_COLORS.map((color, index) => (
+        <div
+          key={index}
+          className={`color-swatch ${currentColor.toLowerCase() === color.toLowerCase() ? 'selected' : ''}`}
+          style={{
+            backgroundColor: color,
+            width: compact ? 28 : 40,
+            height: compact ? 28 : 40,
+            borderRadius: compact ? 6 : 8,
+            border: currentColor.toLowerCase() === color.toLowerCase()
+              ? '2px solid #0a0a14'
+              : '2px solid transparent',
+            boxShadow: currentColor.toLowerCase() === color.toLowerCase()
+              ? '0 0 0 1px rgba(255,255,255,0.5), 0 2px 6px rgba(0,0,0,0.3)'
+              : '0 1px 3px rgba(0, 0, 0, 0.2)'
+          }}
+          onClick={() => {
+            onColorChange(color);
+            setCustomColor(color);
+          }}
+          title={color}
+        />
+      ))}
+    </div>
+  );
+
+  const BrushSizeButtons = ({ compact = false }: { compact?: boolean }) => (
+    <div className="brush-size-buttons">
+      {[1, 2, 3].map(size => (
+        <button
+          key={size}
+          className={`brush-btn ${brushSize === size ? 'active' : ''}`}
+          onClick={() => handleBrushSizeClick(size)}
+          style={{
+            transform: activeBrushBtn === size ? 'scale(1.1)' : 'scale(1)',
+            transition: 'transform 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+            padding: compact ? '8px 0' : '10px 0',
+            fontSize: compact ? 11 : 12
+          }}
+        >
+          {size}x{size}
+        </button>
+      ))}
+    </div>
+  );
+
+  const DesktopToolbar = () => (
+    <aside className="desktop-toolbar">
+      <div className="toolbar-header">
+        <h1 className="app-title">像素拼贴</h1>
+        <p className="app-subtitle">在线像素画工具</p>
+      </div>
+
       <div className="toolbar-section">
         <h3 className="toolbar-title">颜色</h3>
-        <div className="color-grid">
-          {PRESET_COLORS.map((color, index) => (
-            <div
-              key={index}
-              className={`color-swatch ${currentColor.toLowerCase() === color.toLowerCase() ? 'selected' : ''}`}
-              style={{
-                backgroundColor: color,
-                border: currentColor.toLowerCase() === color.toLowerCase() 
-                  ? '2px solid #0f0f1a' 
-                  : '2px solid transparent'
-              }}
-              onClick={() => {
-                onColorChange(color);
-                setCustomColor(color);
-              }}
-              title={color}
-            />
-          ))}
-        </div>
+        <ColorSwatches />
         <div className="custom-color-input">
-          <label>自定义颜色</label>
-          <input
-            type="text"
-            value={customColor}
-            onChange={handleCustomColorChange}
-            placeholder="#FF5733"
-            maxLength={7}
-          />
-          <div 
-            className="color-preview"
-            style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(customColor) ? customColor : '#ccc' }}
-          />
+          <label>自定义颜色 (HEX)</label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="text"
+              value={customColor}
+              onChange={handleCustomColorChange}
+              placeholder="#FF5733"
+              maxLength={7}
+            />
+            <div
+              className="color-preview-box"
+              style={{
+                backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(customColor) ? customColor : '#ccc',
+                width: 32,
+                height: 32,
+                borderRadius: 6,
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                flexShrink: 0
+              }}
+            />
+          </div>
         </div>
       </div>
 
       <div className="toolbar-section">
         <h3 className="toolbar-title">笔刷大小</h3>
-        <div className="brush-size-buttons">
-          {[1, 2, 3].map(size => (
-            <button
-              key={size}
-              className={`brush-btn ${brushSize === size ? 'active' : ''}`}
-              onClick={() => handleBrushSizeClick(size)}
-              style={{
-                transform: activeBrushBtn === size ? 'scale(1.1)' : 'scale(1)',
-                transition: 'transform 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
-              }}
-            >
-              {size}x{size}
-            </button>
-          ))}
-        </div>
+        <BrushSizeButtons />
       </div>
 
       <div className="toolbar-section">
@@ -169,7 +220,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             title="导出PNG"
           >
             {isExporting ? (
-              <span className="export-loading" />
+              <RadialLoading size={18} />
             ) : (
               <span className="btn-icon">⬇</span>
             )}
@@ -197,35 +248,37 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </button>
         </div>
       </div>
-    </>
+    </aside>
   );
 
-  return (
+  const MobileBottomNav = () => (
     <>
-      <aside className="desktop-toolbar">
-        <div className="toolbar-header">
-          <h1 className="app-title">像素拼贴</h1>
-          <p className="app-subtitle">在线像素画工具</p>
-        </div>
-        <ToolbarContent />
-      </aside>
-
       <nav className="mobile-bottom-nav">
-        <button 
+        <button
           className={`mobile-nav-item ${currentPage === 'canvas' ? 'active' : ''}`}
           onClick={() => onPageChange('canvas')}
         >
           <span className="mobile-nav-icon">🎨</span>
           <span>画布</span>
         </button>
-        <button 
+        <button
           className={`mobile-nav-item ${currentPage === 'gallery' ? 'active' : ''}`}
           onClick={() => onPageChange('gallery')}
         >
           <span className="mobile-nav-icon">🖼</span>
           <span>画廊</span>
         </button>
-        <button 
+        <button
+          className={`mobile-nav-item ${mobilePanelOpen === 'colors' ? 'active' : ''}`}
+          onClick={() => setMobilePanelOpen(mobilePanelOpen === 'colors' ? 'none' : 'colors')}
+        >
+          <span
+            className="mobile-color-indicator"
+            style={{ backgroundColor: currentColor }}
+          />
+          <span>颜色</span>
+        </button>
+        <button
           className="mobile-nav-item"
           onClick={onUndo}
           disabled={!canUndo}
@@ -233,19 +286,87 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <span className="mobile-nav-icon">↶</span>
           <span>撤销</span>
         </button>
-        <button 
+        <button
           className="mobile-nav-item"
           onClick={onExport}
           disabled={isExporting}
         >
           {isExporting ? (
-            <span className="export-loading-small" />
+            <RadialLoading size={16} />
           ) : (
             <span className="mobile-nav-icon">⬇</span>
           )}
           <span>导出</span>
         </button>
       </nav>
+
+      {mobilePanelOpen === 'colors' && (
+        <div className="mobile-panel-backdrop" onClick={() => setMobilePanelOpen('none')}>
+          <div
+            className="mobile-panel"
+            ref={mobilePanelRef}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mobile-panel-header">
+              <h4>选择颜色</h4>
+              <button
+                className="mobile-panel-close"
+                onClick={() => setMobilePanelOpen('none')}
+              >
+                ✕
+              </button>
+            </div>
+            <ColorSwatches compact />
+            <div className="mobile-custom-color">
+              <label>自定义 (HEX)</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={customColor}
+                  onChange={handleCustomColorChange}
+                  placeholder="#FF5733"
+                  maxLength={7}
+                />
+                <div
+                  style={{
+                    backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(customColor) ? customColor : '#ccc',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 6,
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                  }}
+                />
+              </div>
+            </div>
+            <div className="mobile-brush-section">
+              <label>笔刷大小</label>
+              <BrushSizeButtons compact />
+            </div>
+            <div className="mobile-extra-actions">
+              <button
+                className="mobile-action-btn"
+                onClick={onRedo}
+                disabled={!canRedo}
+              >
+                ↷ 重做
+              </button>
+              <button
+                className="mobile-action-btn danger"
+                onClick={onClear}
+              >
+                🗑 清空
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      <DesktopToolbar />
+      <MobileBottomNav />
 
       <style>{`
         .desktop-toolbar {
@@ -300,22 +421,18 @@ const Toolbar: React.FC<ToolbarProps> = ({
         }
 
         .color-swatch {
-          width: 40px;
-          height: 40px;
-          border-radius: 8px;
           cursor: pointer;
           justify-self: center;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          transition: all 0.15s ease;
         }
 
         .color-swatch:hover {
-          filter: brightness(1.1);
-          transform: scale(1.05);
+          filter: brightness(1.15);
+          transform: scale(1.08);
         }
 
         .color-swatch.selected {
-          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8), 0 2px 8px rgba(0, 0, 0, 0.3);
+          transform: scale(1.1);
         }
 
         .custom-color-input {
@@ -340,17 +457,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
           font-family: monospace;
           outline: none;
           transition: border-color 0.2s;
+          min-width: 0;
         }
 
         .custom-color-input input:focus {
           border-color: rgba(255, 255, 255, 0.5);
-        }
-
-        .color-preview {
-          width: 100%;
-          height: 24px;
-          border-radius: 4px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .brush-size-buttons {
@@ -376,7 +487,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
         .brush-btn.active {
           background-color: rgba(65, 105, 225, 0.6);
-          border-color: rgba(65, 105, 225, 0.8);
+          border-color: rgba(65, 105, 225, 0.9);
         }
 
         .action-buttons {
@@ -401,7 +512,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         }
 
         .action-btn:hover:not(:disabled) {
-          background-color: rgba(255, 255, 255, 0.15);
+          background-color: rgba(255, 255, 255, 0.18);
           transform: translateY(-1px);
         }
 
@@ -419,13 +530,63 @@ const Toolbar: React.FC<ToolbarProps> = ({
           font-size: 18px;
         }
 
-        .export-btn .export-loading {
-          width: 18px;
-          height: 18px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
+        .radial-loading {
+          display: inline-block;
+        }
+
+        .radial-loading .radial-ring {
+          position: absolute;
+          border: 2px solid transparent;
           border-top-color: white;
           border-radius: 50%;
-          animation: spin 0.6s linear infinite;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+        }
+
+        .radial-loading .radial-ring-1 {
+          animation: radial-spin 1s linear infinite;
+        }
+
+        .radial-loading .radial-ring-2 {
+          top: 3px;
+          left: 3px;
+          right: 3px;
+          bottom: 3px;
+          border-top-color: rgba(255, 255, 255, 0.7);
+          animation: radial-spin 0.8s linear infinite reverse;
+        }
+
+        .radial-loading .radial-ring-3 {
+          top: 6px;
+          left: 6px;
+          right: 6px;
+          bottom: 6px;
+          border-top-color: rgba(255, 255, 255, 0.4);
+          animation: radial-spin 0.6s linear infinite;
+        }
+
+        .radial-loading .radial-center {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 3px;
+          height: 3px;
+          background: white;
+          border-radius: 50%;
+          transform: translate(-50%, -50%);
+          animation: radial-pulse 0.6s ease-in-out infinite alternate;
+        }
+
+        @keyframes radial-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        @keyframes radial-pulse {
+          0% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.8); }
+          100% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
         }
 
         .nav-buttons {
@@ -450,11 +611,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
         }
 
         .nav-btn:hover {
-          background-color: rgba(255, 255, 255, 0.15);
+          background-color: rgba(255, 255, 255, 0.18);
         }
 
         .nav-btn.active {
-          background-color: rgba(65, 105, 225, 0.4);
+          background-color: rgba(65, 105, 225, 0.5);
         }
 
         .nav-icon {
@@ -463,10 +624,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
         .mobile-bottom-nav {
           display: none;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -480,10 +637,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
             bottom: 0;
             left: 0;
             right: 0;
-            height: 60px;
+            height: 64px;
             background-color: #16213e;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             z-index: 1000;
+            padding-bottom: env(safe-area-inset-bottom);
           }
 
           .mobile-nav-item {
@@ -492,18 +650,20 @@ const Toolbar: React.FC<ToolbarProps> = ({
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 2px;
+            gap: 3px;
             background: none;
             border: none;
             color: rgba(255, 255, 255, 0.6);
             font-size: 10px;
             cursor: pointer;
-            transition: color 0.2s;
+            transition: all 0.2s;
+            padding: 4px;
           }
 
-          .mobile-nav-item:hover,
+          .mobile-nav-item:hover:not(:disabled),
           .mobile-nav-item.active {
             color: white;
+            background-color: rgba(255, 255, 255, 0.08);
           }
 
           .mobile-nav-item:disabled {
@@ -514,13 +674,135 @@ const Toolbar: React.FC<ToolbarProps> = ({
             font-size: 20px;
           }
 
-          .export-loading-small {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: white;
+          .mobile-color-indicator {
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            animation: spin 0.6s linear infinite;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+          }
+
+          .mobile-panel-backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 1100;
+            display: flex;
+            align-items: flex-end;
+            animation: fadeIn 0.2s ease-out;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          .mobile-panel {
+            width: 100%;
+            background-color: #16213e;
+            border-radius: 20px 20px 0 0;
+            padding: 20px 16px calc(30px + env(safe-area-inset-bottom));
+            max-height: 70vh;
+            overflow-y: auto;
+            animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+
+          @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
+
+          .mobile-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+          }
+
+          .mobile-panel-header h4 {
+            color: white;
+            margin: 0;
+            font-size: 16px;
+          }
+
+          .mobile-panel-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 8px;
+          }
+
+          .mobile-custom-color {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+
+          .mobile-custom-color label {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+          }
+
+          .mobile-custom-color input {
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            font-family: monospace;
+            outline: none;
+          }
+
+          .mobile-brush-section {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .mobile-brush-section label {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+          }
+
+          .mobile-extra-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 8px;
+          }
+
+          .mobile-action-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.08);
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          .mobile-action-btn:hover:not(:disabled) {
+            background-color: rgba(255, 255, 255, 0.18);
+          }
+
+          .mobile-action-btn:disabled {
+            opacity: 0.4;
+          }
+
+          .mobile-action-btn.danger {
+            background-color: rgba(220, 20, 60, 0.2);
+            border-color: rgba(220, 20, 60, 0.4);
+          }
+
+          .mobile-action-btn.danger:hover {
+            background-color: rgba(220, 20, 60, 0.35);
           }
         }
       `}</style>
