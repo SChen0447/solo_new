@@ -2,9 +2,11 @@ import json
 import os
 import hashlib
 import time
+import uuid
 from typing import Optional
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
 app = FastAPI(title="时光胶囊 API")
@@ -66,8 +68,8 @@ class ShareCreate(BaseModel):
 
 
 def generate_short_id(data: str) -> str:
-    raw = f"{data}{time.time()}{os.urandom(4).hex()}"
-    return hashlib.md5(raw.encode()).hexdigest()[:8]
+    raw = f"{data}{time.time()}{os.urandom(4).hex()}{uuid.uuid4().hex}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:8]
 
 
 @app.get("/api/tree")
