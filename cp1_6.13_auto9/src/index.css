@@ -12,3 +12,154 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body {
+  background-color: #f3f4f6;
+}
+
+/* 毛玻璃效果 - 工具栏卡片 */
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* 从原点淡入 - 用于下拉面板 */
+@keyframes fadeInOrigin {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeInOrigin {
+  animation: fadeInOrigin 0.15s ease-out;
+  transform-origin: top right;
+}
+
+/* 缩放进入动画 - 用于弹窗 */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 选中边框高亮动画 - 工具栏选中项 */
+@keyframes borderGrow {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 1.25rem;
+    opacity: 1;
+  }
+}
+
+.animate-borderGrow {
+  animation: borderGrow 0.2s ease-out;
+}
+
+/* 笔记缩略图淡入动画 */
+@keyframes noteFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-noteFadeIn {
+  animation: noteFadeIn 0.2s ease-out;
+  animation-fill-mode: both;
+}
+
+.note-card:nth-child(1) { animation-delay: 0ms; }
+.note-card:nth-child(2) { animation-delay: 30ms; }
+.note-card:nth-child(3) { animation-delay: 60ms; }
+.note-card:nth-child(4) { animation-delay: 90ms; }
+.note-card:nth-child(5) { animation-delay: 120ms; }
+.note-card:nth-child(6) { animation-delay: 150ms; }
+.note-card:nth-child(n+7) { animation-delay: 180ms; }
+
+/* 画布渐变过渡 - 撤销重做 */
+.canvas-transition {
+  transition: opacity 0.3s ease;
+}
+
+/* 响应式布局 - 移动端 */
+@media (max-width: 767px) {
+  .mobile-toolbar {
+    display: flex !important;
+  }
+}
+
+/* 隐藏滚动条但保持可滚动 */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 画布区域滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
