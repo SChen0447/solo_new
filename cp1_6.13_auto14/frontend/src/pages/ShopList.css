@@ -1,0 +1,36 @@
+.shop-list-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.shop-list-subtitle {
+  color: #666;
+  margin-bottom: 24px;
+  font-size: 0.95rem;
+}
+
+.shop-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.shop-list-loading {
+  text-align: center;
+  padding: 60px 0;
+  color: #888;
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .shop-list-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .shop-list-title {
+    font-size: 1.5rem;
+  }
+}

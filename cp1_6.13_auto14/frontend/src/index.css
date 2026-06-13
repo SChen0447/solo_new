@@ -4,12 +4,17 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: 16px;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'Microsoft YaHei', sans-serif;
   background-color: #FFF5E6;
   color: #333;
   min-height: 100vh;
+  line-height: 1.5;
 }
 
 #root {
@@ -21,6 +26,12 @@ body {
 button {
   cursor: pointer;
   font-family: inherit;
+  border: none;
+  outline: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
 }
 
 a {
@@ -32,12 +43,7 @@ a {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
-}
-
-@media (max-width: 768px) {
-  .container {
-    padding: 0 12px;
-  }
+  width: 100%;
 }
 
 @keyframes fadeIn {
@@ -51,39 +57,81 @@ a {
   }
 }
 
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @keyframes slideInRight {
   from {
     transform: translateX(100%);
-    opacity: 0;
   }
   to {
     transform: translateX(0);
-    opacity: 1;
   }
 }
 
 @keyframes slideOutRight {
   from {
     transform: translateX(0);
-    opacity: 1;
   }
   to {
     transform: translateX(100%);
+  }
+}
+
+@keyframes fadeInOverlay {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOutOverlay {
+  from {
+    opacity: 1;
+  }
+  to {
     opacity: 0;
   }
 }
 
 @keyframes collapse {
-  from {
+  0% {
     opacity: 1;
     transform: scale(1);
     max-height: 500px;
   }
-  to {
+  100% {
     opacity: 0;
     transform: scale(0.8);
     max-height: 0;
-    margin: 0;
-    padding: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+
+  .container {
+    padding: 0 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 13px;
   }
 }
