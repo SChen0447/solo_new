@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交互数据星云</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(135deg, #0a0a2a 0%, #1a1a3a 50%, #0a0a2a 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    
+    canvas {
+      display: block;
+      cursor: grab;
+    }
+    
+    canvas:active {
+      cursor: grabbing;
+    }
+    
+    .dg.ac {
+      z-index: 1000 !important;
+    }
+    
+    .dg .cr .slider {
+      background: linear-gradient(90deg, #4a90d9, #00e5ff) !important;
+    }
+    
+    .dg .cr .slider-fg {
+      background: linear-gradient(90deg, #ff6b00, #ffaa00) !important;
+    }
+    
+    .dg.main {
+      backdrop-filter: blur(10px) !important;
+      background: rgba(255, 255, 255, 0.1) !important;
+      border-radius: 8px;
+      margin: 10px;
+    }
+    
+    .dg .folder {
+      background: rgba(255, 255, 255, 0.05) !important;
+    }
+    
+    .dg .cr {
+      background: transparent !important;
+      border-left: 3px solid #4a90d9;
+    }
+    
+    .dg .property-name {
+      color: rgba(255, 255, 255, 0.9) !important;
+    }
+    
+    .dg .c input[type=text] {
+      background: rgba(0, 0, 0, 0.3) !important;
+      color: #fff !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
