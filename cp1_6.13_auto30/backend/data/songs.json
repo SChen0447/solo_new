@@ -1,0 +1,35 @@
+[
+  {"id": "1", "title": "夜空中最亮的星", "artist": "逃跑计划", "album": "世界", "genre": "流行", "duration": 252, "cover": "⭐"},
+  {"id": "2", "title": "晴天", "artist": "周杰伦", "album": "叶惠美", "genre": "流行", "duration": 269, "cover": "☀️"},
+  {"id": "3", "title": "稻香", "artist": "周杰伦", "album": "魔杰座", "genre": "流行", "duration": 223, "cover": "🌾"},
+  {"id": "4", "title": "小幸运", "artist": "田馥甄", "album": "我的少女时代", "genre": "流行", "duration": 293, "cover": "🍀"},
+  {"id": "5", "title": "告白气球", "artist": "周杰伦", "album": "周杰伦的床边故事", "genre": "流行", "duration": 215, "cover": "🎈"},
+  {"id": "6", "title": "起风了", "artist": "买辣椒也用券", "album": "起风了", "genre": "流行", "duration": 325, "cover": "🌬️"},
+  {"id": "7", "title": "年少有为", "artist": "李荣浩", "album": "耳朵", "genre": "流行", "duration": 268, "cover": "🌟"},
+  {"id": "8", "title": "平凡之路", "artist": "朴树", "album": "猎户星座", "genre": "流行", "duration": 295, "cover": "🛤️"},
+  
+  {"id": "9", "title": "Bohemian Rhapsody", "artist": "Queen", "album": "A Night at the Opera", "genre": "摇滚", "duration": 354, "cover": "👑"},
+  {"id": "10", "title": "Smells Like Teen Spirit", "artist": "Nirvana", "album": "Nevermind", "genre": "摇滚", "duration": 301, "cover": "🎸"},
+  {"id": "11", "title": "Sweet Child O' Mine", "artist": "Guns N' Roses", "album": "Appetite for Destruction", "genre": "摇滚", "duration": 356, "cover": "🌹"},
+  {"id": "12", "title": "Hotel California", "artist": "Eagles", "album": "Hotel California", "genre": "摇滚", "duration": 391, "cover": "🏨"},
+  {"id": "13", "title": "Stairway to Heaven", "artist": "Led Zeppelin", "album": "Led Zeppelin IV", "genre": "摇滚", "duration": 482, "cover": "🪜"},
+  {"id": "14", "title": "Back In Black", "artist": "AC/DC", "album": "Back in Black", "genre": "摇滚", "duration": 255, "cover": "⚡"},
+  {"id": "15", "title": "无地自容", "artist": "黑豹乐队", "album": "黑豹", "genre": "摇滚", "duration": 310, "cover": "🐆"},
+  {"id": "16", "title": "蓝莲花", "artist": "许巍", "album": "每一刻都是崭新的", "genre": "摇滚", "duration": 260, "cover": "🪷"},
+  
+  {"id": "17", "title": "Titanium", "artist": "David Guetta ft. Sia", "album": "Nothing but the Beat", "genre": "电子", "duration": 245, "cover": "🔩"},
+  {"id": "18", "title": "Wake Me Up", "artist": "Avicii", "album": "True", "genre": "电子", "duration": 249, "cover": "⏰"},
+  {"id": "19", "title": "Levels", "artist": "Avicii", "album": "Levels", "genre": "电子", "duration": 203, "cover": "📊"},
+  {"id": "20", "title": "Clarity", "artist": "Zedd ft. Foxes", "album": "Clarity", "genre": "电子", "duration": 272, "cover": "💎"},
+  {"id": "21", "title": "Alone", "artist": "Marshmello", "album": "Alone", "genre": "电子", "duration": 274, "cover": "🍡"},
+  {"id": "22", "title": "Faded", "artist": "Alan Walker", "album": "Faded", "genre": "电子", "duration": 212, "cover": "🌫️"},
+  {"id": "23", "title": "The Nights", "artist": "Avicii", "album": "The Days/Nights", "genre": "电子", "duration": 256, "cover": "🌙"},
+  {"id": "24", "title": "Lean On", "artist": "Major Lazer & DJ Snake", "album": "Peace Is the Mission", "genre": "电子", "duration": 177, "cover": "💪"},
+  
+  {"id": "25", "title": "月光奏鸣曲", "artist": "贝多芬", "album": "贝多芬钢琴奏鸣曲", "genre": "古典", "duration": 360, "cover": "🌙"},
+  {"id": "26", "title": "致爱丽丝", "artist": "贝多芬", "album": "贝多芬名曲集", "genre": "古典", "duration": 180, "cover": "👩"},
+  {"id": "27", "title": "蓝色多瑙河", "artist": "小约翰·施特劳斯", "album": "施特劳斯圆舞曲", "genre": "古典", "duration": 450, "cover": "🌊"},
+  {"id": "28", "title": "天鹅湖", "artist": "柴可夫斯基", "album": "柴可夫斯基芭蕾组曲", "genre": "古典", "duration": 320, "cover": "🦢"},
+  {"id": "29", "title": "卡农", "artist": "帕赫贝尔", "album": "古典精选", "genre": "古典", "duration": 280, "cover": "🎻"},
+  {"id": "30", "title": "命运交响曲", "artist": "贝多芬", "album": "贝多芬交响曲", "genre": "古典", "duration": 420, "cover": "🎼"}
+]
