@@ -1,0 +1,21 @@
+{
+  "name": "city-rhythm",
+  "version": "1.0.0",
+  "description": "都市律动 - 交互式3D音乐可视化应用",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "0.160.0",
+    "tone": "^14.8.49"
+  },
+  "devDependencies": {
+    "@types/three": "^0.160.0",
+    "@types/tone": "^14.7.7",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  }
+}
