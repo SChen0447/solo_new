@@ -1,44 +1,56 @@
 import * as THREE from 'three';
 import { Planet, CreatureType, TerrainInfo } from './planet';
 
-type AnimalState = 'wander' | 'seek_food' | 'mate' | 'dying';
+export type AnimalState = 'idle' | 'wander' | 'seek_food' | 'mate' | 'dying';
 
-interface Plant {
+export type PlantType = 'grass' | 'tree';
+export type AnimalType = 'rabbit' | 'wolf';
+
+export interface PlantData {
   id: number;
-  type: 'grass' | 'tree';
+  type: PlantType;
   mesh: THREE.Group;
   position: THREE.Vector3;
   growth: number;
   targetGrowth: number;
+  growSpeed: number;
   alive: boolean;
+  radius: number;
 }
 
-interface Animal {
+export interface AnimalData {
   id: number;
-  type: 'rabbit' | 'wolf';
+  type: AnimalType;
   mesh: THREE.Group;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
   energy: number;
+  maxEnergy: number;
   state: AnimalState;
   wanderDir: THREE.Vector3;
   wanderTimer: number;
-  wobble: number;
+  wobblePhase: number;
   baseSpeed: number;
-  target: Plant | Animal | null;
-  dying: number;
+  targetPlant: PlantData | null;
+  targetMate: AnimalData | null;
+  targetPrey: AnimalData | null;
+  dyingTimer: number;
   alive: boolean;
-  flashTimer: number;
+  spawnTimer: number;
+  mateCooldown: number;
+  age: number;
 }
 
-interface Particle {
+export interface ParticleData {
   mesh: THREE.Mesh;
   velocity: THREE.Vector3;
   life: number;
   maxLife: number;
+  startColor: THREE.Color;
+  endColor: THREE.Color;
+  startSize: number;
+  endSize: number;
 }
-
-let nextId = 1;
 
 export interface EnvironmentParams {
   temperature: number;
@@ -46,22 +58,155 @@ export interface EnvironmentParams {
   timeScale: number;
 }
 
+export interface CreatureManagerConfig {
+  maxTrees?: number;
+  maxGrass?: number;
+  maxAnimals?: number;
+}
+
+let _nextId = 1;
+const getNextId = () => _nextId++;
+
+export class ParticleSystem {
+  private particles: ParticleData[] = [];
+  private scene: THREE.Scene;
+  private pool: ParticleData[] = [];
+  private poolSize = 200;
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+  }
+
+  emit(
+    position: THREE.Vector3,
+    count: number,
+    options: {
+      startColor?: THREE.Color;
+      endColor?: THREE.Color;
+      startSize?: number;
+      endSize?: number;
+      speed?: number;
+      life?: number;
+    } = {}
+  ) {
+    const startColor = options.startColor ?? new THREE.Color(0xffddaa);
+    const endColor = options.endColor ?? new THREE.Color(0xff4444);
+    const startSize = options.startSize ?? 0.08;
+    const endSize = options.endSize ?? 0.01;
+    const speed = options.speed ?? 1.0;
+    const life = options.life ?? 0.8;
+
+    for (let i = 0; i < count; i++) {
+      const particle = this.getFromPool();
+      particle.mesh.position.copy(position);
+      particle.velocity.set(
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2
+      ).normalize().multiplyScalar(speed * (0.5 + Math.random() * 0.8));
+      particle.life = life;
+      particle.maxLife = life;
+      particle.startColor.copy(startColor);
+      particle.endColor.copy(endColor);
+      particle.startSize = startSize;
+      particle.endSize = endSize;
+      particle.mesh.visible = true;
+      (particle.mesh.material as THREE.MeshBasicMaterial).color.copy(startColor);
+      particle.mesh.scale.setScalar(startSize);
+      this.particles.push(particle);
+    }
+  }
+
+  private getFromPool(): ParticleData {
+    if (this.pool.length > 0) {
+      return this.pool.pop()!;
+    }
+    const geo = new THREE.SphereGeometry(1, 6, 6);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.visible = false;
+    this.scene.add(mesh);
+    return {
+      mesh,
+      velocity: new THREE.Vector3(),
+      life: 0,
+      maxLife: 1,
+      startColor: new THREE.Color(),
+      endColor: new THREE.Color(),
+      startSize: 0.1,
+      endSize: 0.01,
+    };
+  }
+
+  private returnToPool(p: ParticleData) {
+    if (this.pool.length < this.poolSize) {
+      p.mesh.visible = false;
+      this.pool.push(p);
+    } else {
+      this.scene.remove(p.mesh);
+      (p.mesh.material as THREE.Material).dispose();
+      p.mesh.geometry.dispose();
+    }
+  }
+
+  update(dt: number) {
+    const alive: ParticleData[] = [];
+    for (const p of this.particles) {
+      p.life -= dt;
+      if (p.life <= 0) {
+        this.returnToPool(p);
+        continue;
+      }
+      const t = 1 - p.life / p.maxLife;
+      p.mesh.position.addScaledVector(p.velocity, dt);
+      p.velocity.multiplyScalar(0.96);
+      p.velocity.y -= dt * 0.5;
+
+      const size = THREE.MathUtils.lerp(p.startSize, p.endSize, t);
+      p.mesh.scale.setScalar(size);
+
+      const mat = p.mesh.material as THREE.MeshBasicMaterial;
+      mat.color.copy(p.startColor).lerp(p.endColor, t);
+      mat.opacity = 1 - t;
+
+      alive.push(p);
+    }
+    this.particles = alive;
+  }
+
+  getCount(): number {
+    return this.particles.length;
+  }
+}
+
 export class CreatureManager {
   planet: Planet;
   scene: THREE.Scene;
-  plants: Plant[] = [];
-  animals: Animal[] = [];
-  particles: Particle[] = [];
-  env: EnvironmentParams = {
-    temperature: 25,
-    humidity: 60,
-    timeScale: 1,
-  };
-  private treeLimit = 500;
+  plants: PlantData[] = [];
+  animals: AnimalData[] = [];
+  particles: ParticleSystem;
+  env: EnvironmentParams;
+  config: Required<CreatureManagerConfig>;
 
-  constructor(planet: Planet, scene: THREE.Scene) {
+  constructor(planet: Planet, scene: THREE.Scene, config: CreatureManagerConfig = {}) {
     this.planet = planet;
     this.scene = scene;
+    this.particles = new ParticleSystem(scene);
+    this.env = {
+      temperature: 25,
+      humidity: 60,
+      timeScale: 1,
+    };
+    this.config = {
+      maxTrees: config.maxTrees ?? 500,
+      maxGrass: config.maxGrass ?? 1000,
+      maxAnimals: config.maxAnimals ?? 300,
+    };
   }
 
   setEnvironment(env: Partial<EnvironmentParams>) {
@@ -83,123 +228,141 @@ export class CreatureManager {
   spawnCreature(type: CreatureType) {
     const info = this.planet.getRandomLandPoint();
     if (type === 'grass' || type === 'tree') {
-      if (type === 'tree' && this.plants.filter((p) => p.type === 'tree' && p.alive).length >= this.treeLimit) {
-        return;
-      }
+      const treeCount = this.plants.filter((p) => p.type === 'tree' && p.alive).length;
+      const grassCount = this.plants.filter((p) => p.type === 'grass' && p.alive).length;
+      if (type === 'tree' && treeCount >= this.config.maxTrees) return;
+      if (type === 'grass' && grassCount >= this.config.maxGrass) return;
       this.spawnPlant(type, info);
     } else {
+      const animalCount = this.animals.filter((a) => a.alive).length;
+      if (animalCount >= this.config.maxAnimals) return;
       this.spawnAnimal(type, info);
     }
   }
 
-  private spawnPlant(type: 'grass' | 'tree', info: TerrainInfo): Plant {
+  private spawnPlant(type: PlantType, info: TerrainInfo): PlantData {
     const group = new THREE.Group();
+
     if (type === 'grass') {
       const mat = new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.9 });
-      for (let i = 0; i < 5; i++) {
-        const geo = new THREE.ConeGeometry(0.03, 0.18, 4);
+      for (let i = 0; i < 7; i++) {
+        const geo = new THREE.ConeGeometry(0.025, 0.22, 4);
         const blade = new THREE.Mesh(geo, mat);
         blade.position.set(
-          (Math.random() - 0.5) * 0.1,
-          0.09,
-          (Math.random() - 0.5) * 0.1
+          (Math.random() - 0.5) * 0.12,
+          0.11,
+          (Math.random() - 0.5) * 0.12
         );
         blade.rotation.y = Math.random() * Math.PI;
-        blade.rotation.x = (Math.random() - 0.5) * 0.3;
+        blade.rotation.x = (Math.random() - 0.5) * 0.4;
         group.add(blade);
       }
       group.scale.setScalar(0);
     } else {
       const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 1.0 });
-      const trunkGeo = new THREE.CylinderGeometry(0.05, 0.07, 0.4, 8);
+      const trunkGeo = new THREE.CylinderGeometry(0.05, 0.08, 0.45, 8);
       const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.y = 0.2;
+      trunk.position.y = 0.225;
       group.add(trunk);
 
-      const crownMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.9 });
-      const crownGeo = new THREE.ConeGeometry(0.3, 0.7, 8);
+      const crownMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.85 });
+      const crownGeo = new THREE.ConeGeometry(0.35, 0.8, 8);
       const crown = new THREE.Mesh(crownGeo, crownMat);
-      crown.position.y = 0.7;
-      crown.name = 'crown';
+      crown.position.y = 0.8;
       crown.scale.setScalar(0);
+      crown.name = 'crown';
       group.add(crown);
-      group.scale.setScalar(1);
       group.userData.crown = crown;
-      group.userData.dropProgress = 0;
     }
 
+    group.userData.dropProgress = 0;
+    group.userData.dropOffset = 0;
     this.orientToSurface(group, info.position, info.normal);
     this.planet.addCreature(group);
 
-    const plant: Plant = {
-      id: nextId++,
+    const plant: PlantData = {
+      id: getNextId(),
       type,
       mesh: group,
       position: info.position.clone(),
       growth: 0,
-      targetGrowth: 1,
+      targetGrowth: 0.8 + Math.random() * 0.4,
+      growSpeed: 0.6 + Math.random() * 0.4,
       alive: true,
+      radius: type === 'tree' ? 0.35 : 0.12,
     };
     this.plants.push(plant);
     return plant;
   }
 
-  private spawnAnimal(type: 'rabbit' | 'wolf', info: TerrainInfo): Animal {
+  private spawnAnimal(type: AnimalType, info: TerrainInfo): AnimalData {
     const group = new THREE.Group();
-    const color = type === 'rabbit' ? 0xf5f5f5 : 0x555566;
-    const size = type === 'rabbit' ? 0.15 : 0.22;
+    const size = type === 'rabbit' ? 0.16 : 0.25;
 
-    const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.05 });
+    const bodyColor = type === 'rabbit' ? 0xf5f5f5 : 0x4a4a5a;
+    const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.7, metalness: 0.05 });
     const bodyGeo = new THREE.SphereGeometry(size, 12, 12);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.name = 'body';
+    body.scale.y = 0.85;
     group.add(body);
 
-    const headGeo = new THREE.SphereGeometry(size * 0.6, 10, 10);
+    const headGeo = new THREE.SphereGeometry(size * 0.65, 10, 10);
     const head = new THREE.Mesh(headGeo, bodyMat);
-    head.position.set(0, size * 0.4, size * 0.7);
+    head.position.set(0, size * 0.35, size * 0.7);
     group.add(head);
 
     if (type === 'rabbit') {
-      const earGeo = new THREE.ConeGeometry(size * 0.12, size * 0.6, 6);
-      const earL = new THREE.Mesh(earGeo, bodyMat);
-      earL.position.set(-size * 0.2, size * 1.0, size * 0.6);
+      const earMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.7 });
+      const earGeo = new THREE.ConeGeometry(size * 0.14, size * 0.7, 6);
+      const earL = new THREE.Mesh(earGeo, earMat);
+      earL.position.set(-size * 0.22, size * 1.0, size * 0.55);
+      earL.rotation.x = -0.2;
       group.add(earL);
       const earR = earL.clone();
-      earR.position.x = size * 0.2;
+      earR.position.x = size * 0.22;
       group.add(earR);
     } else {
-      const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff3333, emissive: 0xff0000, emissiveIntensity: 0.4 });
-      const eyeGeo = new THREE.SphereGeometry(size * 0.12, 8, 8);
+      const eyeMat = new THREE.MeshStandardMaterial({
+        color: 0xff5533,
+        emissive: 0xff2200,
+        emissiveIntensity: 0.5,
+      });
+      const eyeGeo = new THREE.SphereGeometry(size * 0.14, 8, 8);
       const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-      eyeL.position.set(-size * 0.18, size * 0.55, size * 1.2);
+      eyeL.position.set(-size * 0.2, size * 0.5, size * 1.2);
       group.add(eyeL);
       const eyeR = eyeL.clone();
-      eyeR.position.x = size * 0.18;
+      eyeR.position.x = size * 0.2;
       group.add(eyeR);
     }
 
-    group.userData.baseY = size;
+    group.userData.bodySize = size;
     group.scale.setScalar(0);
     this.orientToSurface(group, info.position, info.normal);
     this.planet.addCreature(group);
 
-    const animal: Animal = {
-      id: nextId++,
+    const animal: AnimalData = {
+      id: getNextId(),
       type,
       mesh: group,
       position: info.position.clone(),
       velocity: new THREE.Vector3(),
       energy: 100,
+      maxEnergy: 250,
       state: 'wander',
       wanderDir: this.randomTangent(info.normal),
       wanderTimer: Math.random() * 2 + 1,
-      wobble: 0,
-      baseSpeed: type === 'rabbit' ? 0.3 : 0.35,
-      target: null,
-      dying: 0,
+      wobblePhase: Math.random() * Math.PI * 2,
+      baseSpeed: type === 'rabbit' ? 0.35 : 0.42,
+      targetPlant: null,
+      targetMate: null,
+      targetPrey: null,
+      dyingTimer: 0,
       alive: true,
-      flashTimer: 0.3,
+      spawnTimer: 0.6,
+      mateCooldown: 0,
+      age: 0,
     };
     this.animals.push(animal);
     return animal;
@@ -219,7 +382,11 @@ export class CreatureManager {
     const tangent = new THREE.Vector3().crossVectors(n, up).normalize();
     const bitangent = new THREE.Vector3().crossVectors(n, tangent).normalize();
     const angle = Math.random() * Math.PI * 2;
-    return tangent.multiplyScalar(Math.cos(angle)).add(bitangent.multiplyScalar(Math.sin(angle))).normalize();
+    return tangent
+      .clone()
+      .multiplyScalar(Math.cos(angle))
+      .add(bitangent.clone().multiplyScalar(Math.sin(angle)))
+      .normalize();
   }
 
   private getTemperatureSpeedFactor(): number {
@@ -234,177 +401,276 @@ export class CreatureManager {
   private getGrowthSpeedFactor(): number {
     const t = this.env.temperature;
     const h = this.env.humidity;
-    const tempFactor = 1 - Math.abs(t - 25) / 25;
-    const humFactor = 1 - Math.abs(h - 60) / 60;
-    return Math.max(0.05, (tempFactor + humFactor) / 2);
+    const tempOptimal = 25;
+    const humOptimal = 60;
+    const tempFactor = 1 - Math.abs(t - tempOptimal) / 30;
+    const humFactor = 1 - Math.abs(h - humOptimal) / 60;
+    return Math.max(0.05, (tempFactor * 0.6 + humFactor * 0.4));
   }
 
-  private spawnExplosionParticles(pos: THREE.Vector3, color: number) {
-    const count = 12;
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
-    for (let i = 0; i < count; i++) {
-      const geo = new THREE.SphereGeometry(0.06, 6, 6);
-      const mesh = new THREE.Mesh(geo, mat.clone());
-      mesh.position.copy(pos);
-      const vel = new THREE.Vector3(
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 2
-      ).normalize().multiplyScalar(0.8 + Math.random() * 0.8);
-      this.scene.add(mesh);
-      this.particles.push({ mesh, velocity: vel, life: 0.7, maxLife: 0.7 });
-    }
-  }
-
-  update(delta: number) {
-    const dt = delta * this.env.timeScale;
-
-    const toRemove: Plant[] = [];
+  private updatePlants(dt: number) {
     const growthFactor = this.getGrowthSpeedFactor();
 
-    for (const plant of this.plants) {
+    for (let i = this.plants.length - 1; i >= 0; i--) {
+      const plant = this.plants[i];
       if (!plant.alive) {
-        toRemove.push(plant);
+        this.planet.removeCreature(plant.mesh);
+        this.plants.splice(i, 1);
         continue;
       }
+
       if (plant.growth < plant.targetGrowth) {
-        plant.growth = Math.min(plant.targetGrowth, plant.growth + dt * 0.8 * growthFactor);
+        plant.growth = Math.min(
+          plant.targetGrowth,
+          plant.growth + dt * plant.growSpeed * growthFactor
+        );
       }
 
       if (plant.type === 'tree') {
         const drop = plant.mesh.userData.dropProgress as number;
         if (drop < 1) {
-          const newDrop = Math.min(1, drop + dt * 2.5);
+          const newDrop = Math.min(1, drop + dt * 2.2);
           plant.mesh.userData.dropProgress = newDrop;
-          const bounce = Math.sin(newDrop * Math.PI * 1.2) * 0.4;
-          const squash = newDrop < 1 ? 1 - bounce * 0.35 : 1;
-          plant.mesh.scale.set(1 + bounce * 0.15, squash, 1 + bounce * 0.15);
+          const bounce = Math.sin(newDrop * Math.PI * 1.3) * 0.35;
+          const squash = newDrop < 1 ? 1 - bounce * 0.3 : 1;
+          plant.mesh.scale.set(1 + bounce * 0.12, squash, 1 + bounce * 0.12);
         }
         const crown = plant.mesh.userData.crown as THREE.Mesh | undefined;
         if (crown) {
-          const s = THREE.MathUtils.smoothstep(plant.growth, 0, 1);
+          const s = THREE.MathUtils.smoothstep(plant.growth, 0, plant.targetGrowth);
           crown.scale.setScalar(s);
         }
       } else {
-        const s = THREE.MathUtils.smoothstep(plant.growth, 0, 1);
+        const s = THREE.MathUtils.smoothstep(plant.growth, 0, plant.targetGrowth);
         plant.mesh.scale.setScalar(s);
       }
     }
+  }
 
-    for (const p of toRemove) {
-      this.planet.removeCreature(p.mesh);
+  private findNearestPlant(pos: THREE.Vector3, maxDist: number): PlantData | null {
+    let nearest: PlantData | null = null;
+    let nearestDist = maxDist;
+    for (const p of this.plants) {
+      if (!p.alive || p.growth < 0.3) continue;
+      const d = pos.distanceTo(p.position);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = p;
+      }
     }
-    this.plants = this.plants.filter((p) => p.alive);
+    return nearest;
+  }
 
+  private findNearestMate(animal: AnimalData, maxDist: number): AnimalData | null {
+    let nearest: AnimalData | null = null;
+    let nearestDist = maxDist;
+    for (const a of this.animals) {
+      if (!a.alive || a.id === animal.id) continue;
+      if (a.type !== animal.type) continue;
+      if (a.state !== 'mate') continue;
+      const d = animal.position.distanceTo(a.position);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = a;
+      }
+    }
+    return nearest;
+  }
+
+  private findNearestPrey(pos: THREE.Vector3, type: AnimalType, maxDist: number): AnimalData | null {
+    let nearest: AnimalData | null = null;
+    let nearestDist = maxDist;
+    for (const a of this.animals) {
+      if (!a.alive) continue;
+      if (type === 'wolf' && a.type !== 'rabbit') continue;
+      if (type === 'rabbit') continue;
+      const d = pos.distanceTo(a.position);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = a;
+      }
+    }
+    return nearest;
+  }
+
+  private updateAnimals(dt: number) {
     const speedFactor = this.getTemperatureSpeedFactor();
-    const animalsToRemove: Animal[] = [];
-    const newAnimals: Animal[] = [];
+    const toSpawn: { type: AnimalType; info: TerrainInfo; parentPos: THREE.Vector3 }[] = [];
 
-    for (const animal of this.animals) {
+    for (let i = this.animals.length - 1; i >= 0; i--) {
+      const animal = this.animals[i];
       if (!animal.alive) {
-        animalsToRemove.push(animal);
+        this.planet.removeCreature(animal.mesh);
+        this.animals.splice(i, 1);
         continue;
       }
 
-      if (animal.flashTimer > 0) {
-        animal.flashTimer -= dt;
-        const appear = THREE.MathUtils.smoothstep(1 - animal.flashTimer / 0.3, 0, 1);
+      animal.age += dt;
+
+      if (animal.spawnTimer > 0) {
+        animal.spawnTimer -= dt;
+        const t = 1 - animal.spawnTimer / 0.6;
+        const appear = THREE.MathUtils.smoothstep(t, 0, 1);
         animal.mesh.scale.setScalar(appear);
-        const offset = (1 - appear) * 0.8;
         const normal = animal.position.clone().normalize();
+        const offset = (1 - appear) * 0.9;
         animal.mesh.position.copy(animal.position).add(normal.multiplyScalar(offset));
-        const flash = Math.abs(Math.sin((1 - animal.flashTimer / 0.3) * Math.PI * 8)) * 0.6;
+        const flash = Math.abs(Math.sin(t * Math.PI * 10)) * 0.7;
         animal.mesh.traverse((c) => {
-          if ((c as THREE.Mesh).isMesh) {
-            const m = (c as THREE.Mesh).material as THREE.MeshStandardMaterial;
-            if (m.emissive) m.emissiveIntensity = flash;
+          const mesh = c as THREE.Mesh;
+          if (mesh.isMesh && mesh.material) {
+            const mat = mesh.material as THREE.MeshStandardMaterial;
+            if (mat.emissive !== undefined) {
+              mat.emissiveIntensity = flash;
+            }
           }
         });
+        continue;
       }
 
-      animal.energy -= dt * (animal.type === 'wolf' ? 4 : 3);
+      const energyDrain = animal.type === 'wolf' ? 4.5 : 3.2;
+      animal.energy -= dt * energyDrain;
+      animal.energy = Math.max(0, animal.energy);
+
+      if (animal.mateCooldown > 0) {
+        animal.mateCooldown -= dt;
+      }
 
       if (animal.energy <= 0) {
         animal.state = 'dying';
-        animal.dying += dt;
-        const s = Math.max(0, 1 - animal.dying * 1.5);
+        animal.dyingTimer += dt;
+        const s = Math.max(0, 1 - animal.dyingTimer * 1.8);
         animal.mesh.scale.setScalar(s);
         animal.mesh.traverse((c) => {
-          if ((c as THREE.Mesh).isMesh) {
-            const m = (c as THREE.Mesh).material as THREE.MeshStandardMaterial;
-            m.color.lerp(new THREE.Color(0xff0000), 0.1);
+          const mesh = c as THREE.Mesh;
+          if (mesh.isMesh && mesh.material) {
+            const mat = mesh.material as THREE.MeshStandardMaterial;
+            mat.color.lerp(new THREE.Color(0xff0000), 0.08);
           }
         });
-        if (animal.dying >= 0.8) {
+        if (animal.dyingTimer >= 0.7) {
           animal.alive = false;
         }
         continue;
       }
 
-      if (animal.energy > 200) {
-        animal.energy = 100;
-        const newPos = this.planet.getSurfacePoint(animal.position.clone().normalize());
-        this.spawnExplosionParticles(animal.position, animal.type === 'rabbit' ? 0xffddaa : 0xaaaaaa);
-        const newAnimal = this.spawnAnimal(animal.type, newPos);
-        newAnimal.energy = 80;
-        newAnimal.position.copy(animal.position);
-        newAnimal.mesh.position.copy(animal.position);
-        newAnimals.push(newAnimal);
+      if (animal.state === 'dying') {
+        animal.state = 'wander';
       }
 
-      const alivePlants = this.plants.filter((p) => p.alive && p.growth > 0.2);
-      if (animal.type === 'rabbit' && alivePlants.length > 0) {
-        let nearestPlant: Plant | null = null;
-        let nearestDist = Infinity;
-        for (const p of alivePlants) {
-          const d = animal.position.distanceTo(p.position);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearestPlant = p;
-          }
-        }
-        if (nearestPlant) {
-          if (nearestDist < 1) {
-            nearestPlant.alive = false;
-            animal.energy = Math.min(250, animal.energy + 30);
-            animal.target = null;
-          } else if (nearestDist < 3) {
-            animal.state = 'seek_food';
-            animal.target = nearestPlant;
-          }
-        }
-      } else if (animal.type === 'wolf') {
-        const preys = this.animals.filter((a) => a.type === 'rabbit' && a.alive);
-        if (preys.length > 0) {
-          let nearestPrey: Animal | null = null;
-          let nearestDist = Infinity;
-          for (const p of preys) {
-            const d = animal.position.distanceTo(p.position);
-            if (d < nearestDist) {
-              nearestDist = d;
-              nearestPrey = p;
-            }
-          }
-          if (nearestPrey && nearestDist < 4) {
-            if (nearestDist < 0.8) {
-              nearestPrey.alive = false;
-              animal.energy = Math.min(250, animal.energy + 60);
-              animal.target = null;
-            } else {
-              animal.state = 'seek_food';
-              animal.target = nearestPrey;
-            }
-          }
-        }
+      if (animal.energy > 180 && animal.mateCooldown <= 0) {
+        animal.state = 'mate';
+      } else if (animal.energy < 70) {
+        animal.state = 'seek_food';
+      } else if (animal.state !== 'mate') {
+        animal.state = 'wander';
       }
 
       let moveDir = animal.wanderDir;
-      if (animal.state === 'seek_food' && animal.target) {
-        const tpos = (animal.target as Plant | Animal).position;
-        moveDir = tpos.clone().sub(animal.position);
-        const normal = animal.position.clone().normalize();
-        moveDir.sub(normal.clone().multiplyScalar(moveDir.dot(normal)));
-        moveDir.normalize();
+      let speedMult = 1;
+
+      if (animal.state === 'seek_food') {
+        speedMult = 1.4;
+        if (animal.type === 'rabbit') {
+          if (!animal.targetPlant || !animal.targetPlant.alive || animal.targetPlant.growth < 0.3) {
+            animal.targetPlant = this.findNearestPlant(animal.position, 4);
+          }
+          if (animal.targetPlant) {
+            const tpos = animal.targetPlant.position;
+            const toTarget = tpos.clone().sub(animal.position);
+            const normal = animal.position.clone().normalize();
+            toTarget.sub(normal.clone().multiplyScalar(toTarget.dot(normal)));
+            moveDir = toTarget.normalize();
+
+            if (animal.position.distanceTo(tpos) < animal.targetPlant.radius + 0.2) {
+              animal.targetPlant.alive = false;
+              animal.energy = Math.min(animal.maxEnergy, animal.energy + 35);
+              animal.targetPlant = null;
+              this.particles.emit(tpos, 8, {
+                startColor: new THREE.Color(0x88ff88),
+                endColor: new THREE.Color(0x22aa22),
+                startSize: 0.06,
+                endSize: 0.02,
+                speed: 0.6,
+                life: 0.5,
+              });
+            }
+          } else {
+            animal.state = 'wander';
+          }
+        } else if (animal.type === 'wolf') {
+          if (!animal.targetPrey || !animal.targetPrey.alive) {
+            animal.targetPrey = this.findNearestPrey(animal.position, animal.type, 5);
+          }
+          if (animal.targetPrey) {
+            const tpos = animal.targetPrey.position;
+            const toTarget = tpos.clone().sub(animal.position);
+            const normal = animal.position.clone().normalize();
+            toTarget.sub(normal.clone().multiplyScalar(toTarget.dot(normal)));
+            moveDir = toTarget.normalize();
+            speedMult = 1.8;
+
+            if (animal.position.distanceTo(tpos) < 0.5) {
+              animal.targetPrey.alive = false;
+              animal.energy = Math.min(animal.maxEnergy, animal.energy + 70);
+              this.particles.emit(tpos, 12, {
+                startColor: new THREE.Color(0xff4444),
+                endColor: new THREE.Color(0x660000),
+                startSize: 0.1,
+                endSize: 0.02,
+                speed: 0.9,
+                life: 0.6,
+              });
+              animal.targetPrey = null;
+            }
+          } else {
+            animal.state = 'wander';
+          }
+        }
+      } else if (animal.state === 'mate') {
+        speedMult = 0.9;
+        if (!animal.targetMate || !animal.targetMate.alive || animal.targetMate.state !== 'mate') {
+          animal.targetMate = this.findNearestMate(animal, 6);
+        }
+        if (animal.targetMate) {
+          const tpos = animal.targetMate.position;
+          const toTarget = tpos.clone().sub(animal.position);
+          const normal = animal.position.clone().normalize();
+          toTarget.sub(normal.clone().multiplyScalar(toTarget.dot(normal)));
+          moveDir = toTarget.normalize();
+
+          if (animal.position.distanceTo(tpos) < 0.6) {
+            animal.energy -= 60;
+            animal.targetMate.energy -= 60;
+            animal.mateCooldown = 5;
+            animal.targetMate.mateCooldown = 5;
+            animal.state = 'wander';
+            animal.targetMate.state = 'wander';
+            const mate = animal.targetMate;
+            animal.targetMate = null;
+            mate.targetMate = null;
+
+            const midPoint = animal.position.clone().add(tpos).multiplyScalar(0.5);
+            const info = this.planet.getSurfacePoint(midPoint.clone().normalize());
+            if (info.isLand) {
+              toSpawn.push({ type: animal.type, info, parentPos: midPoint });
+            }
+            this.particles.emit(midPoint, 16, {
+              startColor: new THREE.Color(0xffaadd),
+              endColor: new THREE.Color(0x8866ff),
+              startSize: 0.08,
+              endSize: 0.02,
+              speed: 0.7,
+              life: 0.7,
+            });
+          }
+        } else {
+          animal.wanderTimer -= dt;
+          if (animal.wanderTimer <= 0) {
+            animal.wanderDir = this.randomTangent(animal.position.clone().normalize());
+            animal.wanderTimer = Math.random() * 2 + 1;
+          }
+        }
       } else {
         animal.wanderTimer -= dt;
         if (animal.wanderTimer <= 0) {
@@ -413,47 +679,41 @@ export class CreatureManager {
         }
       }
 
-      const speed = animal.baseSpeed * speedFactor * (animal.state === 'seek_food' ? 1.5 : 1);
-      animal.wobble += dt * 6;
-      const wobbleOffset = Math.sin(animal.wobble) * 0.15;
-      animal.velocity.copy(moveDir).multiplyScalar(speed * dt);
+      const speed = animal.baseSpeed * speedFactor * speedMult;
+      animal.wobblePhase += dt * 5;
+      const wobbleAngle = Math.sin(animal.wobblePhase) * 0.2;
 
-      const newPos = animal.position.clone().add(animal.velocity);
+      const moveStep = moveDir.clone().multiplyScalar(speed * dt);
+      const newPos = animal.position.clone().add(moveStep);
       const surface = this.planet.getSurfacePoint(newPos.clone().normalize());
       animal.position.copy(surface.position);
 
       this.orientToSurface(animal.mesh, animal.position, surface.normal);
+
       const tangent = moveDir.clone();
-      const up = surface.normal;
+      const up = surface.normal.clone();
       const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(animal.mesh.quaternion);
       const cross = new THREE.Vector3().crossVectors(forward, tangent);
       const angle = Math.atan2(cross.dot(up), forward.dot(tangent));
       animal.mesh.rotateOnAxis(up, angle);
-      animal.mesh.rotateZ(wobbleOffset);
+      animal.mesh.rotateZ(wobbleAngle);
     }
 
-    for (const a of animalsToRemove) {
-      this.planet.removeCreature(a.mesh);
-    }
-    this.animals = this.animals.filter((a) => a.alive).concat(newAnimals);
-
-    const deadParticles: Particle[] = [];
-    for (const p of this.particles) {
-      p.life -= dt;
-      if (p.life <= 0) {
-        deadParticles.push(p);
-        continue;
+    for (const spawn of toSpawn) {
+      const count = this.animals.filter((a) => a.alive).length;
+      if (count < this.config.maxAnimals) {
+        const baby = this.spawnAnimal(spawn.type, spawn.info);
+        baby.energy = 70;
+        baby.position.copy(spawn.parentPos);
+        baby.mesh.position.copy(spawn.parentPos);
       }
-      p.mesh.position.add(p.velocity.clone().multiplyScalar(dt));
-      p.velocity.multiplyScalar(0.92);
-      (p.mesh.material as THREE.MeshBasicMaterial).opacity = p.life / p.maxLife;
-      p.mesh.scale.setScalar(p.life / p.maxLife);
     }
-    for (const p of deadParticles) {
-      this.scene.remove(p.mesh);
-      (p.mesh.material as THREE.Material).dispose();
-      p.mesh.geometry.dispose();
-    }
-    this.particles = this.particles.filter((p) => p.life > 0);
+  }
+
+  update(delta: number) {
+    const dt = Math.min(delta, 0.1) * this.env.timeScale;
+    this.updatePlants(dt);
+    this.updateAnimals(dt);
+    this.particles.update(dt);
   }
 }

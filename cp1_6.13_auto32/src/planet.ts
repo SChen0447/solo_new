@@ -6,6 +6,13 @@ export interface TerrainInfo {
   position: THREE.Vector3;
   normal: THREE.Vector3;
   isLand: boolean;
+  elevation: number;
+}
+
+export interface PlanetConfig {
+  radius?: number;
+  seed?: number;
+  resolution?: number;
 }
 
 function mulberry32(seed: number): () => number {
@@ -17,117 +24,192 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function makeNoise3D(seed: number = 42) {
-  const rand = mulberry32(seed);
-  const perm = new Uint8Array(512);
-  const p = new Uint8Array(256);
-  for (let i = 0; i < 256; i++) p[i] = i;
-  for (let i = 255; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [p[i], p[j]] = [p[j], p[i]];
-  }
-  for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+class PerlinNoise3D {
+  private perm: Uint8Array;
+  private gradX: Float32Array;
+  private gradY: Float32Array;
+  private gradZ: Float32Array;
 
-  function fade(t: number) {
+  constructor(seed: number = 42) {
+    const rand = mulberry32(seed);
+    this.perm = new Uint8Array(512);
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+
+    this.gradX = new Float32Array(256);
+    this.gradY = new Float32Array(256);
+    this.gradZ = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let x, y, z, len;
+      do {
+        x = rand() * 2 - 1;
+        y = rand() * 2 - 1;
+        z = rand() * 2 - 1;
+        len = x * x + y * y + z * z;
+      } while (len > 1 || len === 0);
+      len = Math.sqrt(len);
+      this.gradX[i] = x / len;
+      this.gradY[i] = y / len;
+      this.gradZ[i] = z / len;
+    }
+  }
+
+  private fade(t: number): number {
     return t * t * t * (t * (t * 6 - 15) + 10);
   }
-  function lerp(a: number, b: number, t: number) {
+
+  private lerp(a: number, b: number, t: number): number {
     return a + t * (b - a);
   }
-  function grad(hash: number, x: number, y: number, z: number) {
-    const h = hash & 15;
-    const u = h < 8 ? x : y;
-    const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
-    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
-  }
 
-  return function noise3D(x: number, y: number, z: number): number {
+  noise(x: number, y: number, z: number): number {
     const X = Math.floor(x) & 255;
     const Y = Math.floor(y) & 255;
     const Z = Math.floor(z) & 255;
-    x -= Math.floor(x);
-    y -= Math.floor(y);
-    z -= Math.floor(z);
-    const u = fade(x);
-    const v = fade(y);
-    const w = fade(z);
-    const A = perm[X] + Y;
-    const AA = perm[A] + Z;
-    const AB = perm[A + 1] + Z;
-    const B = perm[X + 1] + Y;
-    const BA = perm[B] + Z;
-    const BB = perm[B + 1] + Z;
-    return lerp(
-      lerp(
-        lerp(grad(perm[AA], x, y, z), grad(perm[BA], x - 1, y, z), u),
-        lerp(grad(perm[AB], x, y - 1, z), grad(perm[BB], x - 1, y - 1, z), u),
+    const xf = x - Math.floor(x);
+    const yf = y - Math.floor(y);
+    const zf = z - Math.floor(z);
+
+    const u = this.fade(xf);
+    const v = this.fade(yf);
+    const w = this.fade(zf);
+
+    const A = this.perm[X] + Y;
+    const AA = this.perm[A] + Z;
+    const AB = this.perm[A + 1] + Z;
+    const B = this.perm[X + 1] + Y;
+    const BA = this.perm[B] + Z;
+    const BB = this.perm[B + 1] + Z;
+
+    const hash = (idx: number) => this.perm[idx & 255];
+    const dot = (gi: number, dx: number, dy: number, dz: number) =>
+      this.gradX[hash(gi)] * dx + this.gradY[hash(gi)] * dy + this.gradZ[hash(gi)] * dz;
+
+    return this.lerp(
+      this.lerp(
+        this.lerp(dot(AA, xf, yf, zf), dot(BA, xf - 1, yf, zf), u),
+        this.lerp(dot(AB, xf, yf - 1, zf), dot(BB, xf - 1, yf - 1, zf), u),
         v
       ),
-      lerp(
-        lerp(grad(perm[AA + 1], x, y, z - 1), grad(perm[BA + 1], x - 1, y, z - 1), u),
-        lerp(grad(perm[AB + 1], x, y - 1, z - 1), grad(perm[BB + 1], x - 1, y - 1, z - 1), u),
+      this.lerp(
+        this.lerp(dot(AA + 1, xf, yf, zf - 1), dot(BA + 1, xf - 1, yf, zf - 1), u),
+        this.lerp(dot(AB + 1, xf, yf - 1, zf - 1), dot(BB + 1, xf - 1, yf - 1, zf - 1), u),
         v
       ),
       w
     );
-  };
+  }
+
+  fbm(x: number, y: number, z: number, octaves: number = 6): number {
+    let amp = 1;
+    let freq = 1;
+    let sum = 0;
+    let norm = 0;
+    for (let o = 0; o < octaves; o++) {
+      sum += amp * this.noise(x * freq, y * freq, z * freq);
+      norm += amp;
+      amp *= 0.5;
+      freq *= 2.0;
+    }
+    return sum / norm;
+  }
+
+  ridged(x: number, y: number, z: number, octaves: number = 6): number {
+    let amp = 1;
+    let freq = 1;
+    let sum = 0;
+    let norm = 0;
+    for (let o = 0; o < octaves; o++) {
+      let n = 1 - Math.abs(this.noise(x * freq, y * freq, z * freq));
+      n *= n;
+      sum += amp * n;
+      norm += amp;
+      amp *= 0.5;
+      freq *= 2.0;
+    }
+    return sum / norm;
+  }
 }
 
 export class Planet {
   mesh: THREE.Mesh;
   group: THREE.Group;
   haloMesh: THREE.Mesh;
-  radius: number = 5;
-  private noise3D: (x: number, y: number, z: number) => number;
-  private seed: number = 42;
-  private basePositionAttr: THREE.BufferAttribute;
-  private originalColors: Float32Array;
-  private temperature: number = 25;
+  radius: number;
   public creaturesGroup: THREE.Group;
+  private noise: PerlinNoise3D;
+  private seed: number;
+  private basePositions: THREE.BufferAttribute;
+  private landColorMap: Float32Array;
+  private oceanColorMap: Float32Array;
+  private elevationValues: Float32Array;
+  private _temperature: number = 25;
+  private targetTemperature: number = 25;
+  private colorTransitionSpeed: number = 0.02;
 
-  constructor(scene: THREE.Scene) {
-    this.noise3D = makeNoise3D(this.seed);
-    this.creaturesGroup = new THREE.Group();
-    this.creaturesGroup.name = 'creaturesGroup';
+  constructor(scene: THREE.Scene, config: PlanetConfig = {}) {
+    this.radius = config.radius ?? 5;
+    this.seed = config.seed ?? 42;
+    const resolution = config.resolution ?? 128;
+    this.noise = new PerlinNoise3D(this.seed);
+
     this.group = new THREE.Group();
     this.group.name = 'planetGroup';
 
-    const geometry = new THREE.SphereGeometry(this.radius, 128, 128);
+    this.creaturesGroup = new THREE.Group();
+    this.creaturesGroup.name = 'creaturesGroup';
+
+    const geometry = new THREE.SphereGeometry(this.radius, resolution, resolution);
     const positions = geometry.attributes.position as THREE.BufferAttribute;
-    this.basePositionAttr = positions.clone() as THREE.BufferAttribute;
-    const colors = new Float32Array(positions.count * 3);
-    this.originalColors = new Float32Array(positions.count * 3);
+    this.basePositions = positions.clone() as THREE.BufferAttribute;
+
+    const vertexCount = positions.count;
+    this.elevationValues = new Float32Array(vertexCount);
+    this.landColorMap = new Float32Array(vertexCount * 3);
+    this.oceanColorMap = new Float32Array(vertexCount * 3);
+    const colors = new Float32Array(vertexCount * 3);
 
     const tmp = new THREE.Vector3();
-    for (let i = 0; i < positions.count; i++) {
-      tmp.fromBufferAttribute(positions, i);
+    for (let i = 0; i < vertexCount; i++) {
+      tmp.fromBufferAttribute(this.basePositions, i);
       tmp.normalize();
-      const n = this.fbm(tmp.x * 1.5, tmp.y * 1.5, tmp.z * 1.5);
-      const elevation = n > 0.02 ? n * 0.45 : 0;
-      const scale = this.radius + elevation;
-      tmp.multiplyScalar(scale);
-      positions.setXYZ(i, tmp.x, tmp.y, tmp.z);
 
-      const isLand = n > 0.02;
-      let r: number, g: number, b: number;
-      if (isLand) {
-        const lowness = Math.min(1, n / 0.5);
-        r = THREE.MathUtils.lerp(0.18, 0.55, lowness);
-        g = THREE.MathUtils.lerp(0.45, 0.40, lowness);
-        b = THREE.MathUtils.lerp(0.15, 0.25, lowness);
+      const continent = this.noise.fbm(tmp.x * 1.2, tmp.y * 1.2, tmp.z * 1.2, 5);
+      const detail = this.noise.fbm(tmp.x * 3.5, tmp.y * 3.5, tmp.z * 3.5, 4) * 0.2;
+      const ridge = (this.noise.ridged(tmp.x * 2.0, tmp.y * 2.0, tmp.z * 2.0, 4) - 0.5) * 0.15;
+
+      let elevation = continent + detail + ridge;
+      this.elevationValues[i] = elevation;
+
+      const displaced = tmp.clone().multiplyScalar(this.radius + Math.max(0, elevation) * 0.5);
+      positions.setXYZ(i, displaced.x, displaced.y, displaced.z);
+
+      const landHue = this.computeLandColor(elevation, tmp.y);
+      this.landColorMap[i * 3] = landHue.r;
+      this.landColorMap[i * 3 + 1] = landHue.g;
+      this.landColorMap[i * 3 + 2] = landHue.b;
+
+      const oceanHue = this.computeOceanColor(elevation, tmp);
+      this.oceanColorMap[i * 3] = oceanHue.r;
+      this.oceanColorMap[i * 3 + 1] = oceanHue.g;
+      this.oceanColorMap[i * 3 + 2] = oceanHue.b;
+
+      if (elevation > 0) {
+        colors[i * 3] = landHue.r;
+        colors[i * 3 + 1] = landHue.g;
+        colors[i * 3 + 2] = landHue.b;
       } else {
-        const depth = Math.min(1, Math.abs(n) * 3);
-        r = THREE.MathUtils.lerp(0.12, 0.05, depth);
-        g = THREE.MathUtils.lerp(0.35, 0.18, depth);
-        b = THREE.MathUtils.lerp(0.65, 0.45, depth);
+        colors[i * 3] = oceanHue.r;
+        colors[i * 3 + 1] = oceanHue.g;
+        colors[i * 3 + 2] = oceanHue.b;
       }
-      colors[i * 3] = r;
-      colors[i * 3 + 1] = g;
-      colors[i * 3 + 2] = b;
-      this.originalColors[i * 3] = r;
-      this.originalColors[i * 3 + 1] = g;
-      this.originalColors[i * 3 + 2] = b;
     }
+
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
 
@@ -143,92 +225,130 @@ export class Planet {
     this.group.add(this.mesh);
     this.group.add(this.creaturesGroup);
 
-    const haloGeo = new THREE.SphereGeometry(this.radius * 1.12, 64, 64);
-    const haloMat = new THREE.ShaderMaterial({
-      transparent: true,
-      side: THREE.BackSide,
-      depthWrite: false,
-      uniforms: {
-        uColor: { value: new THREE.Color(0x6688ff) },
-      },
-      vertexShader: `
-        varying vec3 vNormal;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        varying vec3 vNormal;
-        uniform vec3 uColor;
-        void main() {
-          float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
-          gl_FragColor = vec4(uColor, intensity * 0.6);
-        }
-      `,
-    });
-    this.haloMesh = new THREE.Mesh(haloGeo, haloMat);
+    this.haloMesh = this.createHalo();
     this.group.add(this.haloMesh);
 
     scene.add(this.group);
   }
 
-  private fbm(x: number, y: number, z: number): number {
-    let amp = 1;
-    let freq = 1;
-    let sum = 0;
-    let norm = 0;
-    for (let o = 0; o < 5; o++) {
-      sum += amp * this.noise3D(x * freq, y * freq, z * freq);
-      norm += amp;
-      amp *= 0.5;
-      freq *= 2.0;
+  private computeLandColor(elevation: number, latitude: number): { r: number; g: number; b: number } {
+    const absLat = Math.abs(latitude);
+    const elevNorm = THREE.MathUtils.clamp(elevation / 0.6, 0, 1);
+
+    const polarFactor = THREE.MathUtils.smoothstep(absLat, 0.7, 0.95);
+    const lowlandColor = new THREE.Color(0x4a8c3f);
+    const midlandColor = new THREE.Color(0x8b7355);
+    const highlandColor = new THREE.Color(0xcccccc);
+    const polarColor = new THREE.Color(0xe8f0ff);
+
+    let base = new THREE.Color();
+    if (elevNorm < 0.4) {
+      base.copy(lowlandColor).lerp(midlandColor, elevNorm / 0.4);
+    } else {
+      base.copy(midlandColor).lerp(highlandColor, (elevNorm - 0.4) / 0.6);
     }
-    return sum / norm;
+    base.lerp(polarColor, polarFactor);
+
+    return { r: base.r, g: base.g, b: base.b };
+  }
+
+  private computeOceanColor(elevation: number, position: THREE.Vector3): { r: number; g: number; b: number } {
+    const depth = Math.min(1, Math.abs(elevation) * 2.5);
+    const absLat = Math.abs(position.y);
+
+    const shallow = new THREE.Color(0x3da4d8);
+    const deep = new THREE.Color(0x0a2540);
+    const polar = new THREE.Color(0x9bc4e2);
+
+    let base = shallow.clone().lerp(deep, depth);
+    const polarFactor = THREE.MathUtils.smoothstep(absLat, 0.7, 0.95);
+    base.lerp(polar, polarFactor * 0.4);
+
+    return { r: base.r, g: base.g, b: base.b };
+  }
+
+  private createHalo(): THREE.Mesh {
+    const haloGeo = new THREE.SphereGeometry(this.radius * 1.12, 64, 64);
+    const haloMat = new THREE.ShaderMaterial({
+      transparent: true,
+      side: THREE.BackSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uColor: { value: new THREE.Color(0x6688ff) },
+        uIntensity: { value: 0.6 },
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        uniform vec3 uColor;
+        uniform float uIntensity;
+        void main() {
+          float rim = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
+          gl_FragColor = vec4(uColor, rim * uIntensity);
+        }
+      `,
+    });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.name = 'haloMesh';
+    return halo;
+  }
+
+  get temperature(): number {
+    return this.targetTemperature;
+  }
+
+  setTemperature(value: number) {
+    this.targetTemperature = THREE.MathUtils.clamp(value, 0, 50);
   }
 
   getElevationAt(point: THREE.Vector3): number {
     const dir = point.clone().normalize();
-    const n = this.fbm(dir.x * 1.5, dir.y * 1.5, dir.z * 1.5);
-    return n > 0.02 ? n * 0.45 : 0;
+    const continent = this.noise.fbm(dir.x * 1.2, dir.y * 1.2, dir.z * 1.2, 5);
+    const detail = this.noise.fbm(dir.x * 3.5, dir.y * 3.5, dir.z * 3.5, 4) * 0.2;
+    const ridge = (this.noise.ridged(dir.x * 2.0, dir.y * 2.0, dir.z * 2.0, 4) - 0.5) * 0.15;
+    return Math.max(0, continent + detail + ridge) * 0.5;
   }
 
   isLandAt(point: THREE.Vector3): boolean {
     const dir = point.clone().normalize();
-    const n = this.fbm(dir.x * 1.5, dir.y * 1.5, dir.z * 1.5);
-    return n > 0.02;
+    const continent = this.noise.fbm(dir.x * 1.2, dir.y * 1.2, dir.z * 1.2, 5);
+    const detail = this.noise.fbm(dir.x * 3.5, dir.y * 3.5, dir.z * 3.5, 4) * 0.2;
+    return continent + detail > 0;
   }
 
   getSurfacePoint(direction: THREE.Vector3): TerrainInfo {
     const dir = direction.clone().normalize();
     const elevation = this.getElevationAt(dir);
     const position = dir.multiplyScalar(this.radius + elevation);
-    const isLand = elevation > 0.001;
     return {
       position,
       normal: position.clone().normalize(),
-      isLand,
+      isLand: elevation > 0.01,
+      elevation,
     };
   }
 
   getRandomLandPoint(): TerrainInfo {
-    const dir = new THREE.Vector3(
-      Math.random() * 2 - 1,
-      Math.random() * 2 - 1,
-      Math.random() * 2 - 1
-    ).normalize();
-    let info = this.getSurfacePoint(dir);
-    let attempts = 0;
-    while (!info.isLand && attempts < 20) {
-      const d = new THREE.Vector3(
+    for (let i = 0; i < 50; i++) {
+      const dir = new THREE.Vector3(
         Math.random() * 2 - 1,
         Math.random() * 2 - 1,
         Math.random() * 2 - 1
       ).normalize();
-      info = this.getSurfacePoint(d);
-      attempts++;
+      const info = this.getSurfacePoint(dir);
+      if (info.isLand) return info;
     }
-    return info;
+    return this.getSurfacePoint(new THREE.Vector3(1, 0.2, 0.5).normalize());
   }
 
   getRandomPoint(): TerrainInfo {
@@ -240,52 +360,6 @@ export class Planet {
     return this.getSurfacePoint(dir);
   }
 
-  setTemperature(temp: number) {
-    this.temperature = temp;
-    this.updateColorsForTemperature();
-  }
-
-  getTemperature(): number {
-    return this.temperature;
-  }
-
-  private updateColorsForTemperature() {
-    const positions = this.mesh.geometry.attributes.position as THREE.BufferAttribute;
-    const colors = this.mesh.geometry.attributes.color as THREE.BufferAttribute;
-    const tempDelta = (this.temperature - 25) / 25;
-
-    const tmp = new THREE.Vector3();
-    for (let i = 0; i < positions.count; i++) {
-      tmp.fromBufferAttribute(this.basePositionAttr, i);
-      tmp.normalize();
-      const n = this.fbm(tmp.x * 1.5, tmp.y * 1.5, tmp.z * 1.5);
-      const isLand = n > 0.02;
-
-      const or = this.originalColors[i * 3];
-      const og = this.originalColors[i * 3 + 1];
-      const ob = this.originalColors[i * 3 + 2];
-
-      let r = or;
-      let g = og;
-      let b = ob;
-
-      if (isLand) {
-        if (tempDelta > 0) {
-          r = THREE.MathUtils.lerp(or, THREE.MathUtils.min(1, or + 0.4), tempDelta);
-          g = THREE.MathUtils.lerp(og, THREE.MathUtils.max(0.15, og - 0.2), tempDelta);
-          b = THREE.MathUtils.lerp(ob, THREE.MathUtils.max(0.05, ob - 0.15), tempDelta);
-        } else {
-          const t = -tempDelta;
-          r = THREE.MathUtils.lerp(or, THREE.MathUtils.max(0.05, or - 0.1), t);
-          g = THREE.MathUtils.lerp(og, THREE.MathUtils.min(1, og + 0.1), t);
-          b = THREE.MathUtils.lerp(ob, THREE.MathUtils.min(1, ob + 0.4), t);
-        }
-      }
-      colors.setXYZ(i, r, g, b);
-    }
-    colors.needsUpdate = true;
-  }
-
   addCreature(mesh: THREE.Object3D) {
     this.creaturesGroup.add(mesh);
   }
@@ -294,7 +368,78 @@ export class Planet {
     this.creaturesGroup.remove(mesh);
   }
 
+  private updateTemperatureColors(dt: number) {
+    if (Math.abs(this._temperature - this.targetTemperature) < 0.01) {
+      this._temperature = this.targetTemperature;
+      return;
+    }
+
+    this._temperature += (this.targetTemperature - this._temperature) * this.colorTransitionSpeed;
+
+    const tempNorm = (this._temperature - 25) / 25;
+    const positions = this.mesh.geometry.attributes.position as THREE.BufferAttribute;
+    const colors = this.mesh.geometry.attributes.color as THREE.BufferAttribute;
+    const count = positions.count;
+
+    const hotLand = new THREE.Color(0xc9a64a);
+    const coldLand = new THREE.Color(0x6a95c9);
+    const hotOcean = new THREE.Color(0x4a90b8);
+    const coldOcean = new THREE.Color(0x6aa8c9);
+
+    const tmp = new THREE.Vector3();
+    for (let i = 0; i < count; i++) {
+      const elev = this.elevationValues[i];
+      tmp.fromBufferAttribute(this.basePositions, i);
+      tmp.normalize();
+      const absLat = Math.abs(tmp.y);
+      const polarFactor = THREE.MathUtils.smoothstep(absLat, 0.7, 0.95);
+
+      if (elev > 0) {
+        let r = this.landColorMap[i * 3];
+        let g = this.landColorMap[i * 3 + 1];
+        let b = this.landColorMap[i * 3 + 2];
+
+        if (tempNorm > 0) {
+          r = THREE.MathUtils.lerp(r, hotLand.r, tempNorm * (1 - polarFactor * 0.5));
+          g = THREE.MathUtils.lerp(g, hotLand.g, tempNorm * (1 - polarFactor * 0.5));
+          b = THREE.MathUtils.lerp(b, hotLand.b, tempNorm * (1 - polarFactor * 0.3));
+        } else {
+          const t = -tempNorm;
+          r = THREE.MathUtils.lerp(r, coldLand.r, t * 0.8);
+          g = THREE.MathUtils.lerp(g, coldLand.g, t * 0.6);
+          b = THREE.MathUtils.lerp(b, coldLand.b, t * 0.9);
+        }
+
+        const snowCap = polarFactor + (elev > 0.3 ? (elev - 0.3) * 2 : 0);
+        const snow = Math.min(1, Math.max(0, snowCap - tempNorm * 0.3));
+        r = THREE.MathUtils.lerp(r, 0.95, snow * 0.7);
+        g = THREE.MathUtils.lerp(g, 0.97, snow * 0.7);
+        b = THREE.MathUtils.lerp(b, 1.0, snow * 0.8);
+
+        colors.setXYZ(i, r, g, b);
+      } else {
+        let r = this.oceanColorMap[i * 3];
+        let g = this.oceanColorMap[i * 3 + 1];
+        let b = this.oceanColorMap[i * 3 + 2];
+
+        if (tempNorm > 0) {
+          r = THREE.MathUtils.lerp(r, hotOcean.r, tempNorm * 0.3);
+          g = THREE.MathUtils.lerp(g, hotOcean.g, tempNorm * 0.2);
+          b = THREE.MathUtils.lerp(b, hotOcean.b, tempNorm * 0.15);
+        } else {
+          const t = -tempNorm;
+          r = THREE.MathUtils.lerp(r, coldOcean.r, t * 0.4);
+          g = THREE.MathUtils.lerp(g, coldOcean.g, t * 0.35);
+          b = THREE.MathUtils.lerp(b, coldOcean.b, t * 0.25);
+        }
+        colors.setXYZ(i, r, g, b);
+      }
+    }
+    colors.needsUpdate = true;
+  }
+
   update(delta: number) {
     this.group.rotation.y += 0.001;
+    this.updateTemperatureColors(delta);
   }
 }
