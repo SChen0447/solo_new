@@ -24,16 +24,21 @@ export interface DebrisConfig {
   rotationSpeed: number;
 }
 
+interface ParticleData {
+  life?: number;
+  maxLife?: number;
+  vx?: number;
+  vy?: number;
+  vrotation?: number;
+  targetRadius?: number;
+}
+
+type Particle = (Phaser.GameObjects.Arc | Phaser.GameObjects.Rectangle) & ParticleData;
+
 export class ParticleManager {
   private scene: Phaser.Scene;
   private particleGroup: Phaser.GameObjects.Group;
-  private activeParticles: Array<Phaser.GameObjects.GameObject & {
-    life?: number;
-    maxLife?: number;
-    vx?: number;
-    vy?: number;
-    vrotation?: number;
-  }>;
+  private activeParticles: Particle[];
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -82,7 +87,7 @@ export class ParticleManager {
     (particle as unknown as { life: number; maxLife: number }).maxLife = lifeSpan;
 
     this.particleGroup.add(particle);
-    this.activeParticles.push(particle as unknown as typeof this.activeParticles[number]);
+    this.activeParticles.push(particle as Particle);
   }
 
   createExplosion(x: number, y: number, color: number = 0x00aaff, config?: Partial<ExplosionConfig>): void {
@@ -114,7 +119,7 @@ export class ParticleManager {
       typedParticle.vy = Math.sin(angle) * speed;
 
       this.particleGroup.add(particle);
-      this.activeParticles.push(typedParticle);
+      this.activeParticles.push(particle as Particle);
     }
   }
 
@@ -153,7 +158,7 @@ export class ParticleManager {
       typedParticle.vrotation = Phaser.Math.FloatBetween(-rotationSpeed, rotationSpeed);
 
       this.particleGroup.add(particle);
-      this.activeParticles.push(typedParticle);
+      this.activeParticles.push(particle as Particle);
     }
   }
 
@@ -172,7 +177,7 @@ export class ParticleManager {
     typedRing.targetRadius = radius;
 
     this.particleGroup.add(ring);
-    this.activeParticles.push(typedRing);
+    this.activeParticles.push(ring as Particle);
   }
 
   update(delta: number): void {
@@ -185,22 +190,21 @@ export class ParticleManager {
       if (particle.life !== undefined && particle.maxLife !== undefined) {
         particle.life -= dt;
 
-        if ((particle as unknown as { vx?: number }).vx !== undefined) {
+        if (particle.vx !== undefined) {
           particle.x += (particle.vx ?? 0) * dt;
           particle.y += (particle.vy ?? 0) * dt;
           particle.vx = (particle.vx ?? 0) * 0.97;
           particle.vy = (particle.vy ?? 0) * 0.97;
         }
 
-        if ((particle as unknown as { vrotation?: number }).vrotation !== undefined) {
+        if (particle.vrotation !== undefined) {
           particle.rotation += (particle.vrotation ?? 0) * dt;
         }
 
-        const typedRing = particle as unknown as { targetRadius?: number };
-        if (typedRing.targetRadius !== undefined) {
+        if (particle.targetRadius !== undefined) {
           const progress = 1 - particle.life / particle.maxLife;
-          const r = 2 + typedRing.targetRadius * progress;
-          (particle as Phaser.GameObjects.Arc).setRadius(r);
+          const r = 2 + particle.targetRadius * progress;
+          particle.setRadius(r);
         }
 
         const alpha = Math.max(0, particle.life / particle.maxLife);
