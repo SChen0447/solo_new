@@ -47,6 +47,8 @@ interface ColumnMesh {
   isBending: boolean;
   bendIntensity: number;
   targetBendIntensity: number;
+  isTransitioningOut: boolean;
+  transitionProgress: number;
 }
 
 interface ParticleData {
@@ -65,11 +67,11 @@ const columnVertexShader = `
 
   void main() {
     vPosition = position;
-    vHeight = (position.y / uHeight) + 0.5;
+    vHeight = (position.y / max(uHeight, 0.01)) + 0.5;
     
     vec3 pos = position;
     
-    float bendFactor = pow(max(0.0, pos.y / uHeight), 2.0);
+    float bendFactor = pow(max(0.0, pos.y / max(uHeight, 0.01)), 2.0);
     pos.xz += uBendDirection.xz * uBendAmount * bendFactor * uHeight * 0.3;
     
     float pulseScale = 1.0 + uPulseAmount * 0.3 * sin(vHeight * 3.14159);
@@ -124,7 +126,8 @@ export class RenderController {
   private raycaster: THREE.Raycaster = new THREE.Raycaster();
   private mouse: THREE.Vector2 = new THREE.Vector2();
 
-  private transitionDuration: number = 0.3;
+  private fadeTransitionDuration: number = 0.35;
+  private pendingNewColumns: boolean = false;
 
   constructor(
     scene: THREE.Scene,
@@ -145,11 +148,11 @@ export class RenderController {
   private init(): void {
     this.scene.add(this.columnGroup);
     this.createParticles();
-    this.createColumnMeshes();
+    this.createColumnMeshes(true);
     this.setupLighting();
 
     this.dataController.on('columnsGenerated', () => {
-      this.animateColumnTransition();
+      this.startColumnTransition();
     });
   }
 
@@ -178,7 +181,7 @@ export class RenderController {
         uBendAmount: { value: 0 },
         uBendDirection: { value: new THREE.Vector3(0, 0, 0) },
         uBendColorMix: { value: 0 },
-        uHeight: { value: column.value },
+        uHeight: { value: Math.max(column.value, 0.01) },
         uPulseAmount: { value: 0 }
       },
       transparent: true,
@@ -186,11 +189,12 @@ export class RenderController {
     });
   }
 
-  private createColumnMesh(column: DataColumn): ColumnMesh {
+  private createColumnMesh(column: DataColumn, startInvisible: boolean = false): ColumnMesh {
     const group = new THREE.Group();
 
-    const geometry = new THREE.CylinderGeometry(0.15, 0.18, column.value, 12, 1);
-    geometry.translate(0, column.value / 2, 0);
+    const height = Math.max(column.value, 0.01);
+    const geometry = new THREE.CylinderGeometry(0.15, 0.18, height, 12, 1);
+    geometry.translate(0, height / 2, 0);
 
     const material = this.createColumnMaterial(column);
     const mesh = new THREE.Mesh(geometry, material);
@@ -213,6 +217,9 @@ export class RenderController {
 
     this.columnGroup.add(group);
 
+    const initialOpacity = startInvisible ? 0 : column.opacity;
+    const initialTargetOpacity = column.opacity;
+
     return {
       id: column.id,
       group,
@@ -220,15 +227,17 @@ export class RenderController {
       edges,
       material,
       edgeMaterial,
-      opacity: 0,
-      targetOpacity: column.opacity,
+      opacity: initialOpacity,
+      targetOpacity: initialTargetOpacity,
       isBending: false,
       bendIntensity: 0,
-      targetBendIntensity: 0
+      targetBendIntensity: 0,
+      isTransitioningOut: false,
+      transitionProgress: startInvisible ? 0 : 1
     };
   }
 
-  private createColumnMeshes(): void {
+  private createColumnMeshes(startInvisible: boolean = false): void {
     this.columnMeshes.forEach(cm => {
       this.columnGroup.remove(cm.group);
       cm.mesh.geometry.dispose();
@@ -240,24 +249,28 @@ export class RenderController {
 
     const columns = this.dataController.getColumns();
     columns.forEach(column => {
-      const columnMesh = this.createColumnMesh(column);
+      const columnMesh = this.createColumnMesh(column, startInvisible);
       this.columnMeshes.set(column.id, columnMesh);
     });
   }
 
-  private animateColumnTransition(): void {
-    const oldMeshes = Array.from(this.columnMeshes.values());
-    oldMeshes.forEach(cm => {
+  private startColumnTransition(): void {
+    this.columnMeshes.forEach(cm => {
+      cm.isTransitioningOut = true;
       cm.targetOpacity = 0;
     });
+    this.pendingNewColumns = true;
+  }
 
-    setTimeout(() => {
-      this.createColumnMeshes();
-      this.columnMeshes.forEach(cm => {
-        cm.opacity = 0;
-        cm.targetOpacity = this.dataController.getColumns().find(c => c.id === cm.id)?.opacity || 1;
-      });
-    }, this.transitionDuration * 500);
+  private completeColumnTransition(): void {
+    this.createColumnMeshes(true);
+    this.columnMeshes.forEach(cm => {
+      cm.opacity = 0;
+      cm.targetOpacity = this.dataController.getColumns().find(c => c.id === cm.id)?.opacity ?? 1;
+      cm.isTransitioningOut = false;
+      cm.transitionProgress = 0;
+    });
+    this.pendingNewColumns = false;
   }
 
   private createParticles(): void {
@@ -277,7 +290,7 @@ export class RenderController {
       const radius = 12 + Math.random() * 8;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.random() * Math.PI;
-      
+
       const x = radius * Math.sin(phi) * Math.cos(theta);
       const y = (Math.random() - 0.5) * 15;
       const z = radius * Math.sin(phi) * Math.sin(theta);
@@ -371,7 +384,9 @@ export class RenderController {
     this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const meshes = Array.from(this.columnMeshes.values()).map(cm => cm.mesh);
+    const meshes = Array.from(this.columnMeshes.values())
+      .filter(cm => !cm.isTransitioningOut)
+      .map(cm => cm.mesh);
     const intersects = this.raycaster.intersectObjects(meshes);
 
     if (intersects.length > 0) {
@@ -393,11 +408,12 @@ export class RenderController {
 
     const columnMesh = this.columnMeshes.get(this.selectedColumnId);
     const column = this.dataController.getColumns().find(c => c.id === this.selectedColumnId);
-    
+
     if (!columnMesh || !column) return;
 
     const worldDir = new THREE.Vector3(deltaX * 0.02, 0, deltaY * 0.02);
-    const localDir = worldDir.applyMatrix4(new THREE.Matrix4().extractRotation(this.columnGroup.matrixWorld));
+    const inverseMatrix = new THREE.Matrix4().copy(this.columnGroup.matrixWorld).invert();
+    const localDir = worldDir.applyMatrix4(new THREE.Matrix4().extractRotation(inverseMatrix));
 
     this.dataController.bendColumn(this.selectedColumnId, localDir.x, localDir.z);
 
@@ -428,12 +444,22 @@ export class RenderController {
     if (this.isBeatMode) {
       this.beatTimer += deltaTime;
       if (this.beatTimer >= this.beatInterval) {
-        this.beatTimer = 0;
+        this.beatTimer -= this.beatInterval;
         this.dataController.triggerPulse(1);
       }
     }
 
     this.dataController.update(deltaTime);
+
+    if (this.pendingNewColumns) {
+      const allFaded = Array.from(this.columnMeshes.values()).every(
+        cm => cm.opacity < 0.05 || !cm.isTransitioningOut
+      );
+      if (allFaded) {
+        this.completeColumnTransition();
+      }
+    }
+
     this.updateColumnMeshes(deltaTime, time);
     this.updateParticles(deltaTime, time);
   }
@@ -441,16 +467,28 @@ export class RenderController {
   private updateColumnMeshes(deltaTime: number, time: number): void {
     const columns = this.dataController.getColumns();
     const smoothFactor = Math.min(deltaTime * 8, 1);
+    const fadeSpeed = 1 / Math.max(this.fadeTransitionDuration, 0.01);
 
     columns.forEach(column => {
       const cm = this.columnMeshes.get(column.id);
       if (!cm) return;
 
-      cm.opacity += (cm.targetOpacity - cm.opacity) * smoothFactor;
+      if (cm.isTransitioningOut) {
+        cm.transitionProgress = Math.max(0, cm.transitionProgress - deltaTime * fadeSpeed);
+        cm.targetOpacity = 0;
+        cm.opacity = this.easeOutCubic(cm.transitionProgress) * cm.opacity;
+      } else if (cm.transitionProgress < 1) {
+        cm.transitionProgress = Math.min(1, cm.transitionProgress + deltaTime * fadeSpeed);
+        const easedProgress = this.easeOutCubic(cm.transitionProgress);
+        cm.opacity = easedProgress * cm.targetOpacity;
+      } else {
+        cm.opacity += (cm.targetOpacity - cm.opacity) * smoothFactor;
+      }
+
       cm.bendIntensity += (cm.targetBendIntensity - cm.bendIntensity) * smoothFactor;
 
       const bendMagnitude = Math.sqrt(
-        column.bendOffset.x * column.bendOffset.x + 
+        column.bendOffset.x * column.bendOffset.x +
         column.bendOffset.z * column.bendOffset.z
       );
 
@@ -463,21 +501,25 @@ export class RenderController {
       cm.material.uniforms.uGlowIntensity.value = currentGlow + (targetGlow - currentGlow) * smoothFactor;
 
       if (column.isHighlighted) {
-        cm.edgeMaterial.color.setHex(0xffd700);
+        cm.edgeMaterial.color.lerp(new THREE.Color(0xffd700), smoothFactor);
       } else if (cm.bendIntensity > 0.1) {
-        cm.edgeMaterial.color.setHex(0xff6b00);
+        cm.edgeMaterial.color.lerp(new THREE.Color(0xff6b00), smoothFactor);
       } else {
-        cm.edgeMaterial.color.copy(this.currentTheme.glow);
+        cm.edgeMaterial.color.lerp(this.currentTheme.glow, smoothFactor);
       }
 
       const edgeOpacity = 0.3 * cm.opacity;
       cm.edgeMaterial.opacity += (edgeOpacity - cm.edgeMaterial.opacity) * smoothFactor;
 
       cm.material.uniforms.uBendAmount.value = bendMagnitude * cm.bendIntensity;
-      cm.material.uniforms.uBendDirection.value.set(column.bendOffset.x, 0, column.bendOffset.z).normalize();
-      cm.material.uniforms.uHeight.value = column.value;
+      const bendDir = new THREE.Vector3(column.bendOffset.x, 0, column.bendOffset.z);
+      if (bendDir.lengthSq() > 0.0001) {
+        bendDir.normalize();
+      }
+      cm.material.uniforms.uBendDirection.value.copy(bendDir);
+      cm.material.uniforms.uHeight.value = Math.max(column.value, 0.01);
       cm.material.uniforms.uPulseAmount.value = column.pulseAmount;
-      cm.material.uniforms.uOpacity.value = cm.opacity;
+      cm.material.uniforms.uOpacity.value = Math.max(0, cm.opacity);
 
       const targetScale = column.scale * (1 + column.pulseAmount * 0.3);
       cm.group.scale.x += (targetScale - cm.group.scale.x) * smoothFactor;
@@ -486,24 +528,32 @@ export class RenderController {
 
       const geo = cm.mesh.geometry as THREE.CylinderGeometry;
       const currentHeight = geo.parameters.height;
-      if (Math.abs(currentHeight - column.value) > 0.01) {
-        geo.dispose();
-        const newGeo = new THREE.CylinderGeometry(0.15, 0.18, column.value, 12, 1);
-        newGeo.translate(0, column.value / 2, 0);
+      if (Math.abs(currentHeight - column.value) > 0.05) {
+        const newHeight = Math.max(column.value, 0.01);
+        const newGeo = new THREE.CylinderGeometry(0.15, 0.18, newHeight, 12, 1);
+        newGeo.translate(0, newHeight / 2, 0);
+        cm.mesh.geometry.dispose();
         cm.mesh.geometry = newGeo;
         cm.edges.geometry.dispose();
         cm.edges.geometry = new THREE.EdgesGeometry(newGeo);
       }
     });
 
+    const toRemove: number[] = [];
     this.columnMeshes.forEach(cm => {
-      if (cm.opacity <= 0.01 && cm.targetOpacity <= 0.01) {
+      if (cm.isTransitioningOut && cm.opacity <= 0.01) {
+        toRemove.push(cm.id);
+      }
+    });
+    toRemove.forEach(id => {
+      const cm = this.columnMeshes.get(id);
+      if (cm) {
         this.columnGroup.remove(cm.group);
         cm.mesh.geometry.dispose();
         cm.material.dispose();
         cm.edges.geometry.dispose();
         cm.edgeMaterial.dispose();
-        this.columnMeshes.delete(cm.id);
+        this.columnMeshes.delete(id);
       }
     });
   }
