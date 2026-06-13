@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数字电路模拟沙盒</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      user-select: none;
+    }
+
+    .app-container {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #1a1a2e;
+    }
+
+    #circuitCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: default;
+    }
+
+    .sidebar {
+      width: 320px;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .sidebar h2 {
+      color: #fff;
+      font-size: 18px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .gate-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .gate-item {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 16px;
+      cursor: grab;
+      transition: all 300ms ease-out;
+      text-align: center;
+    }
+
+    .gate-item:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(77, 166, 255, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(77, 166, 255, 0.2);
+    }
+
+    .gate-item:active {
+      cursor: grabbing;
+    }
+
+    .gate-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 8px;
+      background: rgba(77, 166, 255, 0.2);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #4da6ff;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .gate-item span {
+      color: #fff;
+      font-size: 13px;
+      display: block;
+    }
+
+    .help-section {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .help-section h3 {
+      color: #fff;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .help-section p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+
+    .status-bar {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.5);
+      color: rgba(255, 255, 255, 0.7);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="canvas-container">
+      <canvas id="circuitCanvas"></canvas>
+      <div class="status-bar" id="statusBar">元件: 0 | 连线: 0 | FPS: 60</div>
+    </div>
+    <div class="sidebar">
+      <h2>元件库</h2>
+      <div class="gate-list" id="gateList">
+        <div class="gate-item" draggable="true" data-type="INPUT">
+          <div class="gate-icon">IN</div>
+          <span>输入</span>
+        </div>
+        <div class="gate-item" draggable="true" data-type="OUTPUT">
+          <div class="gate-icon">OUT</div>
+          <span>输出</span>
+        </div>
+        <div class="gate-item" draggable="true" data-type="AND">
+          <div class="gate-icon">&</div>
+          <span>与门 AND</span>
+        </div>
+        <div class="gate-item" draggable="true" data-type="OR">
+          <div class="gate-icon">≥1</div>
+          <span>或门 OR</span>
+        </div>
+        <div class="gate-item" draggable="true" data-type="NOT">
+          <div class="gate-icon">1</div>
+          <span>非门 NOT</span>
+        </div>
+        <div class="gate-item" draggable="true" data-type="XOR">
+          <div class="gate-icon">=1</div>
+          <span>异或 XOR</span>
+        </div>
+      </div>
+      <div class="help-section">
+        <h3>操作说明</h3>
+        <p>• 从右侧拖拽元件到画布</p>
+        <p>• 从输出引脚拖拽连线到输入引脚</p>
+        <p>• 点击输入按钮切换高/低电平</p>
+        <p>• 拖拽空白区域框选多个元件</p>
+        <p>• 按 Delete 键删除选中元件</p>
+        <p>• 红色 = 高电平，灰色 = 低电平</p>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
