@@ -25,7 +25,7 @@
 .piano-black-row {
   position: absolute;
   top: 8px;
-  left: 8px;
+  left: 0;
   z-index: 2;
   pointer-events: none;
 }
@@ -39,16 +39,20 @@
   padding-bottom: 10px;
   cursor: pointer;
   border-radius: 0 0 6px 6px;
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease, filter 0.15s ease;
+  transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              background 0.15s ease,
+              filter 0.15s ease;
 }
 
 .piano-white {
-  width: 30px;
-  height: 200px;
   background: linear-gradient(180deg, var(--piano-white-top, #fffff4) 0%, var(--piano-white-bottom, #e2e2d6) 100%);
   border: 1px solid var(--piano-white-border, #b8b8a8);
   margin-right: -1px;
   box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              background 0.15s ease, filter 0.15s ease;
 }
 
 .piano-white:hover {
@@ -63,6 +67,9 @@
   pointer-events: auto;
   box-shadow: inset 0 -3px 4px rgba(255, 255, 255, 0.05), 0 3px 6px rgba(0, 0, 0, 0.5);
   z-index: 3;
+  transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              background 0.15s ease, filter 0.15s ease;
 }
 
 .piano-black:hover {
@@ -70,10 +77,29 @@
   filter: brightness(1.1);
 }
 
-.piano-active {
+.piano-active.piano-white {
   transform: scale(0.95);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.55), inset 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.55), inset 0 2px 4px rgba(0, 0, 0, 0.3);
   filter: brightness(0.92);
+  transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              filter 0.1s ease;
+}
+
+.piano-active.piano-black {
+  transform: scale(0.95);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  filter: brightness(0.88);
+  transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              filter 0.1s ease;
+}
+
+.piano-key:not(.piano-active) {
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.15s ease,
+              background 0.15s ease,
+              filter 0.15s ease;
 }
 
 .piano-label {
@@ -82,6 +108,7 @@
   font-weight: 600;
   letter-spacing: 0.5px;
   line-height: 1.2;
+  text-transform: uppercase;
 }
 
 .piano-label-black {
@@ -98,7 +125,10 @@
 @media (max-width: 768px) {
   .piano-container {
     transform: scale(0.7);
-    transform-origin: center center;
-    margin: 0 calc(((30px * 28) * -0.3) / 2);
+    transform-origin: center top;
+  }
+  .piano-wrapper {
+    overflow: hidden;
+    max-height: 180px;
   }
 }

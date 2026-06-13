@@ -1,45 +1,41 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useAudio } from '@/hooks/useAudio';
 import { usePianoStore } from '@/store/usePianoStore';
+import { SONGS } from '@/data/songs';
 import './Piano.css';
 
-interface PianoKey {
+interface PianoKeyData {
   note: string;
   isBlack: boolean;
   keyLabel: string | null;
 }
 
-const WHITE_NOTES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-const BLACK_AFTER: Record<string, string | null> = {
-  C: 'C#', D: 'D#', E: null, F: 'F#', G: 'G#', A: 'A#', B: null,
-};
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const WHITE_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+const BLACK_SET = new Set(['C#', 'D#', 'F#', 'G#', 'A#']);
 
 const KEYBOARD_MAP: Record<string, string> = {
-  'z': 'C3', 's': 'C#3', 'x': 'D3', 'd': 'D#3', 'c': 'E3',
-  'v': 'F3', 'g': 'F#3', 'b': 'G3', 'h': 'G#3', 'n': 'A3', 'j': 'A#3', 'm': 'B3',
-  'a': 'C4', 'w': 'C#4', 's': 'D4', 'e': 'D#4', 'd': 'E4',
-  'f': 'F4', 't': 'F#4', 'g': 'G4', 'y': 'G#4', 'h': 'A4', 'u': 'A#4', 'j': 'B4',
-  'k': 'C5', 'o': 'C#5', 'l': 'D5', 'p': 'D#5', ';': 'E5',
+  'z': 'C3', 'x': 'D3', 'c': 'E3', 'v': 'F3', 'b': 'G3', 'n': 'A3', 'm': 'B3',
+  'a': 'C4', 's': 'D4', 'd': 'E4', 'f': 'F4', 'g': 'G4', 'h': 'A4', 'j': 'B4',
+  'k': 'C5', 'l': 'D5', ';': 'E5',
+  'q': 'C6', 'w': 'D6', 'e': 'E6', 'r': 'F6', 't': 'G6', 'y': 'A6', 'u': 'B6',
+  '1': 'C#3', '2': 'D#3', '4': 'F#3', '5': 'G#3', '6': 'A#3',
+  'i': 'C#4', 'o': 'D#4', 'p': 'F#4', '[': 'F#4', ']': 'G#4', '\\': 'A#4',
 };
 
-const WHITE_KEY_WIDTH = 30;
-const WHITE_KEY_HEIGHT = 200;
-const BLACK_KEY_WIDTH = 18;
-const BLACK_KEY_HEIGHT = 120;
+const WHITE_KEY_W = 30;
+const WHITE_KEY_H = 200;
+const BLACK_KEY_W = 18;
+const BLACK_KEY_H = 120;
 
-function buildKeys(): PianoKey[] {
-  const keys: PianoKey[] = [];
+function buildKeys(): PianoKeyData[] {
+  const keys: PianoKeyData[] = [];
   for (let octave = 3; octave <= 6; octave++) {
-    for (const w of WHITE_NOTES) {
-      const note = `${w}${octave}`;
+    for (const name of NOTE_NAMES) {
+      const note = `${name}${octave}`;
+      const isBlack = BLACK_SET.has(name);
       const mapKey = Object.entries(KEYBOARD_MAP).find(([, v]) => v === note)?.[0] ?? null;
-      keys.push({ note, isBlack: false, keyLabel: mapKey });
-      const black = BLACK_AFTER[w];
-      if (black) {
-        const bNote = `${black}${octave}`;
-        const bKey = Object.entries(KEYBOARD_MAP).find(([, v]) => v === bNote)?.[0] ?? null;
-        keys.push({ note: bNote, isBlack: true, keyLabel: bKey });
-      }
+      keys.push({ note, isBlack, keyLabel: mapKey });
     }
   }
   return keys;
@@ -47,86 +43,74 @@ function buildKeys(): PianoKey[] {
 
 export default function Piano() {
   const { playNote } = useAudio();
-  const {
-    activeNotes, addActiveNote, removeActiveNote,
-    isRecording, addRecordedNote, handleNotePlayed,
-  } = usePianoStore();
+  const activeNotes = usePianoStore((s) => s.activeNotes);
+  const addActiveNote = usePianoStore((s) => s.addActiveNote);
+  const removeActiveNote = usePianoStore((s) => s.removeActiveNote);
+  const isRecording = usePianoStore((s) => s.isRecording);
+  const addRecordedNote = usePianoStore((s) => s.addRecordedNote);
+  const handleNotePlayed = usePianoStore((s) => s.handleNotePlayed);
+  const currentSongIndex = usePianoStore((s) => s.currentSongIndex);
+  const learningMode = usePianoStore((s) => s.learningMode);
 
   const keys = useMemo(buildKeys, []);
-
-  const whiteKeys = keys.filter((k) => !k.isBlack);
-  const totalWhiteWidth = whiteKeys.length * WHITE_KEY_WIDTH;
+  const whiteKeys = useMemo(() => keys.filter((k) => !k.isBlack), [keys]);
+  const blackKeys = useMemo(() => keys.filter((k) => k.isBlack), [keys]);
+  const totalWhiteWidth = whiteKeys.length * WHITE_KEY_W;
+  const songNotes = SONGS[currentSongIndex]?.notes ?? [];
 
   const triggerNote = useCallback((note: string) => {
     playNote(note);
     addActiveNote(note);
     if (isRecording) addRecordedNote(note);
-  }, [playNote, addActiveNote, isRecording, addRecordedNote]);
+    if (learningMode) handleNotePlayed(note, songNotes);
+  }, [playNote, addActiveNote, isRecording, addRecordedNote, learningMode, handleNotePlayed, songNotes]);
 
   const releaseNote = useCallback((note: string) => {
     removeActiveNote(note);
   }, [removeActiveNote]);
 
-  const onKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.repeat) return;
-    const key = e.key.toLowerCase();
-    const note = KEYBOARD_MAP[key];
-    if (note) {
-      triggerNote(note);
-    }
-  }, [triggerNote]);
-
-  const onKeyUp = useCallback((e: KeyboardEvent) => {
-    const key = e.key.toLowerCase();
-    const note = KEYBOARD_MAP[key];
-    if (note) {
-      releaseNote(note);
-    }
-  }, [releaseNote]);
-
   useEffect(() => {
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
+    const held = new Set<string>();
+
+    const onDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      const key = e.key.toLowerCase();
+      const note = KEYBOARD_MAP[key];
+      if (note && !held.has(key)) {
+        held.add(key);
+        triggerNote(note);
+      }
     };
-  }, [onKeyDown, onKeyUp]);
 
-  const songNotes = usePianoStore((s) => {
-    const { currentSongIndex } = s;
-    return [];
-  });
+    const onUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      held.delete(key);
+      const note = KEYBOARD_MAP[key];
+      if (note) releaseNote(note);
+    };
 
-  const handlePress = useCallback((note: string) => {
-    triggerNote(note);
-    // Handle learning mode feedback in App via store callback when needed
-    // Here we just notify store:
-    const state = usePianoStore.getState();
-    if (state.learningMode && songNotes.length === 0) {
-      // fallback: handled in App
-    }
-  }, [triggerNote, songNotes.length]);
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+    };
+  }, [triggerNote, releaseNote]);
 
-  const computeBlackOffset = (whiteIndex: number): number => {
-    return whiteIndex * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2;
+  const getBlackKeyLeft = (blackKey: PianoKeyData): number => {
+    const noteName = blackKey.note.replace(/\d/, '');
+    const octave = parseInt(blackKey.note.slice(-1), 10);
+    const whiteBefore = blackKeys.slice(0, blackKeys.indexOf(blackKey)).filter(
+      (k) => parseInt(k.note.slice(-1), 10) < octave ||
+        (parseInt(k.note.slice(-1), 10) === octave && WHITE_NAMES.indexOf(k.note.replace(/\d/, '')) < WHITE_NAMES.indexOf(noteName.replace('#', '')))
+    );
+    const whiteIdx = (octave - 3) * 7 + WHITE_NAMES.indexOf(noteName.replace('#', '') as typeof WHITE_NAMES[number]);
+    return whiteIdx * WHITE_KEY_W + WHITE_KEY_W - BLACK_KEY_W / 2;
   };
-
-  let blackIndex = 0;
-  const blackKeysWithOffset: { key: PianoKey; left: number }[] = [];
-  let whiteIdx = 0;
-  for (const k of keys) {
-    if (k.isBlack) {
-      blackKeysWithOffset.push({ key: k, left: computeBlackOffset(whiteIdx) });
-      blackIndex++;
-    } else {
-      whiteIdx++;
-    }
-  }
 
   return (
     <div className="piano-wrapper">
-      <div className="piano-container" style={{ width: totalWhiteWidth, height: WHITE_KEY_HEIGHT }}>
+      <div className="piano-container" style={{ width: totalWhiteWidth + 16, height: WHITE_KEY_H + 16 }}>
         <div className="piano-white-row">
           {whiteKeys.map((k) => {
             const isActive = activeNotes.has(k.note);
@@ -134,10 +118,11 @@ export default function Piano() {
               <div
                 key={k.note}
                 className={`piano-key piano-white ${isActive ? 'piano-active' : ''}`}
-                onMouseDown={() => handlePress(k.note)}
+                style={{ width: WHITE_KEY_W, height: WHITE_KEY_H }}
+                onMouseDown={() => triggerNote(k.note)}
                 onMouseUp={() => releaseNote(k.note)}
-                onMouseLeave={() => releaseNote(k.note)}
-                onTouchStart={(e) => { e.preventDefault(); handlePress(k.note); }}
+                onMouseLeave={() => { if (activeNotes.has(k.note)) releaseNote(k.note); }}
+                onTouchStart={(e) => { e.preventDefault(); triggerNote(k.note); }}
                 onTouchEnd={(e) => { e.preventDefault(); releaseNote(k.note); }}
               >
                 {k.keyLabel && <span className="piano-label">{k.keyLabel.toUpperCase()}</span>}
@@ -147,17 +132,18 @@ export default function Piano() {
           })}
         </div>
         <div className="piano-black-row">
-          {blackKeysWithOffset.map(({ key: k, left }) => {
+          {blackKeys.map((k) => {
             const isActive = activeNotes.has(k.note);
+            const left = getBlackKeyLeft(k);
             return (
               <div
                 key={k.note}
                 className={`piano-key piano-black ${isActive ? 'piano-active' : ''}`}
-                style={{ left: `${left}px`, width: `${BLACK_KEY_WIDTH}px`, height: `${BLACK_KEY_HEIGHT}px` }}
-                onMouseDown={() => handlePress(k.note)}
+                style={{ left: left + 8, width: BLACK_KEY_W, height: BLACK_KEY_H }}
+                onMouseDown={() => triggerNote(k.note)}
                 onMouseUp={() => releaseNote(k.note)}
-                onMouseLeave={() => releaseNote(k.note)}
-                onTouchStart={(e) => { e.preventDefault(); handlePress(k.note); }}
+                onMouseLeave={() => { if (activeNotes.has(k.note)) releaseNote(k.note); }}
+                onTouchStart={(e) => { e.preventDefault(); triggerNote(k.note); }}
                 onTouchEnd={(e) => { e.preventDefault(); releaseNote(k.note); }}
               >
                 {k.keyLabel && <span className="piano-label piano-label-black">{k.keyLabel.toUpperCase()}</span>}
