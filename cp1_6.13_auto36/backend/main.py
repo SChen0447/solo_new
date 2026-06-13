@@ -1,8 +1,13 @@
 import json
 from typing import Dict
+from pydantic import BaseModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from room_manager import room_manager, Room
+
+
+class JoinRoomRequest(BaseModel):
+    name: str
 
 app = FastAPI()
 
@@ -79,6 +84,29 @@ async def get_room(room_id: str):
         "room_id": room.id,
         "player_count": len(room.players),
         "game_state": room.game_state,
+    }
+
+
+@app.post("/api/rooms/{room_id}/join")
+async def join_room(room_id: str, request: JoinRoomRequest):
+    room = room_manager.get_room(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="房间不存在")
+    if room.game_state != "waiting":
+        raise HTTPException(status_code=400, detail="游戏已开始，无法加入")
+    if len(room.players) >= 8:
+        raise HTTPException(status_code=400, detail="房间已满")
+    if not request.name or not request.name.strip():
+        raise HTTPException(status_code=400, detail="请输入昵称")
+
+    player = room_manager.add_player(room_id, request.name.strip())
+    if not player:
+        raise HTTPException(status_code=500, detail="加入房间失败")
+
+    return {
+        "player_id": player.id,
+        "player_name": player.name,
+        "avatar_index": player.avatar_index,
     }
 
 

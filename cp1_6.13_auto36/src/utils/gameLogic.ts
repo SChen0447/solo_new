@@ -1,5 +1,7 @@
 export type Role = '狼人' | '预言家' | '女巫' | '猎人' | '村民';
 
+export type GameWinner = 'wolves_win' | 'villagers_win' | 'draw' | null;
+
 export interface Player {
   id: string;
   name: string;
@@ -83,6 +85,13 @@ export function getRandomColorScheme() {
 }
 
 export function assignRoles(playerCount: number): Role[] {
+  if (playerCount < 4) {
+    throw new Error(`狼人杀至少需要 4 名玩家才能开始，当前只有 ${playerCount} 人`);
+  }
+  if (playerCount > 8) {
+    throw new Error(`狼人杀最多支持 8 名玩家，当前有 ${playerCount} 人`);
+  }
+
   const roles: Role[] = [];
 
   if (playerCount >= 4) {
@@ -112,15 +121,33 @@ function shuffleArray<T>(array: T[]): T[] {
   return result;
 }
 
-export function checkWinner(players: Player[]): 'wolves_win' | 'villagers_win' | null {
+export function checkWinner(players: Player[]): GameWinner {
   const aliveWolves = players.filter(p => p.is_alive && p.role === '狼人');
   const aliveVillagers = players.filter(p => p.is_alive && p.role !== '狼人');
+  const aliveAll = players.filter(p => p.is_alive);
+
+  if (aliveAll.length === 0) {
+    return 'draw';
+  }
 
   if (aliveWolves.length === 0) {
     return 'villagers_win';
   }
+
+  if (aliveVillagers.length === 0 && aliveWolves.length > 0) {
+    return 'wolves_win';
+  }
+
   if (aliveWolves.length >= aliveVillagers.length) {
     return 'wolves_win';
+  }
+
+  if (aliveWolves.length === 1 && aliveVillagers.length === 1 && aliveAll.length === 2) {
+    const remainingWolf = aliveWolves[0];
+    const remainingVillager = aliveVillagers[0];
+    if (remainingVillager.role === '猎人') {
+      return 'draw';
+    }
   }
 
   return null;
