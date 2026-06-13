@@ -49,6 +49,8 @@ export const useGalleryStore = create<AppState>((set, get) => ({
 
   resetCurrent: () => {
     const { currentIndex, artworks } = get();
+    if (!artworks.length) return;
+    if (currentIndex < 0 || currentIndex >= artworks.length) return;
     const currentArtwork = artworks[currentIndex];
     if (currentArtwork) {
       set((state) => ({

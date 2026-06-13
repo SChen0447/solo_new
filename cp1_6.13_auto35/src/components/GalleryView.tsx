@@ -1,39 +1,33 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGalleryStore } from '../store';
 import { ArtCard } from './ArtCard';
 
 const ANIMATION_DURATION = 400;
-const DEBOUNCE_MS = ANIMATION_DURATION + 50;
 
 const slideVariants = {
   enter: (direction: number) => ({
     x: direction > 0 ? '100%' : '-100%',
-    opacity: 0,
-    backgroundColor: 'rgba(249,244,232,0.3)'
+    opacity: 0
   }),
   center: {
     x: 0,
-    opacity: 1,
-    backgroundColor: 'rgba(249,244,232,0)'
+    opacity: 1
   },
   exit: (direction: number) => ({
     x: direction > 0 ? '-100%' : '100%',
-    opacity: 0,
-    backgroundColor: 'rgba(249,244,232,0.3)'
+    opacity: 0
   })
 };
 
 const slideTransition = {
   x: { type: 'tween', duration: ANIMATION_DURATION / 1000, ease: [0.4, 0, 0.2, 1] },
-  opacity: { type: 'tween', duration: ANIMATION_DURATION / 1000, ease: 'easeInOut' },
-  backgroundColor: { type: 'tween', duration: ANIMATION_DURATION / 1000, ease: 'easeInOut' }
+  opacity: { type: 'tween', duration: ANIMATION_DURATION / 1000, ease: 'easeInOut' }
 };
 
 export const GalleryView = () => {
   const currentIndex = useGalleryStore((s) => s.currentIndex);
   const artworks = useGalleryStore((s) => s.artworks);
-  const isAnimating = useGalleryStore((s) => s.isAnimating);
   const isSortedByRating = useGalleryStore((s) => s.isSortedByRating);
   const next = useGalleryStore((s) => s.next);
   const prev = useGalleryStore((s) => s.prev);
@@ -42,50 +36,92 @@ export const GalleryView = () => {
   const toggleSortOrder = useGalleryStore((s) => s.toggleSortOrder);
 
   const directionRef = useRef(1);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [[, directionKey], setPage] = useRef<[number, number]>([0, 1]).current
-    ? [useGalleryStore.getState().currentIndex, 1] as [number, number]
-    : [0, 1] as [number, number];
+  const switchLockRef = useRef(false);
+  const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const triggerSwitch = useCallback(
-    (action: () => void, dir: number) => {
-      if (isAnimating) return;
+  const [tappedDotId, setTappedDotId] = useState<number | null>(null);
+
+  const trySwitch = useCallback(
+    (dir: number, action: () => void) => {
+      if (switchLockRef.current) return;
+      switchLockRef.current = true;
       directionRef.current = dir;
       setAnimating(true);
       action();
 
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      debounceTimerRef.current = setTimeout(() => {
+      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
+      unlockTimerRef.current = setTimeout(() => {
+        switchLockRef.current = false;
         setAnimating(false);
-      }, DEBOUNCE_MS);
+      }, ANIMATION_DURATION + 20);
     },
-    [isAnimating, setAnimating]
+    [setAnimating]
   );
 
+  useEffect(() => {
+    return () => {
+      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
+      switchLockRef.current = false;
+    };
+  }, []);
+
   const handleNext = useCallback(() => {
-    if (currentIndex < artworks.length - 1) {
-      triggerSwitch(next, 1);
-    }
-  }, [currentIndex, artworks.length, next, triggerSwitch]);
+    if (currentIndex >= artworks.length - 1) return;
+    trySwitch(1, next);
+  }, [currentIndex, artworks.length, trySwitch, next]);
 
   const handlePrev = useCallback(() => {
-    if (currentIndex > 0) {
-      triggerSwitch(prev, -1);
-    }
-  }, [currentIndex, prev, triggerSwitch]);
+    if (currentIndex <= 0) return;
+    trySwitch(-1, prev);
+  }, [currentIndex, trySwitch, prev]);
 
   const handleDotClick = useCallback(
     (index: number) => {
-      if (index === currentIndex || isAnimating) return;
+      if (index === currentIndex) return;
       const dir = index > currentIndex ? 1 : -1;
-      triggerSwitch(() => goTo(index), dir);
+
+      const artworkId = artworks[index]?.id;
+      if (artworkId != null) {
+        setTappedDotId(artworkId);
+        setTimeout(() => {
+          setTappedDotId((id) => (id === artworkId ? null : id));
+        }, 400);
+      }
+
+      trySwitch(dir, () => goTo(index));
     },
-    [currentIndex, isAnimating, goTo, triggerSwitch]
+    [currentIndex, artworks, trySwitch, goTo]
   );
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) {
+        return;
+      }
+
+      switch (e.key) {
+        case 'ArrowRight':
+          e.preventDefault();
+          handleNext();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handlePrev();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNext, handlePrev]);
+
+  if (!artworks.length) return null;
   const currentArtwork = artworks[currentIndex];
+  if (!currentArtwork) return null;
+
+  const atStart = currentIndex <= 0;
+  const atEnd = currentIndex >= artworks.length - 1;
 
   return (
     <div style={styles.wrapper}>
@@ -93,13 +129,14 @@ export const GalleryView = () => {
         <motion.button
           style={{
             ...styles.arrowButton,
-            opacity: currentIndex <= 0 ? 0.3 : 1,
-            pointerEvents: currentIndex <= 0 || isAnimating ? 'none' : 'auto'
+            opacity: atStart ? 0.3 : 0.7,
+            pointerEvents: atStart || switchLockRef.current ? 'none' : 'auto'
           }}
-          whileHover={{ opacity: 1, scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ opacity: atStart ? 0.3 : 1, scale: atStart ? 1 : 1.1 }}
+          whileTap={{ scale: atStart ? 1 : 0.9 }}
           transition={{ duration: 0.2 }}
           onClick={handlePrev}
+          aria-label="上一幅"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b4226" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -117,15 +154,6 @@ export const GalleryView = () => {
               exit="exit"
               transition={slideTransition}
               style={styles.slideItem}
-              onAnimationStart={() => setAnimating(true)}
-              onAnimationComplete={() => {
-                if (debounceTimerRef.current) {
-                  clearTimeout(debounceTimerRef.current);
-                }
-                debounceTimerRef.current = setTimeout(() => {
-                  setAnimating(false);
-                }, 50);
-              }}
             >
               <ArtCard artwork={currentArtwork} />
             </motion.div>
@@ -135,13 +163,14 @@ export const GalleryView = () => {
         <motion.button
           style={{
             ...styles.arrowButton,
-            opacity: currentIndex >= artworks.length - 1 ? 0.3 : 1,
-            pointerEvents: currentIndex >= artworks.length - 1 || isAnimating ? 'none' : 'auto'
+            opacity: atEnd ? 0.3 : 0.7,
+            pointerEvents: atEnd || switchLockRef.current ? 'none' : 'auto'
           }}
-          whileHover={{ opacity: 1, scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ opacity: atEnd ? 0.3 : 1, scale: atEnd ? 1 : 1.1 }}
+          whileTap={{ scale: atEnd ? 1 : 0.9 }}
           transition={{ duration: 0.2 }}
           onClick={handleNext}
+          aria-label="下一幅"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b4226" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6" />
@@ -150,10 +179,11 @@ export const GalleryView = () => {
       </div>
 
       <div style={styles.dotsRow}>
-        {artworks.map((_, index) => (
+        {artworks.map((aw, index) => (
           <Dot
-            key={artworks[index].id}
+            key={aw.id}
             isActive={index === currentIndex}
+            justTapped={tappedDotId === aw.id}
             onClick={() => handleDotClick(index)}
           />
         ))}
@@ -180,36 +210,34 @@ export const GalleryView = () => {
 
 interface DotProps {
   isActive: boolean;
+  justTapped: boolean;
   onClick: () => void;
 }
 
-const Dot = ({ isActive, onClick }: DotProps) => {
+const Dot = ({ isActive, justTapped, onClick }: DotProps) => {
   return (
     <motion.button
-      style={styles.dot}
+      style={styles.dotBase}
       onClick={onClick}
-      animate={{
-        scale: isActive ? 1 : 1,
-        backgroundColor: isActive ? '#d4a373' : 'transparent'
-      }}
-      whileTap={{
-        scale: [1, 1.5, 0.9, 1.1, 1],
-        transition: { duration: 0.4, ease: 'easeInOut' }
-      }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
+      animate={
+        justTapped
+          ? { scale: [1, 1.6, 0.85, 1.08, 1] }
+          : isActive
+          ? { scale: 1, backgroundColor: '#d4a373' }
+          : { scale: 0.85, backgroundColor: 'transparent' }
+      }
+      transition={
+        justTapped
+          ? { duration: 0.35, ease: [0.34, 1.56, 0.64, 1] }
+          : { type: 'spring', stiffness: 400, damping: 20 }
+      }
     >
       <motion.div
         animate={{
-          scale: isActive ? 1 : 0.6
+          opacity: isActive ? 0 : 1
         }}
-        transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-        style={{
-          width: '100%',
-          height: '100%',
-          borderRadius: '50%',
-          border: isActive ? 'none' : '2px solid rgba(107,66,38,0.3)',
-          boxSizing: 'border-box'
-        }}
+        transition={{ duration: 0.2 }}
+        style={styles.dotInnerBorder}
       />
     </motion.button>
   );
@@ -230,29 +258,32 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '16px',
     width: '100%',
     maxWidth: '1200px',
-    padding: '0 20px'
+    padding: '0 20px',
+    boxSizing: 'border-box'
   },
   arrowButton: {
     width: '48px',
     height: '48px',
     borderRadius: '50%',
     border: 'none',
-    background: 'rgba(255,255,255,0.6)',
+    background: 'rgba(255,255,255,0.75)',
     backdropFilter: 'blur(4px)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-    transition: 'background 0.2s'
+    boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+    transition: 'opacity 0.2s',
+    zIndex: 2
   },
   stage: {
     flex: 1,
     maxWidth: '600px',
-    minHeight: '700px',
+    minHeight: '720px',
     position: 'relative',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    borderRadius: '16px'
   },
   slideItem: {
     width: '100%',
@@ -268,18 +299,26 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '24px',
     padding: '0 20px'
   },
-  dot: {
-    width: '12px',
-    height: '12px',
+  dotBase: {
+    width: '14px',
+    height: '14px',
     borderRadius: '50%',
     border: 'none',
     cursor: 'pointer',
     padding: 0,
+    position: 'relative',
+    boxShadow: 'none',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    background: 'transparent',
-    overflow: 'visible'
+    justifyContent: 'center'
+  },
+  dotInnerBorder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: '50%',
+    border: '2px solid rgba(107,66,38,0.35)',
+    position: 'absolute',
+    boxSizing: 'border-box'
   },
   sortButton: {
     marginTop: '20px',
