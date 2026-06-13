@@ -3,6 +3,7 @@ import { coffeeBeans, CoffeeBean, regions, roastLevels, RoastPoint } from './cof
 import FlavorChart from './FlavorChart';
 import ComparisonPanel from './ComparisonPanel';
 import * as d3 from 'd3';
+import './styles.css';
 
 type ViewMode = 'gallery' | 'detail' | 'comparison';
 
@@ -12,7 +13,9 @@ const App: React.FC = () => {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [roastFilter, setRoastFilter] = useState<string>('all');
   const [regionFilter, setRegionFilter] = useState<string>('all');
-  const [isFilterAnimating, setIsFilterAnimating] = useState(false);
+  const [filterPhase, setFilterPhase] = useState<'idle' | 'fading-out' | 'fading-in'>('idle');
+  const [displayedCoffees, setDisplayedCoffees] = useState<CoffeeBean[]>(coffeeBeans);
+  const [cardKeys, setCardKeys] = useState<Map<string, number>>(new Map());
 
   const filteredCoffees = useMemo(() => {
     return coffeeBeans.filter((coffee) => {
@@ -27,16 +30,47 @@ const App: React.FC = () => {
   }, [selectedCoffeeId]);
 
   const handleRoastFilterChange = useCallback((value: string) => {
-    setIsFilterAnimating(true);
-    setRoastFilter(value);
-    setTimeout(() => setIsFilterAnimating(false), 300);
-  }, []);
+    if (value === roastFilter) return;
+    setFilterPhase('fading-out');
+    setTimeout(() => {
+      setRoastFilter(value);
+      setFilterPhase('fading-in');
+      setTimeout(() => setFilterPhase('idle'), 300);
+    }, 150);
+  }, [roastFilter]);
 
   const handleRegionFilterChange = useCallback((value: string) => {
-    setIsFilterAnimating(true);
-    setRegionFilter(value);
-    setTimeout(() => setIsFilterAnimating(false), 300);
+    if (value === regionFilter) return;
+    setFilterPhase('fading-out');
+    setTimeout(() => {
+      setRegionFilter(value);
+      setFilterPhase('fading-in');
+      setTimeout(() => setFilterPhase('idle'), 300);
+    }, 150);
+  }, [regionFilter]);
+
+  useEffect(() => {
+    if (filterPhase === 'fading-in') {
+      setDisplayedCoffees(filteredCoffees);
+      const newKeys = new Map(cardKeys);
+      filteredCoffees.forEach((coffee) => {
+        if (!newKeys.has(coffee.id)) {
+          newKeys.set(coffee.id, Date.now());
+        }
+      });
+      setCardKeys(newKeys);
+    }
+  }, [filterPhase, filteredCoffees, cardKeys]);
+
+  useEffect(() => {
+    setDisplayedCoffees(filteredCoffees);
   }, []);
+
+  const getGridClass = () => {
+    if (filterPhase === 'fading-out') return 'coffee-grid coffee-grid-filtering';
+    if (filterPhase === 'fading-in') return 'coffee-grid coffee-grid-filtered';
+    return 'coffee-grid';
+  };
 
   const toggleCompare = useCallback(
     (id: string, e: React.MouseEvent) => {
@@ -266,16 +300,17 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <div className="coffee-grid" style={{ opacity: isFilterAnimating ? 0.6 : 1, transition: 'opacity 0.3s ease' }}>
-        {filteredCoffees.map((coffee) => {
+      <div className={getGridClass()}>
+        {displayedCoffees.map((coffee) => {
           const isSelected = compareIds.includes(coffee.id);
+          const cardKey = cardKeys.get(coffee.id) || 0;
           return (
             <div
-              key={coffee.id}
-              className={`coffee-card ${isSelected ? 'selected' : ''}`}
+              key={`${coffee.id}-${cardKey}`}
+              className={`coffee-card ${isSelected ? 'selected' : ''} ${filterPhase === 'fading-in' ? 'filter-card-enter' : ''}`}
               onClick={() => goToDetail(coffee.id)}
               style={{
-                animation: isFilterAnimating ? 'none' : undefined,
+                animationDelay: filterPhase === 'fading-in' ? `${displayedCoffees.indexOf(coffee) * 30}ms` : undefined,
               }}
             >
               <div
