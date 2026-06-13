@@ -1,0 +1,160 @@
+[
+  {
+    "id": 1,
+    "title": "城市声音地图",
+    "description": "用手机录下城市角落的声音，标注在地图上，让人能听到每个地方独特的声音印记——从清晨菜市场叫卖到深夜地铁呼啸。",
+    "tags": ["文化", "生活"],
+    "likes": 42,
+    "liked": false,
+    "status": "萌芽",
+    "author": "小林",
+    "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=lin",
+    "createdAt": "2026-06-10T08:30:00",
+    "comments": [
+      {
+        "id": 1,
+        "author": "阿晴",
+        "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=qing",
+        "content": "这个想法太浪漫了！可以在地图上听见远方的生活",
+        "createdAt": "2026-06-10T09:15:00"
+      },
+      {
+        "id": 2,
+        "author": "大伟",
+        "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=dawei",
+        "content": "建议加上时间维度，同一地点不同时间的声音也完全不同",
+        "createdAt": "2026-06-10T10:20:00"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "AI气味合成器",
+    "description": "训练AI模型将文字描述转化为具体的气味配方，用电子鼻技术还原出来。想象一下\"雨后泥土的气息\"从屏幕飘出来。",
+    "tags": ["科技", "艺术"],
+    "likes": 78,
+    "liked": false,
+    "status": "已实现",
+    "author": "陈博士",
+    "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=chen",
+    "createdAt": "2026-06-08T14:00:00",
+    "comments": [
+      {
+        "id": 3,
+        "author": "小林",
+        "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=lin",
+        "content": "赛博朋克走进现实了！",
+        "createdAt": "2026-06-08T15:30:00"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "title": "情绪调色盘",
+    "description": "每天用一种颜色代表自己的心情，积累一年后形成个人的情绪光谱图。可以看到自己在不同季节、不同月份的心情色调变化。",
+    "tags": ["生活", "艺术"],
+    "likes": 35,
+    "liked": false,
+    "status": "萌芽",
+    "author": "阿晴",
+    "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=qing",
+    "createdAt": "2026-06-07T20:45:00",
+    "comments": []
+  },
+  {
+    "id": 4,
+    "title": "街头故事长椅",
+    "description": "在公园长椅上安装NFC标签，路人触碰后可以听到之前坐在这里的人分享的一段故事。每把长椅都是一座微型故事博物馆。",
+    "tags": ["文化", "生活"],
+    "likes": 56,
+    "liked": false,
+    "status": "萌芽",
+    "author": "大伟",
+    "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=dawei",
+    "createdAt": "2026-06-06T11:20:00",
+    "comments": [
+      {
+        "id": 4,
+        "author": "陈博士",
+        "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=chen",
+        "content": "非常有温度的项目，建议加上隐私保护机制",
+        "createdAt": "2026-06-06T12:00:00"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "title": "植物社交网络",
+    "description": "给家里植物装传感器，当两盆植物的养护环境相似时自动配对，主人可以交流养护经验。植物也能\"交朋友\"。",
+    "tags": ["科技", "生活"],
+    "likes": 29,
+    "liked": false,
+    "status": "萌芽",
+    "author": "小林",
+    "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=lin",
+    "createdAt": "2026-06-05T16:30:00",
+    "comments": []
+  },
+  {
+    "id": 6,
+    "title": "沉浸式古诗体验",
+    "description": "用VR技术还原古诗词中的场景，可以走进\"大漠孤烟直\"的边塞，也能泛舟于\"春江花月夜\"的江面，在场景中逐句体验诗意。",
+    "tags": ["文化", "科技", "艺术"],
+    "likes": 91,
+    "liked": false,
+    "status": "已实现",
+    "author": "阿晴",
+    "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=qing",
+    "createdAt": "2026-06-03T09:00:00",
+    "comments": [
+      {
+        "id": 5,
+        "author": "大伟",
+        "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=dawei",
+        "content": "教育意义极大，语文课再也不无聊了",
+        "createdAt": "2026-06-03T10:30:00"
+      },
+      {
+        "id": 6,
+        "author": "陈博士",
+        "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=chen",
+        "content": "可以结合AI生成不同季节、天气下的诗词场景",
+        "createdAt": "2026-06-03T14:00:00"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "title": "废墟重生画廊",
+    "description": "在城市废弃建筑中举办临时艺术展，每件作品都与空间本身对话，展览结束后一切恢复原状，只留影像记录。",
+    "tags": ["艺术", "文化"],
+    "likes": 47,
+    "liked": false,
+    "status": "萌芽",
+    "author": "陈博士",
+    "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=chen",
+    "createdAt": "2026-06-01T18:00:00",
+    "comments": []
+  },
+  {
+    "id": 8,
+    "title": "陌生人晚餐计划",
+    "description": "每周随机匹配6位陌生人一起共进晚餐，每桌有主题对话卡片引导交流。打破社交壁垒，让城市不再孤独。",
+    "tags": ["生活", "文化"],
+    "likes": 63,
+    "liked": false,
+    "status": "萌芽",
+    "author": "大伟",
+    "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=dawei",
+    "createdAt": "2026-05-28T13:45:00",
+    "comments": [
+      {
+        "id": 7,
+        "author": "阿晴",
+        "authorAvatar": "https://api.dicebear.com/7.x/fun-emoji/svg?seed=qing",
+        "content": "好想参加！请先在一线城市试点",
+        "createdAt": "2026-05-28T14:30:00"
+      }
+    ]
+  }
+]
