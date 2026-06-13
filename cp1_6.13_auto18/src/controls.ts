@@ -33,10 +33,25 @@ const VIEW_PRESETS: Record<CameraView, CameraState> = {
 
 const TRANSITION_DURATION = 800;
 
-function cubicBezier(t: number): number {
-  return 3 * (1 - t) * (1 - t) * t * 0.0 +
-         3 * (1 - t) * t * t * 1.0 +
-         t * t * t;
+function cubicBezierEase(t: number): number {
+  const cx = 0.42;
+  const cy = 0;
+  const bx = 0.58;
+  const by = 1.0;
+  let start = 0;
+  let end = 1;
+  let param = t;
+  for (let i = 0; i < 14; i++) {
+    const x = 3 * (1 - param) * (1 - param) * param * cx +
+              3 * (1 - param) * param * param * bx +
+              param * param * param;
+    if (Math.abs(x - t) < 1e-7) break;
+    if (x < t) start = param; else end = param;
+    param = (start + end) / 2;
+  }
+  return 3 * (1 - param) * (1 - param) * param * cy +
+         3 * (1 - param) * param * param * by +
+         param * param * param;
 }
 
 export class CameraController {
@@ -148,7 +163,7 @@ export class CameraController {
 
     const elapsed = performance.now() - this.animStartTime;
     const t = Math.min(elapsed / TRANSITION_DURATION, 1);
-    const easedT = cubicBezier(t);
+    const easedT = cubicBezierEase(t);
 
     this.camera.position.lerpVectors(this.startPosition, this.targetPosition, easedT);
     const lookAt = new THREE.Vector3().lerpVectors(this.startLookAt, this.targetLookAt, easedT);

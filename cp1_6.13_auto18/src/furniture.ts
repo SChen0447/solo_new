@@ -190,7 +190,7 @@ export class FurnitureManager {
 
     this.bounceAnimations.forEach((anim, key) => {
       const elapsed = (now - anim.startTime) / 1000;
-      const duration = 0.4;
+      const duration = 0.45;
 
       if (elapsed >= duration) {
         anim.obj.position.y = anim.targetY;
@@ -199,18 +199,11 @@ export class FurnitureManager {
       }
 
       const t = elapsed / duration;
-      const bounceT = this.bounceEase(t);
-      anim.obj.position.y = anim.targetY + (1 - bounceT) * 0.15 * Math.sin(bounceT * Math.PI);
+      const bounceHeight = 0.15 * Math.abs(Math.sin(t * Math.PI * 2.5)) * (1 - t) * (1 - t);
+      anim.obj.position.y = anim.targetY + bounceHeight;
     });
 
     toRemove.forEach(k => this.bounceAnimations.delete(k));
-  }
-
-  private bounceEase(t: number): number {
-    const c4 = (2 * Math.PI) / 3;
-    if (t === 0) return 0;
-    if (t === 1) return 1;
-    return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
   }
 
   createGhost(furniture: THREE.Group): void {
