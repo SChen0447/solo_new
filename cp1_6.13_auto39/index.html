@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>深海探秘 - 海洋生物科普互动展</title>
+  <style>
+    :root {
+      --ocean-shallow: #4ea8de;
+      --ocean-middle: #1b4965;
+      --ocean-deep: #0a1628;
+      --ocean-black: #000008;
+      --accent-cyan: #00ffff;
+      --accent-blue: #1e6fbd;
+      --accent-yellow: #ffd166;
+      --accent-orange: #ef6f3c;
+      --glass-bg: rgba(15, 39, 68, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.18);
+      --text-primary: #ffffff;
+      --text-secondary: #c0d0e0;
+      --text-muted: #8a9aad;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(ellipse at 50% 0%, var(--ocean-shallow) 0%, var(--ocean-middle) 20%, var(--ocean-deep) 60%, var(--ocean-black) 100%);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    canvas {
+      display: block;
+      outline: none;
+    }
+
+    /* ========== 深度标尺 ========== */
+    .depth-ruler {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 48px;
+      height: 100%;
+      z-index: 10;
+      background: linear-gradient(to bottom, rgba(78,168,222,0.08) 0%, rgba(27,73,101,0.12) 40%, rgba(10,22,40,0.18) 100%);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border-right: 1px solid var(--glass-border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 0;
+    }
+
+    .ruler-scale {
+      position: relative;
+      flex: 1;
+      margin: 8px 10px;
+    }
+
+    .ruler-tick {
+      position: absolute;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      font-size: 10px;
+      color: var(--text-muted);
+      transform: translateY(-50%);
+    }
+
+    .ruler-tick::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 1px;
+      background: var(--text-muted);
+      margin-right: 4px;
+      flex-shrink: 0;
+    }
+
+    .ruler-tick span {
+      white-space: nowrap;
+    }
+
+    .ruler-marker {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      transform: translateY(-50%);
+    }
+
+    .ruler-marker.shallow { background: linear-gradient(to right, var(--accent-cyan), transparent); }
+    .ruler-marker.middle { background: linear-gradient(to right, var(--accent-yellow), transparent); }
+    .ruler-marker.deep { background: linear-gradient(to right, var(--accent-orange), transparent); }
+
+    .ruler-pointer {
+      position: absolute;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      margin-left: -6px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px 2px rgba(0, 255, 255, 0.8), 0 0 16px 4px rgba(0, 255, 255, 0.4);
+      transform: translateY(-50%);
+      transition: top 0.08s ease-out;
+      z-index: 2;
+    }
+
+    /* ========== 操作提示 ========== */
+    .controls-hint {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+      padding: 10px 16px;
+      background: rgba(10, 22, 40, 0.5);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.55);
+      opacity: 0.85;
+      transition: all 0.3s ease;
+      cursor: default;
+      text-align: right;
+    }
+
+    .controls-hint:hover {
+      color: rgba(255, 255, 255, 1);
+      opacity: 1;
+      background: rgba(15, 39, 68, 0.75);
+      border-color: rgba(0, 255, 255, 0.35);
+      box-shadow: 0 4px 24px rgba(0, 255, 255, 0.1);
+    }
+
+    .controls-hint .line {
+      display: block;
+      white-space: nowrap;
+    }
+
+    .controls-hint .key {
+      display: inline-block;
+      padding: 1px 6px;
+      margin: 0 2px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 3px;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 11px;
+    }
+
+    /* ========== 标题 ========== */
+    .app-title {
+      position: absolute;
+      top: 24px;
+      left: 68px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .app-title h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, #4ea8de, #00ffff, #b388ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 30px rgba(0, 255, 255, 0.15);
+    }
+
+    .app-title p {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    /* ========== 信息面板 ========== */
+    .info-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 360px;
+      height: 100%;
+      z-index: 20;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-left: 1px solid var(--glass-border);
+      box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      will-change: transform;
+    }
+
+    .info-panel.is-visible {
+      transform: translateX(0);
+    }
+
+    .panel-header {
+      position: relative;
+      padding: 24px 24px 20px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .panel-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: rgba(255,255,255,0.06);
+      border-radius: 50%;
+      color: var(--text-secondary);
+      font-size: 18px;
+      line-height: 30px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .panel-close:hover {
+      background: rgba(255,255,255,0.18);
+      color: var(--text-primary);
+      transform: rotate(90deg);
+    }
+
+    .panel-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
+      margin-right: 40px;
+      line-height: 1.3;
+    }
+
+    .panel-depth-label {
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .depth-bar {
+      position: relative;
+      height: 8px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 4px;
+      overflow: visible;
+    }
+
+    .depth-bar-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+    }
+
+    .depth-bar-track .segment {
+      flex: 1;
+      border-right: 1px dashed rgba(255,255,255,0.1);
+    }
+    .depth-bar-track .segment:last-child { border-right: none; }
+
+    .depth-range-fill {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #4ea8de, #1e6fbd, #b388ff);
+      box-shadow: 0 0 10px rgba(78, 168, 222, 0.6);
+    }
+
+    .depth-range-fill::before,
+    .depth-range-fill::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #fff;
+      transform: translateY(-50%);
+      box-shadow: 0 0 6px rgba(255,255,255,0.8);
+    }
+    .depth-range-fill::before { left: -5px; }
+    .depth-range-fill::after { right: -5px; }
+
+    .depth-num {
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: "SF Mono", Consolas, monospace;
+    }
+
+    .panel-body {
+      flex: 1;
+      padding: 20px 24px;
+      overflow-y: auto;
+    }
+
+    .panel-intro {
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text-secondary);
+    }
+
+    .panel-footer {
+      padding: 16px 24px 24px;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .layer-tag {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .layer-tag.shallow {
+      background: rgba(0, 255, 255, 0.12);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0,255,255,0.25);
+    }
+    .layer-tag.middle {
+      background: rgba(255, 209, 102, 0.12);
+      color: var(--accent-yellow);
+      border: 1px solid rgba(255, 209, 102, 0.25);
+    }
+    .layer-tag.deep {
+      background: rgba(239, 111, 60, 0.12);
+      color: var(--accent-orange);
+      border: 1px solid rgba(239, 111, 60, 0.25);
+    }
+
+    .panel-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 15;
+      background: rgba(0,0,0,0.35);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .panel-backdrop.is-visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* ========== 脉冲DOM辅助 ========== */
+    .fps-counter {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      z-index: 10;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: "SF Mono", Consolas, monospace;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* ========== 响应式：移动端 ========== */
+    @media (max-width: 768px) {
+      .depth-ruler {
+        width: 24px;
+        padding: 10px 0;
+      }
+      .ruler-tick {
+        font-size: 9px;
+      }
+      .ruler-tick::before {
+        width: 4px;
+      }
+      .ruler-tick span { display: none; }
+      .ruler-marker {
+        left: -4px;
+        height: 3px;
+      }
+      .ruler-pointer {
+        width: 8px;
+        height: 8px;
+        margin-left: -4px;
+      }
+
+      .app-title {
+        left: 32px;
+        top: 12px;
+      }
+      .app-title h1 { font-size: 16px; letter-spacing: 1px; }
+      .app-title p { display: none; }
+
+      .controls-hint {
+        top: 12px;
+        right: 10px;
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .info-panel {
+        top: auto;
+        bottom: 0;
+        right: 0;
+        left: 0;
+        width: 100%;
+        height: 65%;
+        border-left: none;
+        border-top: 1px solid var(--glass-border);
+        border-radius: 16px 16px 0 0;
+        transform: translateY(100%);
+      }
+      .info-panel.is-visible {
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Three.js 画布容器 -->
+    <div id="canvas-container"></div>
+
+    <!-- 标题 -->
+    <div class="app-title">
+      <h1>深 海 探 秘</h1>
+      <p>OCEAN EXPLORER · 海洋生物科普互动展</p>
+    </div>
+
+    <!-- 左侧深度标尺 -->
+    <div class="depth-ruler" id="depth-ruler">
+      <div class="ruler-scale" id="ruler-scale">
+        <div class="ruler-tick" style="top:0%"><span>0m 海面</span></div>
+        <div class="ruler-marker shallow" style="top:10%"></div>
+        <div class="ruler-tick" style="top:10%"><span>50m 浅海</span></div>
+        <div class="ruler-marker middle" style="top:40%"></div>
+        <div class="ruler-tick" style="top:40%"><span>200m 中层</span></div>
+        <div class="ruler-marker deep" style="top:100%"></div>
+        <div class="ruler-tick" style="top:100%"><span>500m 深海</span></div>
+
+        <div class="ruler-pointer" id="ruler-pointer" style="top:10%"></div>
+      </div>
+    </div>
+
+    <!-- 右上角操作提示 -->
+    <div class="controls-hint" id="controls-hint">
+      <span class="line"><span class="key">拖拽</span> 旋转视角</span>
+      <span class="line"><span class="key">滚轮</span> 探索深度</span>
+      <span class="line"><span class="key">点击</span> 查看生物</span>
+    </div>
+
+    <!-- 面板遮罩 -->
+    <div class="panel-backdrop" id="panel-backdrop"></div>
+
+    <!-- 右侧信息面板 -->
+    <aside class="info-panel" id="info-panel" role="dialog" aria-hidden="true">
+      <header class="panel-header">
+        <button class="panel-close" id="panel-close" aria-label="关闭">✕</button>
+        <h2 class="panel-name" id="panel-name">小丑鱼</h2>
+        <div class="panel-depth-label">栖息深度</div>
+        <div class="depth-bar">
+          <div class="depth-bar-track">
+            <div class="segment"></div><div class="segment"></div><div class="segment"></div>
+          </div>
+          <div class="depth-range-fill" id="depth-fill" style="left:0%; width:10%"></div>
+        </div>
+        <div class="depth-num">
+          <span id="depth-min">1m</span>
+          <span id="depth-max">50m</span>
+        </div>
+      </header>
+      <div class="panel-body">
+        <p class="panel-intro" id="panel-intro">
+          小丑鱼（Amphiprioninae），又稱海葵魚，是一种热带海水鱼。它们与海葵形成奇妙的共生关系，体表黏液可抵御海葵毒刺，借此躲避天敌，是浅海珊瑚礁区最具代表性的居民之一。
+        </p>
+      </div>
+      <footer class="panel-footer">
+        <span class="layer-tag shallow" id="layer-tag">浅海层</span>
+      </footer>
+    </aside>
+
+    <!-- FPS计数器 -->
+    <div class="fps-counter" id="fps-counter">60 FPS</div>
+  </div>
+
+  <!-- 入口脚本 -->
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

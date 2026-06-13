@@ -1,0 +1,20 @@
+{
+  "name": "deep-sea-explorer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "深海探秘 - 面向青少年的交互式3D海洋生物可视化科普应用",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.160.0",
+    "typescript": "5.3.3",
+    "vite": "5.0.10"
+  }
+}
