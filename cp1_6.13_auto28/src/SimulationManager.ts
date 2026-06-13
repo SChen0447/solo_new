@@ -79,6 +79,7 @@ export class SimulationManager {
 
     const particlesToAdd: Particle[] = []
     const particlesToRemove: number[] = []
+    const effectiveDecayInterval = this.state.decayInterval
 
     for (const particle of this.state.particles) {
       if (particle.fadeStartTime !== null) {
@@ -94,8 +95,10 @@ export class SimulationManager {
       this.updateParticleFade(particle)
 
       if (particle.isSelected) {
-        const lastCheck = this.lastDecayCheck.get(particle.id) || 0
-        if (clockTime - lastCheck >= this.state.decayInterval) {
+        const lastCheck = this.lastDecayCheck.get(particle.id) ?? clockTime
+        const timeSinceLastCheck = clockTime - lastCheck
+
+        if (timeSinceLastCheck >= effectiveDecayInterval) {
           this.lastDecayCheck.set(particle.id, clockTime)
           if (this.checkDecay(particle)) {
             const childParticles = this.performDecay(particle)
@@ -103,6 +106,8 @@ export class SimulationManager {
             particlesToRemove.push(particle.id)
           }
         }
+      } else {
+        this.lastDecayCheck.delete(particle.id)
       }
     }
 
@@ -224,6 +229,19 @@ export class SimulationManager {
 
   setDecayInterval(value: number): void {
     this.state.decayInterval = value
+    const now = performance.now() / 1000
+    for (const particle of this.state.particles) {
+      if (particle.isSelected && this.lastDecayCheck.has(particle.id)) {
+        const elapsed = now - this.lastDecayCheck.get(particle.id)!
+        if (elapsed >= value) {
+          this.lastDecayCheck.set(particle.id, now - value + 0.001)
+        }
+      }
+    }
+  }
+
+  getDecayInterval(): number {
+    return this.state.decayInterval
   }
 
   togglePause(): void {
