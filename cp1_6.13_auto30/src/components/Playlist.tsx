@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Song } from '../types';
 import SongCard from './SongCard';
 
@@ -23,45 +23,50 @@ const Playlist: React.FC<PlaylistProps> = ({
   onSongDrop,
   onRemoveSong,
 }) => {
-  const [dragInfo, setDragInfo] = useState<{
+  const [dragState, setDragState] = useState<{
     isDragging: boolean;
-    draggedSong: Song | null;
+    draggedId: string | null;
     draggedIndex: number | null;
     targetIndex: number | null;
+    dragSource: 'playlist' | 'library' | null;
   }>({
     isDragging: false,
-    draggedSong: null,
+    draggedId: null,
     draggedIndex: null,
     targetIndex: null,
+    dragSource: null,
   });
 
   const listRef = useRef<HTMLDivElement>(null);
 
-  const handleDragStart = (e: React.DragEvent, song: Song, index?: number) => {
-    setDragInfo({
-      isDragging: true,
-      draggedSong: song,
-      draggedIndex: index ?? null,
-      targetIndex: index ?? null,
-    });
+  const handleDragStart = useCallback((e: React.DragEvent, song: Song, index?: number) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData(
       'text/plain',
       JSON.stringify({ song, source: 'playlist', index })
     );
+    setDragState({
+      isDragging: true,
+      draggedId: song.id,
+      draggedIndex: index ?? null,
+      targetIndex: index ?? null,
+      dragSource: 'playlist',
+    });
     const target = e.currentTarget as HTMLElement;
-    setTimeout(() => {
-      target.classList.add('song-card--dragging-real');
-    }, 0);
-  };
+    requestAnimationFrame(() => {
+      target.style.opacity = '0.4';
+      target.style.transform = 'scale(0.95)';
+    });
+  }, []);
 
-  const handleDragEnd = (e: React.DragEvent) => {
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
     const target = e.currentTarget as HTMLElement;
-    target.classList.remove('song-card--dragging-real');
+    target.style.opacity = '';
+    target.style.transform = '';
 
-    const { draggedIndex, targetIndex } = dragInfo;
+    const { draggedIndex, targetIndex, dragSource } = dragState;
 
-    if (draggedIndex !== null && targetIndex !== null && draggedIndex !== targetIndex) {
+    if (dragSource === 'playlist' && draggedIndex !== null && targetIndex !== null && draggedIndex !== targetIndex) {
       const newSongs = [...songs];
       const [removed] = newSongs.splice(draggedIndex, 1);
       const insertIndex = targetIndex > draggedIndex ? targetIndex - 1 : targetIndex;
@@ -69,28 +74,51 @@ const Playlist: React.FC<PlaylistProps> = ({
       onReorder(newSongs);
     }
 
-    setDragInfo({
+    setDragState({
       isDragging: false,
-      draggedSong: null,
+      draggedId: null,
       draggedIndex: null,
       targetIndex: null,
+      dragSource: null,
     });
-  };
+  }, [dragState, songs, onReorder]);
 
-  const handleDragOver = (e: React.DragEvent, index?: number) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (index !== undefined && index !== dragInfo.targetIndex) {
-      setDragInfo((prev) => ({ ...prev, targetIndex: index }));
+  }, []);
+
+  const handleCardDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragState.targetIndex !== index) {
+      setDragState(prev => ({ ...prev, targetIndex: index }));
     }
-  };
+  }, [dragState.targetIndex]);
 
-  const handleListDragOver = (e: React.DragEvent) => {
+  const handleCardDragLeave = useCallback((_e: React.DragEvent) => {
+    // 可选：处理离开时的状态
+  }, []);
+
+  const handleListDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-  };
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.source === 'library' && dragState.dragSource !== 'library') {
+        setDragState(prev => ({
+          ...prev,
+          dragSource: 'library',
+          isDragging: true,
+          targetIndex: prev.targetIndex ?? songs.length,
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  }, [songs.length, dragState.dragSource]);
 
-  const handleListDrop = (e: React.DragEvent) => {
+  const handleListDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
@@ -98,7 +126,7 @@ const Playlist: React.FC<PlaylistProps> = ({
       const source = data.source;
 
       if (source === 'playlist') {
-        const { draggedIndex, targetIndex } = dragInfo;
+        const { draggedIndex, targetIndex } = dragState;
         if (draggedIndex !== null && targetIndex !== null && draggedIndex !== targetIndex) {
           const newSongs = [...songs];
           const [removed] = newSongs.splice(draggedIndex, 1);
@@ -113,15 +141,16 @@ const Playlist: React.FC<PlaylistProps> = ({
       console.error('Drop error:', err);
     }
 
-    setDragInfo({
+    setDragState({
       isDragging: false,
-      draggedSong: null,
+      draggedId: null,
       draggedIndex: null,
       targetIndex: null,
+      dragSource: null,
     });
-  };
+  }, [dragState, songs, onReorder, onSongDrop]);
 
-  const handleCardDrop = (e: React.DragEvent, index?: number) => {
+  const handleCardDrop = useCallback((e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.stopPropagation();
     try {
@@ -130,8 +159,8 @@ const Playlist: React.FC<PlaylistProps> = ({
       const source = data.source;
 
       if (source === 'playlist') {
-        const { draggedIndex } = dragInfo;
-        if (draggedIndex !== null && index !== undefined && draggedIndex !== index) {
+        const { draggedIndex } = dragState;
+        if (draggedIndex !== null && draggedIndex !== index) {
           const newSongs = [...songs];
           const [removed] = newSongs.splice(draggedIndex, 1);
           const insertIndex = index > draggedIndex ? index - 1 : index;
@@ -145,99 +174,126 @@ const Playlist: React.FC<PlaylistProps> = ({
       console.error('Card drop error:', err);
     }
 
-    setDragInfo({
+    setDragState({
       isDragging: false,
-      draggedSong: null,
+      draggedId: null,
       draggedIndex: null,
       targetIndex: null,
+      dragSource: null,
     });
-  };
+  }, [dragState, songs, onReorder, onSongDrop]);
 
-  const renderSongList = () => {
+  const renderList = () => {
     if (songs.length === 0) {
       return (
-        <div className="playlist__empty">
+        <div className={`playlist__empty ${dragState.isDragging ? 'playlist__empty--active' : ''}`}>
           <div className="playlist__empty-icon">🎵</div>
-          <p>从右侧曲库拖拽歌曲到这里</p>
+          <p className="playlist__empty-text">从右侧曲库拖拽歌曲到这里</p>
           <p className="playlist__empty-hint">开始创建你的专属播放列表</p>
         </div>
       );
     }
 
-    const result: React.ReactNode[] = [];
-    songs.forEach((song, index) => {
-      if (dragInfo.isDragging && dragInfo.targetIndex === index && dragInfo.draggedIndex !== index) {
-        result.push(
+    const items: React.ReactNode[] = [];
+
+    for (let i = 0; i < songs.length; i++) {
+      const song = songs[i];
+      const isDragged = dragState.draggedId === song.id;
+
+      if (dragState.isDragging &&
+          dragState.targetIndex === i &&
+          dragState.draggedIndex !== i) {
+        items.push(
           <div
-            key={`placeholder-${index}`}
-            className={`playlist__placeholder ${dragInfo.draggedIndex !== null && dragInfo.draggedIndex !== index ? 'playlist__placeholder--bounce' : ''}`}
-          />
+            key={`placeholder-${i}`}
+            className="playlist__drop-placeholder"
+          >
+            <div className="playlist__drop-placeholder-inner" />
+          </div>
         );
       }
 
-      const isShifted =
-        dragInfo.isDragging &&
-        dragInfo.draggedIndex !== null &&
-        dragInfo.targetIndex !== null &&
-        ((dragInfo.targetIndex > dragInfo.draggedIndex &&
-          index > dragInfo.draggedIndex &&
-          index < dragInfo.targetIndex) ||
-          (dragInfo.targetIndex < dragInfo.draggedIndex &&
-            index >= dragInfo.targetIndex &&
-            index < dragInfo.draggedIndex));
+      const getCardWrapperStyle = () => {
+        let transform = 'translateY(0)';
+        let transition = 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)';
 
-      result.push(
+        if (dragState.isDragging && !isDragged && dragState.draggedIndex !== null && dragState.targetIndex !== null) {
+          const di = dragState.draggedIndex;
+          const ti = dragState.targetIndex;
+
+          if (di < ti) {
+            if (i > di && i < ti) {
+              transform = 'translateY(-8px)';
+            } else if (i === ti) {
+              transform = 'translateY(-8px)';
+            }
+          } else if (di > ti) {
+            if (i >= ti && i < di) {
+              transform = 'translateY(8px)';
+            }
+          }
+        }
+
+        return { transform, transition };
+      };
+
+      items.push(
         <div
           key={song.id}
-          className={`playlist__song-wrapper ${isShifted ? 'playlist__song-wrapper--shifted' : ''}`}
+          className={`playlist-song-wrapper ${isDragged ? 'playlist-song-wrapper--dragging' : ''}`}
+          style={getCardWrapperStyle()}
+          onDragOver={(e) => handleCardDragOver(e, i)}
+          onDragLeave={handleCardDragLeave}
+          onDrop={(e) => handleCardDrop(e, i)}
         >
           <SongCard
             song={song}
             isPlaying={currentSong?.id === song.id && isPlaying}
-            isDragging={dragInfo.draggedIndex === index}
-            index={index}
+            isDragging={isDragged}
+            index={i}
             draggable={true}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDrop={(e) => handleCardDrop(e, index)}
+            onDragOver={handleDragOver}
             onClick={onSongClick}
             showRemove={true}
             onRemove={onRemoveSong}
-            animationDelay={index * 30}
+            animationDelay={i * 30}
           />
         </div>
       );
-    });
+    }
 
     if (
-      dragInfo.isDragging &&
-      dragInfo.targetIndex === songs.length &&
-      dragInfo.draggedIndex !== null &&
-      dragInfo.draggedIndex < songs.length
+      dragState.isDragging &&
+      dragState.targetIndex === songs.length &&
+      dragState.draggedIndex !== null &&
+      dragState.draggedIndex < songs.length
     ) {
-      result.push(
+      items.push(
         <div
-          key={`placeholder-end`}
-          className="playlist__placeholder playlist__placeholder--bottom"
-        />
+          key="placeholder-end"
+          className="playlist__drop-placeholder playlist__drop-placeholder--bottom"
+        >
+          <div className="playlist__drop-placeholder-inner" />
+        </div>
       );
     }
 
-    return result;
+    return items;
   };
 
-  const totalDuration = songs.reduce((acc, song) => acc + song.duration, 0);
+  const totalDuration = songs.reduce((acc, s) => acc + s.duration, 0);
   const formatDuration = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    if (hrs > 0) return `${hrs}小时${mins}分钟`;
+    if (hrs > 0) return `${hrs}小时${mins}分`;
     return `${mins}分钟`;
   };
 
   return (
     <div
-      className={`playlist ${dragInfo.isDragging ? 'playlist--dragging' : ''}`}
+      className={`playlist ${dragState.isDragging ? 'playlist--dragging' : ''}`}
       ref={listRef}
       onDragOver={handleListDragOver}
       onDrop={handleListDrop}
@@ -245,16 +301,18 @@ const Playlist: React.FC<PlaylistProps> = ({
       <div className="playlist__header">
         <div className="playlist__header-left">
           <h2 className="playlist__title">{title}</h2>
-          <span className="playlist__count">{songs.length} 首歌曲</span>
-          {songs.length > 0 && (
-            <span className="playlist__duration">
-              总时长: {formatDuration(totalDuration)}
-            </span>
-          )}
+          <div className="playlist__meta">
+            <span className="playlist__count">{songs.length} 首歌曲</span>
+            {songs.length > 0 && (
+              <span className="playlist__duration">
+                · {formatDuration(totalDuration)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="playlist__songs">{renderSongList()}</div>
+      <div className="playlist__songs">{renderList()}</div>
     </div>
   );
 };
