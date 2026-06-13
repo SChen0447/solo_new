@@ -160,9 +160,6 @@ export function computeGateOutput(gate: LogicGate): void {
   }
 
   if (gate.type === 'OUTPUT') {
-    if (gate.inputs.length > 0) {
-      gate.outputs = [];
-    }
     return;
   }
 
@@ -230,11 +227,23 @@ function topologicalSort(gates: Map<string, LogicGate>, wires: Map<string, Wire>
   return result;
 }
 
+function getPinsByType(state: CircuitState, type: 'input' | 'output'): Pin[] {
+  const pins: Pin[] = [];
+  for (const gate of state.gates.values()) {
+    if (type === 'input' ? pins.push(...gate.inputs) : pins.push(...gate.outputs));
+  }
+  return pins;
+}
+
 export function propagateSignals(state: CircuitState): void {
   const sortedIds = topologicalSort(state.gates, state.wires);
 
-  for (const pin of getPinsByType(state, 'input')) {
-    pin.value = false;
+  for (const gate of state.gates.values()) {
+    for (const pin of gate.inputs) {
+      if (!pin.connected) {
+        pin.value = false;
+      }
+    }
   }
 
   for (const wire of state.wires.values()) {
@@ -348,4 +357,107 @@ export function selectGatesInRect(state: CircuitState, rect: SelectionRect, appe
   const minX = Math.min(rect.startX, rect.endX);
   const maxX = Math.max(rect.startX, rect.endX);
   const minY = Math.min(rect.startY, rect.endY);
-  const maxY = Math.max(rect.start
+  const maxY = Math.max(rect.startY, rect.endY);
+
+  if (!append) {
+    for (const gate of state.gates.values()) {
+      gate.selected = false;
+    }
+    state.selectedGateIds.clear();
+  }
+
+  for (const gate of state.gates.values()) {
+    const gateCenterX = gate.x + gate.width / 2;
+    const gateCenterY = gate.y + gate.height / 2;
+    if (gateCenterX >= minX && gateCenterX <= maxX &&
+        gateCenterY >= minY && gateCenterY <= maxY) {
+      gate.selected = true;
+      state.selectedGateIds.add(gate.id);
+    }
+  }
+}
+
+export function updateAnimations(state: CircuitState, deltaTime: number): void {
+  const animationSpeed = 8;
+
+  for (const gate of state.gates.values()) {
+    const anim = gate.animation;
+
+    anim.scale += (anim.targetScale - anim.scale) * Math.min(1, deltaTime * animationSpeed);
+    anim.floatOffset += (anim.targetFloatOffset - anim.floatOffset) * Math.min(1, deltaTime * animationSpeed);
+
+    if (anim.elasticProgress < 1) {
+      anim.elasticProgress = Math.min(1, anim.elasticProgress + deltaTime * 2);
+    }
+
+    gate.x += (gate.targetX - gate.x) * Math.min(1, deltaTime * animationSpeed);
+    gate.y += (gate.targetY - gate.y) * Math.min(1, deltaTime * animationSpeed);
+  }
+}
+
+export function elasticEase(t: number): number {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const p = 0.3;
+  return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1;
+}
+
+export function createCircuitState(): CircuitState {
+  return {
+    gates: new Map(),
+    wires: new Map(),
+    selectedGateIds: new Set(),
+    dirty: false,
+  };
+}
+
+export function canConnectPins(
+  state: CircuitState,
+  fromGate: LogicGate,
+  fromPin: Pin,
+  toGate: LogicGate,
+  toPin: Pin
+): boolean {
+  if (fromPin.type === toPin.type) return false;
+  if (fromGate.id === toGate.id) return false;
+
+  const outputGate = fromPin.type === 'output' ? fromGate : toGate;
+  const inputGate = fromPin.type === 'input' ? fromGate : toGate;
+  const outputPin = fromPin.type === 'output' ? fromPin : toPin;
+  const inputPin = fromPin.type === 'input' ? fromPin : toPin;
+
+  if (inputPin.connected) return false;
+
+  for (const wire of state.wires.values()) {
+    if (wire.toGateId === inputGate.id && wire.toPinId === inputPin.id) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function addWire(
+  state: CircuitState,
+  fromGateId: string,
+  fromPinId: string,
+  toGateId: string,
+  toPinId: string
+): Wire | null {
+  const fromGate = state.gates.get(fromGateId);
+  const toGate = state.gates.get(toGateId);
+  const fromPin = fromGate?.outputs.find(p => p.id === fromPinId);
+  const toPin = toGate?.inputs.find(p => p.id === toPinId);
+
+  if (!fromGate || !toGate || !fromPin || !toPin) return null;
+  if (!canConnectPins(state, fromGate, fromPin, toGate, toPin)) return null;
+
+  const wire = createWire(fromGateId, fromPinId, toGateId, toPinId);
+  state.wires.set(wire.id, wire);
+
+  fromPin.connected = true;
+  toPin.connected = true;
+
+  state.dirty = true;
+  return wire;
+}
