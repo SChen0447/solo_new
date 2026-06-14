@@ -1,0 +1,163 @@
+[
+  {
+    "id": "p1",
+    "name": "专业户外帐篷",
+    "category": "帐篷",
+    "dailyRate": 45,
+    "stock": 25,
+    "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20outdoor%20camping%20tent%20green%20color%20product%20photo&image_size=square_hd",
+    "description": "高品质双层防风防雨帐篷，适合3-4人使用，搭建简单，携带方便。",
+    "specs": {
+      "尺寸": "210x180x130cm",
+      "重量": "2.8kg",
+      "材质": "210T涤纶+PU涂层",
+      "容纳人数": "3-4人",
+      "防水等级": "PU3000mm"
+    },
+    "reviews": [
+      { "id": "r1", "user": "户外爱好者", "rating": 5, "comment": "质量非常好，防雨效果一流！", "date": "2024-10-15" },
+      { "id": "r2", "user": "旅行达人", "rating": 4, "comment": "搭建很简单，一个人就能搞定。", "date": "2024-09-20" },
+      { "id": "r3", "user": "背包客小王", "rating": 5, "comment": "轻便好携带，强烈推荐！", "date": "2024-08-10" }
+    ]
+  },
+  {
+    "id": "p2",
+    "name": "大容量登山背包",
+    "category": "背包",
+    "dailyRate": 30,
+    "stock": 15,
+    "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=large%20capacity%20hiking%20backpack%20orange%20color%20product%20photo&image_size=square_hd",
+    "description": "60L大容量登山背包，人体工学设计，多隔层收纳，舒适背负系统。",
+    "specs": {
+      "容量": "60L",
+      "重量": "1.5kg",
+      "材质": "牛津布+尼龙",
+      "背负系统": "铝合金支架",
+      "隔层数量": "5个"
+    },
+    "reviews": [
+      { "id": "r4", "user": "登山发烧友", "rating": 5, "comment": "背负系统很棒，长时间爬山不累。", "date": "2024-11-01" },
+      { "id": "r5", "user": "探险家老李", "rating": 4, "comment": "容量够大，收纳设计合理。", "date": "2024-10-05" }
+    ]
+  },
+  {
+    "id": "p3",
+    "name": "碳纤维登山杖",
+    "category": "登山杖",
+    "dailyRate": 15,
+    "stock": 30,
+    "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=carbon%20fiber%20hiking%20poles%20pair%20product%20photo&image_size=square_hd",
+    "description": "超轻碳纤维登山杖，三节可调节，带减震系统，保护膝盖。",
+    "specs": {
+      "材质": "碳纤维",
+      "重量": "220g/根",
+      "节数": "3节",
+      "最长长度": "135cm",
+      "最短长度": "65cm"
+    },
+    "reviews": [
+      { "id": "r6", "user": "徒步达人", "rating": 5, "comment": "超轻！用了就离不开了。", "date": "2024-09-18" },
+      { "id": "r7", "user": "户外新手", "rating": 4, "comment": "对膝盖保护很有帮助。", "date": "2024-08-25" }
+    ]
+  },
+  {
+    "id": "p4",
+    "name": "便携式野营炉具",
+    "category": "炉具",
+    "dailyRate": 20,
+    "stock": 0,
+    "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=portable%20camping%20stove%20gas%20burner%20product%20photo&image_size=square_hd",
+    "description": "折叠式便携炉具，防风设计，一键点火，适合户外烹饪。",
+    "specs": {
+      "材质": "不锈钢+铝合金",
+      "重量": "350g",
+      "火力": "3500W",
+      "折叠尺寸": "10x10x8cm",
+      "适用气罐": "扁气罐"
+    },
+    "reviews": [
+      { "id": "r8", "user": "野营大厨", "rating": 5, "comment": "火力猛，做饭很快！", "date": "2024-10-22" },
+      { "id": "r9", "user": "露营爱好者", "rating": 4, "comment": "小巧便携，收纳方便。", "date": "2024-09-30" }
+    ]
+  },
+  {
+    "id": "p5",
+    "name": "家庭露营大帐篷",
+    "category": "帐篷",
+    "dailyRate": 80,
+    "stock": 8,
+    "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=large%20family%20camping%20tent%20blue%20color%20spacious%20product%20photo&image_size=square_hd",
+    "description": "超大空间家庭帐篷，两室一厅设计，适合5-6人家庭露营。",
+    "specs": {
+      "尺寸": "420x300x200cm",
+      "重量": "6.5kg",
+      "材质": "210D牛津布",
+      "容纳人数": "5-6人",
+      "房间数": "2室1厅"
+    },
+    "reviews": [
+      { "id": "r10", "user": "家庭出游", "rating": 5, "comment": "空间超大，一家人住很舒服。", "date": "2024-10-10" },
+      { "id": "r11", "user": "周末露营", "rating": 4, "comment": "质量不错，就是有点重。", "date": "2024-09-05" }
+    ]
+  },
+  {
+    "id": "p6",
+    "name": "轻量化徒步背包",
+    "category": "背包",
+    "dailyRate": 25,
+    "stock": 22,
+    "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=lightweight%20hiking%20daypack%20gray%20color%20product%20photo&image_size=square_hd",
+    "description": "30L轻量化日常徒步背包，透气背负，适合单日徒步和通勤。",
+    "specs": {
+      "容量": "30L",
+      "重量": "0.8kg",
+      "材质": "防泼水面料",
+      "背负系统": "透气网布",
+      "特点": "可挂登山杖"
+    },
+    "reviews": [
+      { "id": "r12", "user": "通勤族", "rating": 5, "comment": "轻便好用，上班徒步都能用。", "date": "2024-11-05" },
+      { "id": "r13", "user": "学生党", "rating": 4, "comment": "性价比很高，推荐！", "date": "2024-10-28" }
+    ]
+  },
+  {
+    "id": "p7",
+    "name": "铝合金折叠登山杖",
+    "category": "登山杖",
+    "dailyRate": 10,
+    "stock": 40,
+    "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=aluminum%20folding%20trekking%20poles%20product%20photo&image_size=square_hd",
+    "description": "7075铝合金折叠登山杖，五节折叠设计，收纳后仅35cm。",
+    "specs": {
+      "材质": "7075铝合金",
+      "重量": "280g/根",
+      "节数": "5节",
+      "展开长度": "110-130cm",
+      "收纳长度": "35cm"
+    },
+    "reviews": [
+      { "id": "r14", "user": "旅行博主", "rating": 5, "comment": "折叠后很小，放包里不占地方。", "date": "2024-09-12" },
+      { "id": "r15", "user": "休闲徒步", "rating": 4, "comment": "性价比不错，日常够用。", "date": "2024-08-30" }
+    ]
+  },
+  {
+    "id": "p8",
+    "name": "多功能烧烤炉套装",
+    "category": "炉具",
+    "dailyRate": 35,
+    "stock": 12,
+    "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=multifunction%20bbq%20grill%20set%20portable%20camping%20product%20photo&image_size=square_hd",
+    "description": "便携烧烤炉套装，含烤架、烤盘、烤叉，适合多人户外烧烤。",
+    "specs": {
+      "材质": "不锈钢+铁镀铬",
+      "重量": "2.5kg",
+      "烤架尺寸": "40x30cm",
+      "配件": "烤网+烤盘+烤叉x3",
+      "适用人数": "4-6人"
+    },
+    "reviews": [
+      { "id": "r16", "user": "烧烤达人", "rating": 5, "comment": "配件齐全，烧烤体验很棒！", "date": "2024-10-20" },
+      { "id": "r17", "user": "团建组织者", "rating": 4, "comment": "公司团建用的，大家都很满意。", "date": "2024-09-15" }
+    ]
+  }
+]
