@@ -1,0 +1,193 @@
+[
+  {
+    "id": "a1",
+    "name": "夜的第七章",
+    "artist": "周杰伦",
+    "coverUrl": "https://picsum.photos/seed/album1/400/400",
+    "year": 2006,
+    "genre": "流行",
+    "moods": ["怀旧", "神秘", "激情"],
+    "tracks": [
+      { "id": "t1", "name": "夜的第七章", "duration": 228 },
+      { "id": "t2", "name": "听妈妈的话", "duration": 264 },
+      { "id": "t3", "name": "千里之外", "duration": 258 },
+      { "id": "t4", "name": "本草纲目", "duration": 198 }
+    ],
+    "createdAt": "2024-01-15T10:00:00Z"
+  },
+  {
+    "id": "a2",
+    "name": "范特西",
+    "artist": "周杰伦",
+    "coverUrl": "https://picsum.photos/seed/album2/400/400",
+    "year": 2001,
+    "genre": "流行",
+    "moods": ["怀旧", "快乐", "激情"],
+    "tracks": [
+      { "id": "t5", "name": "爱在西元前", "duration": 234 },
+      { "id": "t6", "name": "爸我回来了", "duration": 234 },
+      { "id": "t7", "name": "简单爱", "duration": 270 },
+      { "id": "t8", "name": "双截棍", "duration": 198 }
+    ],
+    "createdAt": "2024-01-16T10:00:00Z"
+  },
+  {
+    "id": "a3",
+    "name": "叶惠美",
+    "artist": "周杰伦",
+    "coverUrl": "https://picsum.photos/seed/album3/400/400",
+    "year": 2003,
+    "genre": "R&B",
+    "moods": ["怀旧", "浪漫", "专注"],
+    "tracks": [
+      { "id": "t9", "name": "以父之名", "duration": 342 },
+      { "id": "t10", "name": "晴天", "duration": 269 },
+      { "id": "t11", "name": "东风破", "duration": 313 },
+      { "id": "t12", "name": "三年二班", "duration": 288 }
+    ],
+    "createdAt": "2024-01-17T10:00:00Z"
+  },
+  {
+    "id": "a4",
+    "name": "十一月的萧邦",
+    "artist": "周杰伦",
+    "coverUrl": "https://picsum.photos/seed/album4/400/400",
+    "year": 2005,
+    "genre": "流行",
+    "moods": ["忧伤", "浪漫", "怀旧"],
+    "tracks": [
+      { "id": "t13", "name": "夜曲", "duration": 225 },
+      { "id": "t14", "name": "蓝色风暴", "duration": 234 },
+      { "id": "t15", "name": "发如雪", "duration": 300 },
+      { "id": "t16", "name": "黑色毛衣", "duration": 242 }
+    ],
+    "createdAt": "2024-01-18T10:00:00Z"
+  },
+  {
+    "id": "a5",
+    "name": "OK Computer",
+    "artist": "Radiohead",
+    "coverUrl": "https://picsum.photos/seed/album5/400/400",
+    "year": 1997,
+    "genre": "摇滚",
+    "moods": ["神秘", "专注", "忧伤"],
+    "tracks": [
+      { "id": "t17", "name": "Airbag", "duration": 284 },
+      { "id": "t18", "name": "Paranoid Android", "duration": 383 },
+      { "id": "t19", "name": "Karma Police", "duration": 260 },
+      { "id": "t20", "name": "No Surprises", "duration": 229 }
+    ],
+    "createdAt": "2024-02-01T10:00:00Z"
+  },
+  {
+    "id": "a6",
+    "name": "Random Access Memories",
+    "artist": "Daft Punk",
+    "coverUrl": "https://picsum.photos/seed/album6/400/400",
+    "year": 2013,
+    "genre": "电子",
+    "moods": ["激情", "快乐", "放松"],
+    "tracks": [
+      { "id": "t21", "name": "Give Life Back to Music", "duration": 277 },
+      { "id": "t22", "name": "Get Lucky", "duration": 369 },
+      { "id": "t23", "name": "Instant Crush", "duration": 337 },
+      { "id": "t24", "name": "Lose Yourself to Dance", "duration": 353 }
+    ],
+    "createdAt": "2024-02-10T10:00:00Z"
+  },
+  {
+    "id": "a7",
+    "name": "月光奏鸣曲",
+    "artist": "贝多芬",
+    "coverUrl": "https://picsum.photos/seed/album7/400/400",
+    "year": 1801,
+    "genre": "古典",
+    "moods": ["忧伤", "专注", "放松"],
+    "tracks": [
+      { "id": "t25", "name": "第一乐章 持续的慢板", "duration": 390 },
+      { "id": "t26", "name": "第二乐章 小快板", "duration": 180 },
+      { "id": "t27", "name": "第三乐章 激动的急板", "duration": 420 }
+    ],
+    "createdAt": "2024-02-15T10:00:00Z"
+  },
+  {
+    "id": "a8",
+    "name": "Kind of Blue",
+    "artist": "Miles Davis",
+    "coverUrl": "https://picsum.photos/seed/album8/400/400",
+    "year": 1959,
+    "genre": "爵士",
+    "moods": ["放松", "浪漫", "神秘"],
+    "tracks": [
+      { "id": "t28", "name": "So What", "duration": 564 },
+      { "id": "t29", "name": "Freddie Freeloader", "duration": 587 },
+      { "id": "t30", "name": "Blue in Green", "duration": 337 },
+      { "id": "t31", "name": "All Blues", "duration": 692 }
+    ],
+    "createdAt": "2024-02-20T10:00:00Z"
+  },
+  {
+    "id": "a9",
+    "name": "安和桥北",
+    "artist": "宋冬野",
+    "coverUrl": "https://picsum.photos/seed/album9/400/400",
+    "year": 2013,
+    "genre": "民谣",
+    "moods": ["忧伤", "怀旧", "放松"],
+    "tracks": [
+      { "id": "t32", "name": "安和桥", "duration": 320 },
+      { "id": "t33", "name": "斑马斑马", "duration": 287 },
+      { "id": "t34", "name": "董小姐", "duration": 318 },
+      { "id": "t35", "name": "莉莉安", "duration": 349 }
+    ],
+    "createdAt": "2024-03-01T10:00:00Z"
+  },
+  {
+    "id": "a10",
+    "name": "good kid m.A.A.d city",
+    "artist": "Kendrick Lamar",
+    "coverUrl": "https://picsum.photos/seed/album10/400/400",
+    "year": 2012,
+    "genre": "嘻哈",
+    "moods": ["激情", "专注", "神秘"],
+    "tracks": [
+      { "id": "t36", "name": "Bitch Don't Kill My Vibe", "duration": 308 },
+      { "id": "t37", "name": "Backseat Freestyle", "duration": 215 },
+      { "id": "t38", "name": "Swimming Pools", "duration": 319 },
+      { "id": "t39", "name": "Poetic Justice", "duration": 346 }
+    ],
+    "createdAt": "2024-03-05T10:00:00Z"
+  },
+  {
+    "id": "a11",
+    "name": "万能青年旅店",
+    "artist": "万能青年旅店",
+    "coverUrl": "https://picsum.photos/seed/album11/400/400",
+    "year": 2010,
+    "genre": "摇滚",
+    "moods": ["忧伤", "激情", "怀旧"],
+    "tracks": [
+      { "id": "t40", "name": "杀死那个石家庄人", "duration": 342 },
+      { "id": "t41", "name": "秦皇岛", "duration": 473 },
+      { "id": "t42", "name": "十万嬉皮", "duration": 285 },
+      { "id": "t43", "name": "大石碎胸口", "duration": 415 }
+    ],
+    "createdAt": "2024-03-10T10:00:00Z"
+  },
+  {
+    "id": "a12",
+    "name": "25",
+    "artist": "Adele",
+    "coverUrl": "https://picsum.photos/seed/album12/400/400",
+    "year": 2015,
+    "genre": "流行",
+    "moods": ["忧伤", "浪漫", "怀旧"],
+    "tracks": [
+      { "id": "t44", "name": "Hello", "duration": 295 },
+      { "id": "t45", "name": "Send My Love", "duration": 223 },
+      { "id": "t46", "name": "When We Were Young", "duration": 289 },
+      { "id": "t47", "name": "River Lea", "duration": 216 }
+    ],
+    "createdAt": "2024-03-15T10:00:00Z"
+  }
+]

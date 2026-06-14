@@ -1,0 +1,29 @@
+[
+  {
+    "id": "p1",
+    "name": "怀旧时光",
+    "description": "那些年我们一起听过的歌，青春的记忆永远不会褪色。",
+    "coverUrl": "https://picsum.photos/seed/playlist1/400/400",
+    "tracks": [
+      { "id": "t2", "name": "听妈妈的话", "duration": 264, "albumId": "a1", "albumName": "夜的第七章", "artist": "周杰伦", "coverUrl": "https://picsum.photos/seed/album1/400/400" },
+      { "id": "t7", "name": "简单爱", "duration": 270, "albumId": "a2", "albumName": "范特西", "artist": "周杰伦", "coverUrl": "https://picsum.photos/seed/album2/400/400" },
+      { "id": "t10", "name": "晴天", "duration": 269, "albumId": "a3", "albumName": "叶惠美", "artist": "周杰伦", "coverUrl": "https://picsum.photos/seed/album3/400/400" },
+      { "id": "t13", "name": "夜曲", "duration": 225, "albumId": "a4", "albumName": "十一月的萧邦", "artist": "周杰伦", "coverUrl": "https://picsum.photos/seed/album4/400/400" }
+    ],
+    "createdAt": "2024-02-01T10:00:00Z",
+    "updatedAt": "2024-02-10T10:00:00Z"
+  },
+  {
+    "id": "p2",
+    "name": "深夜放松",
+    "description": "适合夜晚静静聆听的音乐，放松身心，舒缓压力。",
+    "coverUrl": "https://picsum.photos/seed/playlist2/400/400",
+    "tracks": [
+      { "id": "t28", "name": "So What", "duration": 564, "albumId": "a8", "albumName": "Kind of Blue", "artist": "Miles Davis", "coverUrl": "https://picsum.photos/seed/album8/400/400" },
+      { "id": "t30", "name": "Blue in Green", "duration": 337, "albumId": "a8", "albumName": "Kind of Blue", "artist": "Miles Davis", "coverUrl": "https://picsum.photos/seed/album8/400/400" },
+      { "id": "t34", "name": "董小姐", "duration": 318, "albumId": "a9", "albumName": "安和桥北", "artist": "宋冬野", "coverUrl": "https://picsum.photos/seed/album9/400/400" }
+    ],
+    "createdAt": "2024-02-15T10:00:00Z",
+    "updatedAt": "2024-02-20T10:00:00Z"
+  }
+]
