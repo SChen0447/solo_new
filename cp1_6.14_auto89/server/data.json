@@ -1,0 +1,137 @@
+{
+  "bookings": [
+    {
+      "id": "booking-1",
+      "stationId": "A1",
+      "date": "2026-06-15",
+      "startTime": "09:00",
+      "endTime": "10:30",
+      "bookerName": "张伟",
+      "projectNote": "专辑录制 - 人声部分",
+      "createdAt": "2026-06-14T10:00:00Z"
+    },
+    {
+      "id": "booking-2",
+      "stationId": "B2",
+      "date": "2026-06-15",
+      "startTime": "14:00",
+      "endTime": "16:00",
+      "bookerName": "李娜",
+      "projectNote": "混音工程",
+      "createdAt": "2026-06-14T11:30:00Z"
+    },
+    {
+      "id": "booking-3",
+      "stationId": "A3",
+      "date": "2026-06-16",
+      "startTime": "10:00",
+      "endTime": "12:00",
+      "bookerName": "王磊",
+      "projectNote": "编曲制作",
+      "createdAt": "2026-06-14T09:00:00Z"
+    },
+    {
+      "id": "booking-4",
+      "stationId": "A1",
+      "date": "2026-06-17",
+      "startTime": "13:00",
+      "endTime": "15:30",
+      "bookerName": "陈芳",
+      "projectNote": "Podcast 录制",
+      "createdAt": "2026-06-14T08:00:00Z"
+    },
+    {
+      "id": "booking-5",
+      "stationId": "B1",
+      "date": "2026-06-18",
+      "startTime": "09:30",
+      "endTime": "11:00",
+      "bookerName": "刘洋",
+      "projectNote": "吉他录音",
+      "createdAt": "2026-06-14T07:00:00Z"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "mic",
+      "name": "话筒",
+      "totalStock": 3,
+      "availableStock": 2,
+      "icon": "🎤"
+    },
+    {
+      "id": "headphone",
+      "name": "耳机",
+      "totalStock": 5,
+      "availableStock": 4,
+      "icon": "🎧"
+    },
+    {
+      "id": "soundcard",
+      "name": "声卡",
+      "totalStock": 2,
+      "availableStock": 2,
+      "icon": "🔊"
+    },
+    {
+      "id": "monitor",
+      "name": "监听音箱",
+      "totalStock": 2,
+      "availableStock": 1,
+      "icon": "📻"
+    },
+    {
+      "id": "midi",
+      "name": "MIDI键盘",
+      "totalStock": 1,
+      "availableStock": 0,
+      "icon": "🎹"
+    }
+  ],
+  "borrowRecords": [
+    {
+      "id": "borrow-1",
+      "equipmentId": "mic",
+      "equipmentName": "话筒",
+      "bookingId": "booking-1",
+      "quantity": 1,
+      "borrowerName": "张伟",
+      "borrowTime": "2026-06-15T09:00:00Z",
+      "expectedReturnTime": "2026-06-15T10:30:00Z",
+      "returned": false
+    },
+    {
+      "id": "borrow-2",
+      "equipmentId": "monitor",
+      "equipmentName": "监听音箱",
+      "bookingId": "booking-2",
+      "quantity": 1,
+      "borrowerName": "李娜",
+      "borrowTime": "2026-06-15T14:00:00Z",
+      "expectedReturnTime": "2026-06-15T16:00:00Z",
+      "returned": false
+    },
+    {
+      "id": "borrow-3",
+      "equipmentId": "headphone",
+      "equipmentName": "耳机",
+      "bookingId": "booking-3",
+      "quantity": 1,
+      "borrowerName": "王磊",
+      "borrowTime": "2026-06-16T10:00:00Z",
+      "expectedReturnTime": "2026-06-16T12:00:00Z",
+      "returned": false
+    },
+    {
+      "id": "borrow-4",
+      "equipmentId": "midi",
+      "equipmentName": "MIDI键盘",
+      "bookingId": "booking-4",
+      "quantity": 1,
+      "borrowerName": "陈芳",
+      "borrowTime": "2026-06-17T13:00:00Z",
+      "expectedReturnTime": "2026-06-17T15:30:00Z",
+      "returned": false
+    }
+  ]
+}
