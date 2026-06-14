@@ -1,0 +1,81 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  overflow: hidden;
+}
+
+.app {
+  width: 100vw;
+  height: 100vh;
+  background-color: #2a2a2a;
+}
+
+button {
+  font-family: 'Courier New', Courier, monospace;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  background-color: #3a3a3a;
+  color: #ffffff;
+  padding: 8px 16px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background-color: #5a5a5a;
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+input, textarea, select {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #3a3a3a;
+  color: #ffffff;
+  border: 2px solid #555555;
+  padding: 8px;
+  transition: border-color 0.2s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #ffd700;
+}
+
+@keyframes nod {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(10px); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-15deg); }
+  75% { transform: rotate(15deg); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: rotate(-20deg); }
+  50% { transform: rotate(20deg); }
+}
+
+.anim-nod {
+  animation: nod 0.8s ease-in-out infinite;
+}
+
+.anim-shake {
+  animation: shake 0.8s ease-in-out infinite;
+}
+
+.anim-wave {
+  animation: wave 0.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
