@@ -1,0 +1,15 @@
+{
+  "vendors": [
+    {
+      "id": "v1",
+      "name": "老王煎饼摊",
+      "cuisine": "中餐",
+      "cuisineType": "chinese",
+      "lat": 31.2304,
+      "lng": 121.4737,
+      "description": "老上海风味煎饼果子，脆香可口，传承30年老字号。",
+      "coverImage": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=250&fit=crop",
+      "rating": 4.8,
+      "isOpen": true,
+      "menu": [
+        { "id": "m1", "name": "经典煎饼", "price": 8, "image": "https://images.unsplash.com/photo-1565299
