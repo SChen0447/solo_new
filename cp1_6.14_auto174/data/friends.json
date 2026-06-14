@@ -1,0 +1,111 @@
+{
+  "friendships": [
+    {
+      "userId": "user-001",
+      "friendId": "user-002",
+      "createdAt": "2024-02-01T10:00:00Z"
+    },
+    {
+      "userId": "user-002",
+      "friendId": "user-001",
+      "createdAt": "2024-02-01T10:00:00Z"
+    },
+    {
+      "userId": "user-001",
+      "friendId": "user-003",
+      "createdAt": "2024-03-15T14:30:00Z"
+    },
+    {
+      "userId": "user-003",
+      "friendId": "user-001",
+      "createdAt": "2024-03-15T14:30:00Z"
+    },
+    {
+      "userId": "user-002",
+      "friendId": "user-004",
+      "createdAt": "2024-04-10T09:20:00Z"
+    },
+    {
+      "userId": "user-004",
+      "friendId": "user-002",
+      "createdAt": "2024-04-10T09:20:00Z"
+    },
+    {
+      "userId": "user-002",
+      "friendId": "user-005",
+      "createdAt": "2024-05-05T16:45:00Z"
+    },
+    {
+      "userId": "user-005",
+      "friendId": "user-002",
+      "createdAt": "2024-05-05T16:45:00Z"
+    },
+    {
+      "userId": "user-002",
+      "friendId": "user-006",
+      "createdAt": "2024-06-18T11:15:00Z"
+    },
+    {
+      "userId": "user-006",
+      "friendId": "user-002",
+      "createdAt": "2024-06-18T11:15:00Z"
+    },
+    {
+      "userId": "user-004",
+      "friendId": "user-005",
+      "createdAt": "2024-06-25T08:30:00Z"
+    },
+    {
+      "userId": "user-005",
+      "friendId": "user-004",
+      "createdAt": "2024-06-25T08:30:00Z"
+    },
+    {
+      "userId": "user-003",
+      "friendId": "user-005",
+      "createdAt": "2024-07-02T13:00:00Z"
+    },
+    {
+      "userId": "user-005",
+      "friendId": "user-003",
+      "createdAt": "2024-07-02T13:00:00Z"
+    }
+  ],
+  "requests": [
+    {
+      "id": "req-001",
+      "fromUserId": "user-004",
+      "toUserId": "user-001",
+      "status": "pending",
+      "createdAt": "2024-07-20T10:00:00Z"
+    },
+    {
+      "id": "req-002",
+      "fromUserId": "user-006",
+      "toUserId": "user-003",
+      "status": "pending",
+      "createdAt": "2024-07-21T15:30:00Z"
+    },
+    {
+      "id": "req-003",
+      "fromUserId": "user-001",
+      "toUserId": "user-006",
+      "status": "pending",
+      "createdAt": "2024-07-22T09:15:00Z"
+    },
+    {
+      "id": "req-004",
+      "fromUserId": "user-003",
+      "toUserId": "user-004",
+      "status": "accepted",
+      "createdAt": "2024-06-30T12:00:00Z"
+    },
+    {
+      "id": "req-005",
+      "fromUserId": "user-005",
+      "toUserId": "user-001",
+      "status": "rejected",
+      "createdAt": "2024-06-28T18:45:00Z"
+    }
+  ]
+}

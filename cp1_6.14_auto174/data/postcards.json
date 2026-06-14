@@ -1,0 +1,165 @@
+{
+  "postcards": [
+    {
+      "id": "postcard-001",
+      "userId": "user-001",
+      "userNickname": "旅行家小明",
+      "location": {
+        "lat": 39.9042,
+        "lng": 116.4074,
+        "name": "北京天安门广场"
+      },
+      "weather": {
+        "temperature": 26,
+        "condition": "sunny",
+        "icon": "☀️"
+      },
+      "message": "来自首都北京的问候！今天阳光明媚，天安门广场人潮涌动，感受到了祖国的伟大。",
+      "messageColor": "#5D4037",
+      "background": "beijing",
+      "filter": "vintage",
+      "imageData": "",
+      "isPublic": true,
+      "createdAt": "2024-07-01T10:30:00Z",
+      "favoritedBy": ["user-002", "user-003"]
+    },
+    {
+      "id": "postcard-002",
+      "userId": "user-002",
+      "userNickname": "莉莉的漫游日记",
+      "location": {
+        "lat": 31.2304,
+        "lng": 121.4737,
+        "name": "上海外滩"
+      },
+      "weather": {
+        "temperature": 28,
+        "condition": "cloudy",
+        "icon": "☁️"
+      },
+      "message": "外滩的夜景真的太美了！灯火辉煌，万国建筑群尽收眼底。想念大家～",
+      "messageColor": "#3E2723",
+      "background": "shanghai",
+      "filter": "warm",
+      "imageData": "",
+      "isPublic": true,
+      "createdAt": "2024-07-05T20:15:00Z",
+      "favoritedBy": ["user-001", "user-004", "user-005"]
+    },
+    {
+      "id": "postcard-003",
+      "userId": "user-004",
+      "userNickname": "冒险家王五",
+      "location": {
+        "lat": 30.3157,
+        "lng": 103.8216,
+        "name": "四川峨眉山"
+      },
+      "weather": {
+        "temperature": 14,
+        "condition": "rainy",
+        "icon": "🌧️"
+      },
+      "message": "峨眉山下着小雨，山间云雾缭绕。虽然衣服湿了，但心情特别好！登顶成功！",
+      "messageColor": "#1B5E20",
+      "background": "mountain",
+      "filter": "cool",
+      "imageData": "",
+      "isPublic": true,
+      "createdAt": "2024-07-10T14:45:00Z",
+      "favoritedBy": ["user-002"]
+    },
+    {
+      "id": "postcard-004",
+      "userId": "user-005",
+      "userNickname": "阳光赵六",
+      "location": {
+        "lat": 18.2528,
+        "lng": 109.5119,
+        "name": "海南三亚亚龙湾"
+      },
+      "weather": {
+        "temperature": 32,
+        "condition": "sunny",
+        "icon": "🌞"
+      },
+      "message": "碧海蓝天，椰林树影！在亚龙湾的沙滩上晒太阳，人生不要太惬意～",
+      "messageColor": "#E65100",
+      "background": "beach",
+      "filter": "sunny",
+      "imageData": "",
+      "isPublic": true,
+      "createdAt": "2024-07-12T09:00:00Z",
+      "favoritedBy": ["user-001", "user-002", "user-003", "user-006"]
+    },
+    {
+      "id": "postcard-005",
+      "userId": "user-003",
+      "userNickname": "明信片收藏家张三",
+      "location": {
+        "lat": 34.3416,
+        "lng": 108.9398,
+        "name": "西安兵马俑"
+      },
+      "weather": {
+        "temperature": 30,
+        "condition": "sunny",
+        "icon": "☀️"
+      },
+      "message": "终于来到了梦寐以求的兵马俑！两千多年前的历史就在眼前，太震撼了。",
+      "messageColor": "#4E342E",
+      "background": "ancient",
+      "filter": "sepia",
+      "imageData": "",
+      "isPublic": true,
+      "createdAt": "2024-07-15T13:20:00Z",
+      "favoritedBy": ["user-004", "user-005"]
+    },
+    {
+      "id": "postcard-006",
+      "userId": "user-006",
+      "userNickname": "文艺小陈",
+      "location": {
+        "lat": 25.0389,
+        "lng": 102.7183,
+        "name": "云南丽江古城"
+      },
+      "weather": {
+        "temperature": 20,
+        "condition": "cloudy",
+        "icon": "⛅"
+      },
+      "message": "丽江古城的石板路、小桥流水，处处都是诗意。在这里发呆也是一种享受。",
+      "messageColor": "#311B92",
+      "background": "ancient",
+      "filter": "vintage",
+      "imageData": "",
+      "isPublic": false,
+      "createdAt": "2024-07-18T17:10:00Z",
+      "favoritedBy": ["user-002"]
+    },
+    {
+      "id": "postcard-007",
+      "userId": "user-001",
+      "userNickname": "旅行家小明",
+      "location": {
+        "lat": 40.7589,
+        "lng": 117.9153,
+        "name": "天津五大道"
+      },
+      "weather": {
+        "temperature": 24,
+        "condition": "cloudy",
+        "icon": "☁️"
+      },
+      "message": "天津五大道的万国建筑群，漫步其中仿佛穿越回民国时期。",
+      "messageColor": "#3E2723",
+      "background": "city",
+      "filter": "warm",
+      "imageData": "",
+      "isPublic": true,
+      "createdAt": "2024-07-20T11:30:00Z",
+      "favoritedBy": []
+    }
+  ]
+}

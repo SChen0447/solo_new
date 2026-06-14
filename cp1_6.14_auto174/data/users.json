@@ -1,0 +1,46 @@
+{
+  "users": [
+    {
+      "id": "user-001",
+      "username": "xiaoming_travel",
+      "nickname": "旅行家小明",
+      "avatar": "🧳",
+      "createdAt": "2024-01-15T08:30:00Z"
+    },
+    {
+      "id": "user-002",
+      "username": "lily_wanderlust",
+      "nickname": "莉莉的漫游日记",
+      "avatar": "🌸",
+      "createdAt": "2024-02-20T14:15:00Z"
+    },
+    {
+      "id": "user-003",
+      "username": "zhangsan_postcard",
+      "nickname": "明信片收藏家张三",
+      "avatar": "📮",
+      "createdAt": "2024-03-10T09:45:00Z"
+    },
+    {
+      "id": "user-004",
+      "username": "wangwu_adventure",
+      "nickname": "冒险家王五",
+      "avatar": "🏔️",
+      "createdAt": "2024-04-05T16:20:00Z"
+    },
+    {
+      "id": "user-005",
+      "username": "zhaoliu_sunshine",
+      "nickname": "阳光赵六",
+      "avatar": "☀️",
+      "createdAt": "2024-05-18T11:00:00Z"
+    },
+    {
+      "id": "user-006",
+      "username": "chenqi_art",
+      "nickname": "文艺小陈",
+      "avatar": "🎨",
+      "createdAt": "2024-06-22T19:30:00Z"
+    }
+  ]
+}
