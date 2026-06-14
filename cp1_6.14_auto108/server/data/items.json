@@ -1,0 +1,90 @@
+[
+  {
+    "id": "item-001",
+    "name": "《人类简史》精装版",
+    "description": "尤瓦尔·赫拉利著作，九成新，无划痕，适合对人类历史感兴趣的朋友。",
+    "category": "书籍",
+    "expected": "希望换一本心理学相关书籍或精美笔记本",
+    "imageUrl": "",
+    "userId": "user-002",
+    "status": "available",
+    "createdAt": "2024-06-10T08:30:00.000Z"
+  },
+  {
+    "id": "item-002",
+    "name": "小米蓝牙音箱",
+    "description": "便携式蓝牙音箱，音质清晰，续航8小时，附带原装充电线。",
+    "category": "电子产品",
+    "expected": "希望换一个无线鼠标或U盘",
+    "imageUrl": "",
+    "userId": "user-003",
+    "status": "available",
+    "createdAt": "2024-06-09T14:20:00.000Z"
+  },
+  {
+    "id": "item-003",
+    "name": "北欧风陶瓷花瓶",
+    "description": "简约白色陶瓷花瓶，高度25cm，适合客厅或书房装饰。",
+    "category": "家居",
+    "expected": "希望换香薰蜡烛或装饰画",
+    "imageUrl": "",
+    "userId": "user-001",
+    "status": "available",
+    "createdAt": "2024-06-08T09:15:00.000Z"
+  },
+  {
+    "id": "item-004",
+    "name": "复古牛仔外套",
+    "description": "L码蓝色牛仔外套，经典款式，只穿过两次，九成新。",
+    "category": "服饰",
+    "expected": "希望换一件卫衣或毛衣（L码）",
+    "imageUrl": "",
+    "userId": "user-004",
+    "status": "available",
+    "createdAt": "2024-06-07T16:45:00.000Z"
+  },
+  {
+    "id": "item-005",
+    "name": "乐高城市系列积木",
+    "description": "乐高城市消防站套装，零件齐全，附带原版说明书，适合6岁以上儿童。",
+    "category": "玩具",
+    "expected": "希望换其他乐高套装或益智玩具",
+    "imageUrl": "",
+    "userId": "user-001",
+    "status": "available",
+    "createdAt": "2024-06-06T11:00:00.000Z"
+  },
+  {
+    "id": "item-006",
+    "name": "手冲咖啡套装",
+    "description": "含滤杯、分享壶、滤纸100张，新手友好型。",
+    "category": "家居",
+    "expected": "希望换一套茶具或咖啡豆",
+    "imageUrl": "",
+    "userId": "user-005",
+    "status": "available",
+    "createdAt": "2024-06-05T13:30:00.000Z"
+  },
+  {
+    "id": "item-007",
+    "name": "《三体》全集",
+    "description": "刘慈欣科幻巨著三部曲，平装版，八成新。",
+    "category": "书籍",
+    "expected": "希望换其他科幻小说或历史书籍",
+    "imageUrl": "",
+    "userId": "user-002",
+    "status": "available",
+    "createdAt": "2024-06-04T10:20:00.000Z"
+  },
+  {
+    "id": "item-008",
+    "name": "手工编织收纳篮",
+    "description": "草编收纳篮，中号，可收纳杂物或水果，手工编织质感好。",
+    "category": "其他",
+    "expected": "希望换绿植或手工饰品",
+    "imageUrl": "",
+    "userId": "user-001",
+    "status": "available",
+    "createdAt": "2024-06-03T15:10:00.000Z"
+  }
+]
