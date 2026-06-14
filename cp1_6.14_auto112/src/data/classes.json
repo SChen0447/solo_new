@@ -1,0 +1,413 @@
+[
+  {
+    "id": "class-1",
+    "name": "高一(3)班",
+    "grade": "高一年级",
+    "subject": "数学",
+    "studentCount": 45,
+    "homeworkIds": ["hw-1", "hw-2", "hw-3"],
+    "createdAt": "2026-05-01T08:00:00.000Z",
+    "homework": [
+      {
+        "id": "hw-1",
+        "classId": "class-1",
+        "name": "函数与方程基础练习",
+        "deadline": "2026-06-20T23:59:00.000Z",
+        "totalScore": 100,
+        "createdAt": "2026-06-10T10:00:00.000Z",
+        "questions": [
+          {
+            "id": "q1-1",
+            "type": "single",
+            "title": "下列函数中，是偶函数的是？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "f(x) = x" },
+              { "label": "B", "text": "f(x) = x²" },
+              { "label": "C", "text": "f(x) = x³" },
+              { "label": "D", "text": "f(x) = x + 1" }
+            ],
+            "correctAnswer": "B"
+          },
+          {
+            "id": "q1-2",
+            "type": "single",
+            "title": "方程 x² - 5x + 6 = 0 的解是？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "x = 1 或 x = 6" },
+              { "label": "B", "text": "x = 2 或 x = 3" },
+              { "label": "C", "text": "x = -2 或 x = -3" },
+              { "label": "D", "text": "无解" }
+            ],
+            "correctAnswer": "B"
+          },
+          {
+            "id": "q1-3",
+            "type": "multiple",
+            "title": "以下说法正确的是？（多选）",
+            "score": 20,
+            "options": [
+              { "label": "A", "text": "奇函数关于原点对称" },
+              { "label": "B", "text": "偶函数关于y轴对称" },
+              { "label": "C", "text": "一次函数都是奇函数" },
+              { "label": "D", "text": "常函数都是偶函数" }
+            ],
+            "correctAnswer": ["A", "B"]
+          },
+          {
+            "id": "q1-4",
+            "type": "short",
+            "title": "请简述什么是二次函数的顶点式，并说明其优点。",
+            "score": 30,
+            "maxLength": 300
+          },
+          {
+            "id": "q1-5",
+            "type": "code",
+            "title": "编写一个Python函数 solve_quadratic(a, b, c)，求解一元二次方程 ax² + bx + c = 0 的根，返回根的列表。",
+            "score": 30,
+            "language": "python"
+          }
+        ]
+      },
+      {
+        "id": "hw-2",
+        "classId": "class-1",
+        "name": "三角函数周测",
+        "deadline": "2026-06-25T23:59:00.000Z",
+        "totalScore": 80,
+        "createdAt": "2026-06-12T14:30:00.000Z",
+        "questions": [
+          {
+            "id": "q2-1",
+            "type": "single",
+            "title": "sin(30°) 的值是？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "1/2" },
+              { "label": "B", "text": "√2/2" },
+              { "label": "C", "text": "√3/2" },
+              { "label": "D", "text": "1" }
+            ],
+            "correctAnswer": "A"
+          },
+          {
+            "id": "q2-2",
+            "type": "short",
+            "title": "请写出正弦定理和余弦定理的公式。",
+            "score": 30,
+            "maxLength": 300
+          },
+          {
+            "id": "q2-3",
+            "type": "single",
+            "title": "tan(45°) 的值是？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "0" },
+              { "label": "B", "text": "1" },
+              { "label": "C", "text": "√3" },
+              { "label": "D", "text": "不存在" }
+            ],
+            "correctAnswer": "B"
+          },
+          {
+            "id": "q2-4",
+            "type": "short",
+            "title": "谈谈你对三角函数图像周期性的理解。",
+            "score": 30,
+            "maxLength": 300
+          }
+        ]
+      },
+      {
+        "id": "hw-3",
+        "classId": "class-1",
+        "name": "概率统计小测验",
+        "deadline": "2026-06-30T23:59:00.000Z",
+        "totalScore": 60,
+        "createdAt": "2026-06-13T09:00:00.000Z",
+        "questions": [
+          {
+            "id": "q3-1",
+            "type": "single",
+            "title": "抛一枚均匀硬币，正面朝上的概率是？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "1/4" },
+              { "label": "B", "text": "1/3" },
+              { "label": "C", "text": "1/2" },
+              { "label": "D", "text": "1" }
+            ],
+            "correctAnswer": "C"
+          },
+          {
+            "id": "q3-2",
+            "type": "short",
+            "title": "请解释什么是期望和方差。",
+            "score": 20,
+            "maxLength": 300
+          },
+          {
+            "id": "q3-3",
+            "type": "multiple",
+            "title": "以下哪些是离散型随机变量的分布？（多选）",
+            "score": 20,
+            "options": [
+              { "label": "A", "text": "二项分布" },
+              { "label": "B", "text": "正态分布" },
+              { "label": "C", "text": "泊松分布" },
+              { "label": "D", "text": "均匀分布" }
+            ],
+            "correctAnswer": ["A", "C"]
+          },
+          {
+            "id": "q3-4",
+            "type": "code",
+            "title": "用JavaScript编写一个模拟掷骰子n次并统计各点数出现次数的函数 rollDice(n)，返回一个长度为6的数组。",
+            "score": 10,
+            "language": "javascript"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "class-2",
+    "name": "高二(1)班",
+    "grade": "高二年级",
+    "subject": "物理",
+    "studentCount": 42,
+    "homeworkIds": ["hw-4", "hw-5", "hw-6", "hw-7"],
+    "createdAt": "2026-04-20T08:00:00.000Z",
+    "homework": [
+      {
+        "id": "hw-4",
+        "classId": "class-2",
+        "name": "牛顿运动定律练习",
+        "deadline": "2026-06-18T23:59:00.000Z",
+        "totalScore": 100,
+        "createdAt": "2026-06-08T08:00:00.000Z",
+        "questions": [
+          {
+            "id": "q4-1",
+            "type": "single",
+            "title": "牛顿第一定律又称为？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "惯性定律" },
+              { "label": "B", "text": "加速度定律" },
+              { "label": "C", "text": "作用力与反作用力定律" },
+              { "label": "D", "text": "万有引力定律" }
+            ],
+            "correctAnswer": "A"
+          },
+          {
+            "id": "q4-2",
+            "type": "single",
+            "title": "F = ma 是哪条定律的表达式？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "牛顿第一定律" },
+              { "label": "B", "text": "牛顿第二定律" },
+              { "label": "C", "text": "牛顿第三定律" },
+              { "label": "D", "text": "胡克定律" }
+            ],
+            "correctAnswer": "B"
+          },
+          {
+            "id": "q4-3",
+            "type": "multiple",
+            "title": "以下说法正确的是？（多选）",
+            "score": 20,
+            "options": [
+              { "label": "A", "text": "力是改变物体运动状态的原因" },
+              { "label": "B", "text": "力是维持物体运动的原因" },
+              { "label": "C", "text": "加速度方向与合外力方向相同" },
+              { "label": "D", "text": "质量越大惯性越大" }
+            ],
+            "correctAnswer": ["A", "C", "D"]
+          },
+          {
+            "id": "q4-4",
+            "type": "short",
+            "title": "请举例说明生活中惯性的应用（至少2个例子）。",
+            "score": 30,
+            "maxLength": 300
+          },
+          {
+            "id": "q4-5",
+            "type": "code",
+            "title": "编写一个Python函数 calculate_force(mass, acceleration)，根据牛顿第二定律计算并返回力的大小。",
+            "score": 30,
+            "language": "python"
+          }
+        ]
+      },
+      {
+        "id": "hw-5",
+        "classId": "class-2",
+        "name": "电磁学入门",
+        "deadline": "2026-06-22T23:59:00.000Z",
+        "totalScore": 90,
+        "createdAt": "2026-06-11T10:00:00.000Z",
+        "questions": [
+          {
+            "id": "q5-1",
+            "type": "single",
+            "title": "电流的单位是？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "伏特" },
+              { "label": "B", "text": "安培" },
+              { "label": "C", "text": "欧姆" },
+              { "label": "D", "text": "瓦特" }
+            ],
+            "correctAnswer": "B"
+          },
+          {
+            "id": "q5-2",
+            "type": "short",
+            "title": "请写出欧姆定律的公式，并说明各物理量的含义。",
+            "score": 20,
+            "maxLength": 300
+          },
+          {
+            "id": "q5-3",
+            "type": "single",
+            "title": "P = UI 表示的是？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "电压公式" },
+              { "label": "B", "text": "电阻公式" },
+              { "label": "C", "text": "电功率公式" },
+              { "label": "D", "text": "电流公式" }
+            ],
+            "correctAnswer": "C"
+          },
+          {
+            "id": "q5-4",
+            "type": "short",
+            "title": "描述一下安培右手螺旋定则的内容。",
+            "score": 25,
+            "maxLength": 300
+          },
+          {
+            "id": "q5-5",
+            "type": "code",
+            "title": "用JavaScript编写函数 calculate_ohm(voltage, current)，根据欧姆定律计算电阻值并返回。",
+            "score": 25,
+            "language": "javascript"
+          }
+        ]
+      },
+      {
+        "id": "hw-6",
+        "classId": "class-2",
+        "name": "光学基础作业",
+        "deadline": "2026-06-28T23:59:00.000Z",
+        "totalScore": 70,
+        "createdAt": "2026-06-13T15:00:00.000Z",
+        "questions": [
+          {
+            "id": "q6-1",
+            "type": "single",
+            "title": "光在真空中的传播速度约为？",
+            "score": 10,
+            "options": [
+              { "label": "A", "text": "3×10⁵ m/s" },
+              { "label": "B", "text": "3×10⁶ m/s" },
+              { "label": "C", "text": "3×10⁸ m/s" },
+              { "label": "D", "text": "3×10¹⁰ m/s" }
+            ],
+            "correctAnswer": "C"
+          },
+          {
+            "id": "q6-2",
+            "type": "short",
+            "title": "请解释光的折射定律（斯涅尔定律）。",
+            "score": 30,
+            "maxLength": 300
+          },
+          {
+            "id": "q6-3",
+            "type": "multiple",
+            "title": "以下属于光的干涉现象的是？（多选）",
+            "score": 15,
+            "options": [
+              { "label": "A", "text": "杨氏双缝实验" },
+              { "label": "B", "text": "薄膜彩色条纹" },
+              { "label": "C", "text": "海市蜃楼" },
+              { "label": "D", "text": "光的色散" }
+            ],
+            "correctAnswer": ["A", "B"]
+          },
+          {
+            "id": "q6-4",
+            "type": "single",
+            "title": "凸透镜对光线的作用是？",
+            "score": 15,
+            "options": [
+              { "label": "A", "text": "发散" },
+              { "label": "B", "text": "会聚" },
+              { "label": "C", "text": "既不会聚也不发散" },
+              { "label": "D", "text": "反射" }
+            ],
+            "correctAnswer": "B"
+          }
+        ]
+      },
+      {
+        "id": "hw-7",
+        "classId": "class-2",
+        "name": "热力学初步检测",
+        "deadline": "2026-07-05T23:59:00.000Z",
+        "totalScore": 80,
+        "createdAt": "2026-06-14T08:30:00.000Z",
+        "questions": [
+          {
+            "id": "q7-1",
+            "type": "single",
+            "title": "热力学第一定律表达的是？",
+            "score": 15,
+            "options": [
+              { "label": "A", "text": "能量守恒" },
+              { "label": "B", "text": "熵增原理" },
+              { "label": "C", "text": "热平衡定律" },
+              { "label": "D", "text": "绝对零度不可达到" }
+            ],
+            "correctAnswer": "A"
+          },
+          {
+            "id": "q7-2",
+            "type": "short",
+            "title": "请解释什么是比热容，并举例说明生活中的应用。",
+            "score": 25,
+            "maxLength": 300
+          },
+          {
+            "id": "q7-3",
+            "type": "single",
+            "title": "绝对零度约等于多少摄氏度？",
+            "score": 15,
+            "options": [
+              { "label": "A", "text": "-100°C" },
+              { "label": "B", "text": "-173°C" },
+              { "label": "C", "text": "-273°C" },
+              { "label": "D", "text": "-373°C" }
+            ],
+            "correctAnswer": "C"
+          },
+          {
+            "id": "q7-4",
+            "type": "code",
+            "title": "编写Python函数 celsius_to_kelvin(c)，将摄氏度转换为开尔文温度并返回。",
+            "score": 25,
+            "language": "python"
+          }
+        ]
+      }
+    ]
+  }
+]
