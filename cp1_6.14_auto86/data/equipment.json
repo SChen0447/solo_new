@@ -1,0 +1,66 @@
+[
+  {
+    "id": "e1",
+    "name": "篮球",
+    "icon": "🏀",
+    "hourlyRate": 10,
+    "deposit": 100,
+    "stock": 15
+  },
+  {
+    "id": "e2",
+    "name": "羽毛球拍",
+    "icon": "🏸",
+    "hourlyRate": 8,
+    "deposit": 80,
+    "stock": 20
+  },
+  {
+    "id": "e3",
+    "name": "瑜伽垫",
+    "icon": "🧘",
+    "hourlyRate": 5,
+    "deposit": 50,
+    "stock": 25
+  },
+  {
+    "id": "e4",
+    "name": "网球拍",
+    "icon": "🎾",
+    "hourlyRate": 15,
+    "deposit": 150,
+    "stock": 10
+  },
+  {
+    "id": "e5",
+    "name": "乒乓球拍",
+    "icon": "🏓",
+    "hourlyRate": 6,
+    "deposit": 60,
+    "stock": 18
+  },
+  {
+    "id": "e6",
+    "name": "游泳圈",
+    "icon": "🛟",
+    "hourlyRate": 10,
+    "deposit": 80,
+    "stock": 0
+  },
+  {
+    "id": "e7",
+    "name": "护膝套装",
+    "icon": "🦵",
+    "hourlyRate": 5,
+    "deposit": 40,
+    "stock": 12
+  },
+  {
+    "id": "e8",
+    "name": "运动毛巾",
+    "icon": "🧻",
+    "hourlyRate": 3,
+    "deposit": 20,
+    "stock": 30
+  }
+]

@@ -1,0 +1,101 @@
+[
+  {
+    "id": "v1",
+    "name": "阳光篮球场A",
+    "type": "basketball",
+    "location": "社区体育中心1层",
+    "rating": 4.8,
+    "price": 40,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=outdoor%20basketball%20court%20with%20blue%20sky&image_size=landscape_16_9",
+    "description": "标准室外篮球场，地面防滑，灯光充足，适合夜间比赛。",
+    "maintenanceSlots": ["00:00-06:00", "12:00-13:00"]
+  },
+  {
+    "id": "v2",
+    "name": "精英羽毛球场1号",
+    "type": "badminton",
+    "location": "体育馆2层A区",
+    "rating": 4.9,
+    "price": 35,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=indoor%20badminton%20court%20with%20nets&image_size=landscape_16_9",
+    "description": "专业羽毛球场，木地板，防眩光照明，配备休息座椅。",
+    "maintenanceSlots": ["00:00-08:00"]
+  },
+  {
+    "id": "v3",
+    "name": "绿林网球场",
+    "type": "tennis",
+    "location": "公园西区",
+    "rating": 4.6,
+    "price": 60,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=green%20tennis%20court%20outdoor&image_size=landscape_16_9",
+    "description": "标准网球场，硬地材质，周围绿树环绕，环境优美。",
+    "maintenanceSlots": ["00:00-06:00", "18:00-19:00"]
+  },
+  {
+    "id": "v4",
+    "name": "静心瑜伽室",
+    "type": "yoga",
+    "location": "健身中心3层",
+    "rating": 4.7,
+    "price": 25,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=peaceful%20yoga%20studio%20with%20mats&image_size=landscape_16_9",
+    "description": "温馨瑜伽室，配备专业瑜伽垫和音响，环境安静舒适。",
+    "maintenanceSlots": ["00:00-07:00"]
+  },
+  {
+    "id": "v5",
+    "name": "碧波游泳池",
+    "type": "swimming",
+    "location": "运动中心B1层",
+    "rating": 4.5,
+    "price": 50,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=indoor%20swimming%20pool%20clear%20water&image_size=landscape_16_9",
+    "description": "标准室内游泳池，25米长，8条泳道，水质清澈。",
+    "maintenanceSlots": ["00:00-06:00", "12:00-14:00"]
+  },
+  {
+    "id": "v6",
+    "name": "彩虹乒乓球室",
+    "type": "table-tennis",
+    "location": "活动中心2层",
+    "rating": 4.4,
+    "price": 20,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=table%20tennis%20room%20with%20tables&image_size=landscape_16_9",
+    "description": "配备6张专业乒乓球台，地面防滑，适合各水平爱好者。",
+    "maintenanceSlots": ["00:00-08:00"]
+  },
+  {
+    "id": "v7",
+    "name": "阳光篮球场B",
+    "type": "basketball",
+    "location": "社区体育中心1层",
+    "rating": 4.3,
+    "price": 35,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=basketball%20court%20indoor%20sports&image_size=landscape_16_9",
+    "description": "室内篮球场，配备专业篮架和地板，全天候可用。",
+    "maintenanceSlots": ["00:00-06:00", "14:00-15:00"]
+  },
+  {
+    "id": "v8",
+    "name": "精英羽毛球场2号",
+    "type": "badminton",
+    "location": "体育馆2层B区",
+    "rating": 4.8,
+    "price": 35,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=badminton%20court%20sports%20hall&image_size=landscape_16_9",
+    "description": "专业羽毛球场，空间宽敞，通风良好。",
+    "maintenanceSlots": ["00:00-08:00"]
+  },
+  {
+    "id": "v9",
+    "name": "星空网球场",
+    "type": "tennis",
+    "location": "公园东区",
+    "rating": 4.7,
+    "price": 55,
+    "image": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=tennis%20court%20night%20lights&image_size=landscape_16_9",
+    "description": "夜场网球场，配备专业照明，适合夜间运动。",
+    "maintenanceSlots": ["00:00-06:00"]
+  }
+]
