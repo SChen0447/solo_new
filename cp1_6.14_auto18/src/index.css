@@ -1,0 +1,15 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-bg: #F5E8D3;
+  --primary-dark: #6B4F3A;
+  --primary-accent: #E8843C;
+  --primary-accent-hover: #D46A1F;
+  --card-bg: #FFFFFF;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-light: #999999;
