@@ -1,0 +1,178 @@
+[
+  {
+    "id": "book-001",
+    "title": "解忧杂货店",
+    "author": "东野圭吾",
+    "publisher": "南海出版公司",
+    "pages": 291,
+    "summary": "一个关于命运、爱与温柔的故事。三个小偷在一家废弃杂货店里，意外发现了连接过去与未来的神秘信箱，开启了一段段温暖人心的奇妙际遇。",
+    "theme": "relaxed",
+    "tags": ["治愈", "轻松", "温暖"],
+    "cover": "https://picsum.photos/seed/book1/200/280"
+  },
+  {
+    "id": "book-002",
+    "title": "白夜行",
+    "author": "东野圭吾",
+    "publisher": "南海出版公司",
+    "pages": 352,
+    "summary": "一宗离奇命案牵出跨度近20年步步惊心的故事：悲凉的爱情、吊诡的命运、令人发指的犯罪、复杂人性的对决与救赎。",
+    "theme": "mystery",
+    "tags": ["悬疑", "烧脑", "推理"],
+    "cover": "https://picsum.photos/seed/book2/200/280"
+  },
+  {
+    "id": "book-003",
+    "title": "活着",
+    "author": "余华",
+    "publisher": "作家出版社",
+    "pages": 191,
+    "summary": "讲述了农村人福贵悲惨的人生遭遇。福贵本是个阔少爷，可他嗜赌如命，终于赌光了家业。经历了人生的种种苦难后，他依然坚强地活着。",
+    "theme": "emotional",
+    "tags": ["感动", "人生", "文学"],
+    "cover": "https://picsum.photos/seed/book3/200/280"
+  },
+  {
+    "id": "book-004",
+    "title": "海底两万里",
+    "author": "儒勒·凡尔纳",
+    "publisher": "人民文学出版社",
+    "pages": 378,
+    "summary": "法国生物学家阿龙纳斯在海底深处旅行的故事。他们从太平洋出发，经过珊瑚岛、印度洋、红海、地中海，进入大西洋，看到许多罕见的海生动植物和水中的奇异景象。",
+    "theme": "adventure",
+    "tags": ["冒险", "科幻", "经典"],
+    "cover": "https://picsum.photos/seed/book4/200/280"
+  },
+  {
+    "id": "book-005",
+    "title": "小王子",
+    "author": "安托万·德·圣-埃克苏佩里",
+    "publisher": "人民文学出版社",
+    "pages": 97,
+    "summary": "一个来自B-612星球的小王子，他离开自己的星球，在宇宙中旅行，遇到了国王、虚荣的人、商人、点灯人和地理学家，最后来到了地球。",
+    "theme": "relaxed",
+    "tags": ["治愈", "童话", "成长"],
+    "cover": "https://picsum.photos/seed/book5/200/280"
+  },
+  {
+    "id": "book-006",
+    "title": "嫌疑人X的献身",
+    "author": "东野圭吾",
+    "publisher": "南海出版公司",
+    "pages": 251,
+    "summary": "一个数学天才与一位邻居的故事。为了帮助邻居掩盖罪行，他设计了一个完美的不在场证明，却被老同学逐步揭开真相。",
+    "theme": "mystery",
+    "tags": ["悬疑", "烧脑", "推理"],
+    "cover": "https://picsum.photos/seed/book6/200/280"
+  },
+  {
+    "id": "book-007",
+    "title": "追风筝的人",
+    "author": "卡勒德·胡赛尼",
+    "publisher": "上海人民出版社",
+    "pages": 362,
+    "summary": "一个关于友谊、背叛与救赎的故事。阿富汗富家少爷阿米尔与仆人哈桑情同手足，然而在一场风筝比赛后，发生了一件悲惨的事。",
+    "theme": "emotional",
+    "tags": ["感动", "友情", "成长"],
+    "cover": "https://picsum.photos/seed/book7/200/280"
+  },
+  {
+    "id": "book-008",
+    "title": "鲁滨逊漂流记",
+    "author": "丹尼尔·笛福",
+    "publisher": "人民文学出版社",
+    "pages": 298,
+    "summary": "一个英国人在航海途中遇到风暴，漂流到一个无人岛上，凭借自己的智慧和勇气，在岛上生活了28年，最终获救返回故乡。",
+    "theme": "adventure",
+    "tags": ["冒险", "生存", "经典"],
+    "cover": "https://picsum.photos/seed/book8/200/280"
+  },
+  {
+    "id": "book-009",
+    "title": "偷影子的人",
+    "author": "马克·李维",
+    "publisher": "湖南文艺出版社",
+    "pages": 227,
+    "summary": "一个经常受同学欺负的瘦弱小男孩，因为拥有一种特殊的能力而强大：他能偷别人的影子，因而能看见他人心事，听见人们心中不愿意说出口的秘密。",
+    "theme": "relaxed",
+    "tags": ["治愈", "温暖", "成长"],
+    "cover": "https://picsum.photos/seed/book9/200/280"
+  },
+  {
+    "id": "book-010",
+    "title": "无人生还",
+    "author": "阿加莎·克里斯蒂",
+    "publisher": "人民文学出版社",
+    "pages": 237,
+    "summary": "十个互不相识的人，被富有的欧文先生邀请到了印第安岛上的私人别墅里。晚餐后，一个神秘的声音揭开了人们心中所各自隐藏着的可怕秘密。",
+    "theme": "mystery",
+    "tags": ["悬疑", "烧脑", "推理"],
+    "cover": "https://picsum.photos/seed/book10/200/280"
+  },
+  {
+    "id": "book-011",
+    "title": "茶花女",
+    "author": "小仲马",
+    "publisher": "人民文学出版社",
+    "pages": 213,
+    "summary": "一个关于巴黎名妓玛格丽特与富家青年阿尔芒之间的凄美爱情故事。他们相爱却因世俗偏见而分离，最终玛格丽特在贫病交加中死去。",
+    "theme": "emotional",
+    "tags": ["感动", "爱情", "经典"],
+    "cover": "https://picsum.photos/seed/book11/200/280"
+  },
+  {
+    "id": "book-012",
+    "title": "八十天环游地球",
+    "author": "儒勒·凡尔纳",
+    "publisher": "人民文学出版社",
+    "pages": 221,
+    "summary": "英国绅士福格先生因为在改良俱乐部里与朋友打赌，要在80天内环游地球一周。他带着仆人路路通，经历了无数冒险，最终完成了这个看似不可能的任务。",
+    "theme": "adventure",
+    "tags": ["冒险", "科幻", "经典"],
+    "cover": "https://picsum.photos/seed/book12/200/280"
+  },
+  {
+    "id": "book-013",
+    "title": "牧羊少年奇幻之旅",
+    "author": "保罗·柯艾略",
+    "publisher": "南海出版公司",
+    "pages": 217,
+    "summary": "一个关于追寻梦想的寓言故事。西班牙牧羊少年圣地亚哥因为做了一个关于金字塔宝藏的梦，踏上了寻找宝藏的旅程，在旅途中他学会了倾听自己的心声。",
+    "theme": "relaxed",
+    "tags": ["治愈", "成长", "寓言"],
+    "cover": "https://picsum.photos/seed/book13/200/280"
+  },
+  {
+    "id": "book-014",
+    "title": "福尔摩斯探案集",
+    "author": "阿瑟·柯南·道尔",
+    "publisher": "群众出版社",
+    "pages": 456,
+    "summary": "英国伦敦贝克街221号B座，住着一位具有高度推理能力的侦探——夏洛克·福尔摩斯。他与好友华生医生一起，破获了无数离奇案件。",
+    "theme": "mystery",
+    "tags": ["悬疑", "烧脑", "推理"],
+    "cover": "https://picsum.photos/seed/book14/200/280"
+  },
+  {
+    "id": "book-015",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "publisher": "人民文学出版社",
+    "pages": 1630,
+    "summary": "一部全景式地表现中国当代城乡社会生活的长篇小说。以孙少安和孙少平两兄弟为中心，通过复杂的矛盾纠葛，刻画了当时社会各阶层众多普通人的形象。",
+    "theme": "emotional",
+    "tags": ["感动", "人生", "现实"],
+    "cover": "https://picsum.photos/seed/book15/200/280"
+  },
+  {
+    "id": "book-016",
+    "title": "老人与海",
+    "author": "欧内斯特·海明威",
+    "publisher": "上海译文出版社",
+    "pages": 112,
+    "summary": "一位古巴老渔夫圣地亚哥在连续八十四天没捕到鱼的情况下，终于独自钓上了一条大马林鱼。经过两天两夜的搏斗，他终于杀死大鱼，但在归程中又遭到鲨鱼的袭击。",
+    "theme": "adventure",
+    "tags": ["冒险", "励志", "经典"],
+    "cover": "https://picsum.photos/seed/book16/200/280"
+  }
+]
