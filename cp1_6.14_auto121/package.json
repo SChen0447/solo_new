@@ -1,0 +1,33 @@
+{
+  "name": "aquarium-manager",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"node src/server/index.js\" \"vite\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node src/server/index.js"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "express": "^4.21.0",
+    "zustand": "^4.5.5",
+    "axios": "^1.7.7",
+    "react-router-dom": "^6.26.2",
+    "uuid": "^10.0.0",
+    "cors": "^2.8.5",
+    "recharts": "^2.12.7",
+    "date-fns": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "concurrently": "^8.2.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8"
+  }
+}
