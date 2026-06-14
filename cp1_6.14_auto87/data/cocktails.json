@@ -1,0 +1,265 @@
+[
+  {
+    "id": "c1",
+    "name": "马天尼",
+    "baseSpirit": "金酒",
+    "ingredients": [
+      { "name": "金酒", "amount": 60 },
+      { "name": "干味美思", "amount": 10 }
+    ],
+    "method": "搅拌",
+    "glass": "马天尼杯",
+    "flavorTags": ["清爽", "草本"],
+    "imageUrl": "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400",
+    "isFavorite": true,
+    "lastEdited": "2025-12-01T10:00:00Z",
+    "description": "经典中的经典，干马天尼被誉为鸡尾酒之王。"
+  },
+  {
+    "id": "c2",
+    "name": "曼哈顿",
+    "baseSpirit": "威士忌",
+    "ingredients": [
+      { "name": "波本威士忌", "amount": 60 },
+      { "name": "甜味美思", "amount": 30 },
+      { "name": "安格斯特拉苦精", "amount": 2 }
+    ],
+    "method": "搅拌",
+    "glass": "古典杯",
+    "flavorTags": ["甜", "烟熏"],
+    "imageUrl": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-11-20T14:30:00Z",
+    "description": "诞生于纽约曼哈顿的经典鸡尾酒，优雅醇厚。"
+  },
+  {
+    "id": "c3",
+    "name": "莫吉托",
+    "baseSpirit": "朗姆",
+    "ingredients": [
+      { "name": "白朗姆酒", "amount": 60 },
+      { "name": "青柠汁", "amount": 30 },
+      { "name": "白砂糖", "amount": 15 },
+      { "name": "薄荷叶", "amount": 8 },
+      { "name": "苏打水", "amount": 90 }
+    ],
+    "method": "直接注入",
+    "glass": "高球杯",
+    "flavorTags": ["清爽", "草本", "酸"],
+    "imageUrl": "https://images.unsplash.com/photo-1536935338788-846bb9981813?w=400",
+    "isFavorite": true,
+    "lastEdited": "2025-12-05T09:15:00Z",
+    "description": "古巴的国民鸡尾酒，清新爽口，夏日必备。"
+  },
+  {
+    "id": "c4",
+    "name": "玛格丽特",
+    "baseSpirit": "龙舌兰",
+    "ingredients": [
+      { "name": "龙舌兰酒", "amount": 50 },
+      { "name": "君度橙酒", "amount": 25 },
+      { "name": "青柠汁", "amount": 25 }
+    ],
+    "method": "摇和",
+    "glass": "马天尼杯",
+    "flavorTags": ["酸", "果味"],
+    "imageUrl": "https://images.unsplash.com/photo-1551538827-9c037cb4f32a?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-11-28T16:45:00Z",
+    "description": "盐边+龙舌兰的经典组合，墨西哥风情十足。"
+  },
+  {
+    "id": "c5",
+    "name": "莫斯科骡子",
+    "baseSpirit": "伏特加",
+    "ingredients": [
+      { "name": "伏特加", "amount": 45 },
+      { "name": "姜汁啤酒", "amount": 120 },
+      { "name": "青柠汁", "amount": 15 }
+    ],
+    "method": "直接注入",
+    "glass": "高球杯",
+    "flavorTags": ["清爽", "辣", "酸"],
+    "imageUrl": "https://images.unsplash.com/photo-1587223962930-cb7f31384c19?w=400",
+    "isFavorite": true,
+    "lastEdited": "2025-12-03T11:20:00Z",
+    "description": "铜杯盛装的经典鸡尾酒，姜味浓郁，清爽提神。"
+  },
+  {
+    "id": "c6",
+    "name": "威士忌酸",
+    "baseSpirit": "威士忌",
+    "ingredients": [
+      { "name": "波本威士忌", "amount": 60 },
+      { "name": "柠檬汁", "amount": 30 },
+      { "name": "糖浆", "amount": 20 },
+      { "name": "蛋清", "amount": 1 }
+    ],
+    "method": "摇和",
+    "glass": "古典杯",
+    "flavorTags": ["酸", "甜"],
+    "imageUrl": "https://images.unsplash.com/photo-1527661591475-527312d6d613?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-11-25T08:00:00Z",
+    "description": "经典酸酒，口感平衡，泡沫细腻。"
+  },
+  {
+    "id": "c7",
+    "name": "代基里",
+    "baseSpirit": "朗姆",
+    "ingredients": [
+      { "name": "白朗姆酒", "amount": 60 },
+      { "name": "青柠汁", "amount": 25 },
+      { "name": "糖浆", "amount": 15 }
+    ],
+    "method": "摇和",
+    "glass": "马天尼杯",
+    "flavorTags": ["酸", "甜", "清爽"],
+    "imageUrl": "https://images.unsplash.com/photo-1560512823-829485b8bf24?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-11-30T13:10:00Z",
+    "description": "海明威最爱的鸡尾酒，简单却完美平衡。"
+  },
+  {
+    "id": "c8",
+    "name": "内格罗尼",
+    "baseSpirit": "金酒",
+    "ingredients": [
+      { "name": "金酒", "amount": 30 },
+      { "name": "金巴利", "amount": 30 },
+      { "name": "甜味美思", "amount": 30 }
+    ],
+    "method": "搅拌",
+    "glass": "古典杯",
+    "flavorTags": ["苦", "甜", "草本"],
+    "imageUrl": "https://images.unsplash.com/photo-1545438102-799c3991ffb2?w=400",
+    "isFavorite": true,
+    "lastEdited": "2025-12-04T15:50:00Z",
+    "description": "意大利经典开胃酒，苦甜平衡，风味复杂。"
+  },
+  {
+    "id": "c9",
+    "name": "血腥玛丽",
+    "baseSpirit": "伏特加",
+    "ingredients": [
+      { "name": "伏特加", "amount": 45 },
+      { "name": "番茄汁", "amount": 90 },
+      { "name": "柠檬汁", "amount": 15 },
+      { "name": "伍斯特酱", "amount": 5 },
+      { "name": "塔巴斯科辣酱", "amount": 2 },
+      { "name": "盐", "amount": 1 },
+      { "name": "黑胡椒", "amount": 1 }
+    ],
+    "method": "直接注入",
+    "glass": "高球杯",
+    "flavorTags": ["辣", "咸", "酸"],
+    "imageUrl": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-11-22T10:30:00Z",
+    "description": "世界闻名的解酒神器，口味丰富刺激。"
+  },
+  {
+    "id": "c10",
+    "name": "老广场",
+    "baseSpirit": "威士忌",
+    "ingredients": [
+      { "name": "黑麦威士忌", "amount": 60 },
+      { "name": "甜味美思", "amount": 15 },
+      { "name": "安格斯特拉苦精", "amount": 2 },
+      { "name": "方糖", "amount": 1 }
+    ],
+    "method": "直接注入",
+    "glass": "古典杯",
+    "flavorTags": ["甜", "苦", "烟熏"],
+    "imageUrl": "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-11-26T14:00:00Z",
+    "description": "美国南部经典，大块方糖与威士忌的完美结合。"
+  },
+  {
+    "id": "c11",
+    "name": "柯梦波丹",
+    "baseSpirit": "伏特加",
+    "ingredients": [
+      { "name": "伏特加", "amount": 40 },
+      { "name": "君度橙酒", "amount": 20 },
+      { "name": "蔓越莓汁", "amount": 30 },
+      { "name": "青柠汁", "amount": 15 }
+    ],
+    "method": "摇和",
+    "glass": "马天尼杯",
+    "flavorTags": ["甜", "酸", "果味"],
+    "imageUrl": "https://images.unsplash.com/photo-1541789094913-f3809a8f3ba5?w=400",
+    "isFavorite": true,
+    "lastEdited": "2025-12-02T17:20:00Z",
+    "description": "欲望都市同款，粉红色的时尚鸡尾酒。"
+  },
+  {
+    "id": "c12",
+    "name": "特基拉日出",
+    "baseSpirit": "龙舌兰",
+    "ingredients": [
+      { "name": "龙舌兰酒", "amount": 50 },
+      { "name": "橙汁", "amount": 100 },
+      { "name": "石榴糖浆", "amount": 15 }
+    ],
+    "method": "直接注入",
+    "glass": "高球杯",
+    "flavorTags": ["甜", "果味"],
+    "imageUrl": "https://images.unsplash.com/photo-1609951651556-5334e2706168?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-11-29T12:45:00Z",
+    "description": "如日出般绚丽的分层效果，甜美易饮。"
+  },
+  {
+    "id": "c13",
+    "name": "金汤力",
+    "baseSpirit": "金酒",
+    "ingredients": [
+      { "name": "金酒", "amount": 50 },
+      { "name": "汤力水", "amount": 120 },
+      { "name": "青柠角", "amount": 1 }
+    ],
+    "method": "直接注入",
+    "glass": "高球杯",
+    "flavorTags": ["清爽", "草本", "苦"],
+    "imageUrl": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-12-06T09:00:00Z",
+    "description": "最简单也最经典的金酒鸡尾酒，清爽提神。"
+  },
+  {
+    "id": "c14",
+    "name": "自由古巴",
+    "baseSpirit": "朗姆",
+    "ingredients": [
+      { "name": "白朗姆酒", "amount": 50 },
+      { "name": "可乐", "amount": 120 },
+      { "name": "青柠汁", "amount": 15 }
+    ],
+    "method": "直接注入",
+    "glass": "高球杯",
+    "flavorTags": ["甜", "清爽"],
+    "imageUrl": "https://images.unsplash.com/photo-1622495541709-7c4b8f2e00e3?w=400",
+    "isFavorite": false,
+    "lastEdited": "2025-11-21T11:30:00Z",
+    "description": "朗姆酒+可乐的简单组合，自由古巴的象征。"
+  },
+  {
+    "id": "c15",
+    "name": "侧车",
+    "baseSpirit": "白兰地",
+    "ingredients": [
+      { "name": "干邑白兰地", "amount": 50 },
+      { "name": "君度橙酒", "amount": 20 },
+      { "name": "柠檬汁", "amount": 20 }
+    ],
+    "method": "摇和",
+    "glass": "马天尼杯",
+    "flavorTags": ["甜", "酸", "果味"],
+    "imageUrl": "https://images.unsplash.com/photo-1576092766026-5a3d1a5a8e13?w=400",
+    "isFavorite": true,
+    "lastEdited": "2025-11-27T16:15:00Z",
+    "description": "一战时期诞生的经典鸡尾酒，优雅醇厚。"
+  }
+]
