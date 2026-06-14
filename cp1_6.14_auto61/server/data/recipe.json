@@ -1,0 +1,83 @@
+{
+  "recipes": [
+    {
+      "id": "1",
+      "title": "麻婆豆腐",
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Mapo%20tofu%20in%20a%20white%20bowl%2C%20Sichuan%20style%2C%20garnished%20with%20green%20onions%2C%20warm%20restaurant%20lighting&image_size=square",
+      "difficulty": "中等",
+      "cookTime": 25,
+      "servings": 3,
+      "tags": ["川菜", "快手菜"],
+      "ingredients": [
+        { "name": "嫩豆腐", "amount": 400, "unit": "克", "category": "蔬菜水果" },
+        { "name": "猪肉末", "amount": 100, "unit": "克", "category": "肉类海鲜" },
+        { "name": "豆瓣酱", "amount": 2, "unit": "勺", "category": "调料干货" },
+        { "name": "花椒粉", "amount": 1, "unit": "勺", "category": "调料干货" },
+        { "name": "葱花", "amount": 10, "unit": "克", "category": "蔬菜水果" },
+        { "name": "食用油", "amount": 2, "unit": "勺", "category": "主食粮油" }
+      ],
+      "steps": [
+        { "description": "豆腐切小块，入盐水焯烫2分钟捞出沥干" },
+        { "description": "热锅下油，爆香肉末至变色" },
+        { "description": "加豆瓣酱炒出红油，加适量水烧开" },
+        { "description": "放入豆腐轻轻翻匀，小火焖煮5分钟" },
+        { "description": "勾薄芡，撒花椒粉和葱花出锅" }
+      ],
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "updatedAt": "2024-01-15T10:00:00.000Z"
+    },
+    {
+      "id": "2",
+      "title": "日式咖喱饭",
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Japanese%20curry%20rice%20on%20a%20plate%2C%20warm%20cozy%20home%20cooking%20style&image_size=square",
+      "difficulty": "简单",
+      "cookTime": 40,
+      "servings": 4,
+      "tags": ["日料", "快手菜"],
+      "ingredients": [
+        { "name": "咖喱块", "amount": 1, "unit": "包", "category": "调料干货" },
+        { "name": "土豆", "amount": 2, "unit": "个", "category": "蔬菜水果" },
+        { "name": "胡萝卜", "amount": 1, "unit": "个", "category": "蔬菜水果" },
+        { "name": "洋葱", "amount": 1, "unit": "个", "category": "蔬菜水果" },
+        { "name": "鸡腿肉", "amount": 300, "unit": "克", "category": "肉类海鲜" },
+        { "name": "米饭", "amount": 4, "unit": "个", "category": "主食粮油" }
+      ],
+      "steps": [
+        { "description": "土豆胡萝卜去皮切块，洋葱切丁，鸡肉切块" },
+        { "description": "热锅下油，炒洋葱至透明，加鸡肉煎至变色" },
+        { "description": "加水没过食材，煮沸后撇去浮沫" },
+        { "description": "转小火煮20分钟至蔬菜软烂" },
+        { "description": "关火加入咖喱块搅拌至融化，再开小火煮至浓稠" }
+      ],
+      "createdAt": "2024-02-10T10:00:00.000Z",
+      "updatedAt": "2024-02-10T10:00:00.000Z"
+    },
+    {
+      "id": "3",
+      "title": "提拉米苏",
+      "imageUrl": "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Tiramisu%20dessert%20in%20a%20glass%20cup%2C%20elegant%20Italian%20style&image_size=square",
+      "difficulty": "困难",
+      "cookTime": 60,
+      "servings": 6,
+      "tags": ["烘焙", "低卡"],
+      "ingredients": [
+        { "name": "马斯卡彭奶酪", "amount": 250, "unit": "克", "category": "乳制品蛋类" },
+        { "name": "鸡蛋", "amount": 3, "unit": "个", "category": "乳制品蛋类" },
+        { "name": "细砂糖", "amount": 50, "unit": "克", "category": "调料干货" },
+        { "name": "手指饼干", "amount": 200, "unit": "克", "category": "主食粮油" },
+        { "name": "浓缩咖啡", "amount": 200, "unit": "毫升", "category": "其他" },
+        { "name": "可可粉", "amount": 15, "unit": "克", "category": "调料干货" }
+      ],
+      "steps": [
+        { "description": "蛋黄加糖隔水加热搅打至浓稠发白" },
+        { "description": "加入马斯卡彭奶酪搅拌顺滑" },
+        { "description": "蛋白打至硬性发泡，分次拌入奶酪糊" },
+        { "description": "手指饼干蘸咖啡液，铺一层在容器底部" },
+        { "description": "交替铺奶酪糊和饼干层，冷藏4小时以上" },
+        { "description": "食用前筛撒可可粉即可" }
+      ],
+      "createdAt": "2024-03-05T10:00:00.000Z",
+      "updatedAt": "2024-03-05T10:00:00.000Z"
+    }
+  ]
+}
