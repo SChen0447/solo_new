@@ -1,0 +1,448 @@
+[
+  {
+    "id": "1",
+    "title": "百年孤独",
+    "author": "加西亚·马尔克斯",
+    "isbn": "978-7-5442-5399-4",
+    "year": 2011,
+    "condition": "良好",
+    "currentHolder": "小明",
+    "borrowCount": 5,
+    "status": "available",
+    "borrower": null,
+    "borrowDate": null,
+    "expectedReturnDate": null,
+    "requester": null,
+    "color": "#E8B4A0",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2025-01-10",
+        "event": "add",
+        "description": "小明 将书放入漂流池",
+        "person": "小明"
+      },
+      {
+        "id": "h2",
+        "date": "2025-02-01",
+        "event": "borrow",
+        "description": "小红 借走了这本书",
+        "person": "小红"
+      },
+      {
+        "id": "h3",
+        "date": "2025-02-20",
+        "event": "return",
+        "description": "小红 归还了书籍",
+        "person": "小红"
+      },
+      {
+        "id": "h4",
+        "date": "2025-03-15",
+        "event": "borrow",
+        "description": "小华 借走了这本书",
+        "person": "小华"
+      },
+      {
+        "id": "h5",
+        "date": "2025-04-10",
+        "event": "return",
+        "description": "小华 归还了书籍",
+        "person": "小华"
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "title": "活着",
+    "author": "余华",
+    "isbn": "978-7-5063-6543-7",
+    "year": 2012,
+    "condition": "近新",
+    "currentHolder": "小红",
+    "borrowCount": 3,
+    "status": "borrowed",
+    "borrower": "小李",
+    "borrowDate": "2025-05-01",
+    "expectedReturnDate": "2025-06-01",
+    "requester": null,
+    "color": "#A8D5BA",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2025-01-05",
+        "event": "add",
+        "description": "小红 将书放入漂流池",
+        "person": "小红"
+      },
+      {
+        "id": "h2",
+        "date": "2025-02-10",
+        "event": "borrow",
+        "description": "小明 借走了这本书",
+        "person": "小明"
+      },
+      {
+        "id": "h3",
+        "date": "2025-03-05",
+        "event": "return",
+        "description": "小明 归还了书籍",
+        "person": "小明"
+      },
+      {
+        "id": "h4",
+        "date": "2025-05-01",
+        "event": "borrow",
+        "description": "小李 借走了这本书",
+        "person": "小李"
+      }
+    ]
+  },
+  {
+    "id": "3",
+    "title": "三体",
+    "author": "刘慈欣",
+    "isbn": "978-7-5366-9293-0",
+    "year": 2008,
+    "condition": "一般",
+    "currentHolder": "小华",
+    "borrowCount": 8,
+    "status": "pending",
+    "borrower": null,
+    "borrowDate": null,
+    "expectedReturnDate": null,
+    "requester": "小王",
+    "color": "#B8C9E8",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2024-12-01",
+        "event": "add",
+        "description": "小华 将书放入漂流池",
+        "person": "小华"
+      },
+      {
+        "id": "h2",
+        "date": "2024-12-20",
+        "event": "borrow",
+        "description": "小张 借走了这本书",
+        "person": "小张"
+      },
+      {
+        "id": "h3",
+        "date": "2025-01-15",
+        "event": "return",
+        "description": "小张 归还了书籍",
+        "person": "小张"
+      },
+      {
+        "id": "h4",
+        "date": "2025-02-10",
+        "event": "borrow",
+        "description": "小李 借走了这本书",
+        "person": "小李"
+      },
+      {
+        "id": "h5",
+        "date": "2025-03-20",
+        "event": "return",
+        "description": "小李 归还了书籍",
+        "person": "小李"
+      },
+      {
+        "id": "h6",
+        "date": "2025-05-15",
+        "event": "request",
+        "description": "小王 申请借阅",
+        "person": "小王"
+      }
+    ]
+  },
+  {
+    "id": "4",
+    "title": "围城",
+    "author": "钱钟书",
+    "isbn": "978-7-02-002475-9",
+    "year": 1991,
+    "condition": "较差",
+    "currentHolder": "小李",
+    "borrowCount": 12,
+    "status": "available",
+    "borrower": null,
+    "borrowDate": null,
+    "expectedReturnDate": null,
+    "requester": null,
+    "color": "#D4C4A8",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2024-10-01",
+        "event": "add",
+        "description": "小李 将书放入漂流池",
+        "person": "小李"
+      },
+      {
+        "id": "h2",
+        "date": "2024-10-15",
+        "event": "borrow",
+        "description": "小王 借走了这本书",
+        "person": "小王"
+      },
+      {
+        "id": "h3",
+        "date": "2024-11-05",
+        "event": "return",
+        "description": "小王 归还了书籍",
+        "person": "小王"
+      }
+    ]
+  },
+  {
+    "id": "5",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "isbn": "978-7-5302-0955-0",
+    "year": 2009,
+    "condition": "良好",
+    "currentHolder": "小王",
+    "borrowCount": 6,
+    "status": "available",
+    "borrower": null,
+    "borrowDate": null,
+    "expectedReturnDate": null,
+    "requester": null,
+    "color": "#E8D0A0",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2024-11-01",
+        "event": "add",
+        "description": "小王 将书放入漂流池",
+        "person": "小王"
+      },
+      {
+        "id": "h2",
+        "date": "2024-12-01",
+        "event": "borrow",
+        "description": "小张 借走了这本书",
+        "person": "小张"
+      },
+      {
+        "id": "h3",
+        "date": "2025-01-10",
+        "event": "return",
+        "description": "小张 归还了书籍",
+        "person": "小张"
+      }
+    ]
+  },
+  {
+    "id": "6",
+    "title": "小王子",
+    "author": "安托万·德·圣-埃克苏佩里",
+    "isbn": "978-7-5447-0854-8",
+    "year": 2018,
+    "condition": "全新",
+    "currentHolder": "小张",
+    "borrowCount": 2,
+    "status": "available",
+    "borrower": null,
+    "borrowDate": null,
+    "expectedReturnDate": null,
+    "requester": null,
+    "color": "#C8E6C9",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2025-03-01",
+        "event": "add",
+        "description": "小张 将书放入漂流池",
+        "person": "小张"
+      },
+      {
+        "id": "h2",
+        "date": "2025-03-15",
+        "event": "borrow",
+        "description": "小红 借走了这本书",
+        "person": "小红"
+      },
+      {
+        "id": "h3",
+        "date": "2025-04-05",
+        "event": "return",
+        "description": "小红 归还了书籍",
+        "person": "小红"
+      }
+    ]
+  },
+  {
+    "id": "7",
+    "title": "红楼梦",
+    "author": "曹雪芹",
+    "isbn": "978-7-02-000220-6",
+    "year": 1996,
+    "condition": "一般",
+    "currentHolder": "小赵",
+    "borrowCount": 15,
+    "status": "borrowed",
+    "borrower": "小明",
+    "borrowDate": "2025-04-20",
+    "expectedReturnDate": "2025-05-20",
+    "requester": null,
+    "color": "#F0B8B8",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2024-08-01",
+        "event": "add",
+        "description": "小赵 将书放入漂流池",
+        "person": "小赵"
+      },
+      {
+        "id": "h2",
+        "date": "2024-09-10",
+        "event": "borrow",
+        "description": "小华 借走了这本书",
+        "person": "小华"
+      },
+      {
+        "id": "h3",
+        "date": "2024-10-25",
+        "event": "return",
+        "description": "小华 归还了书籍",
+        "person": "小华"
+      },
+      {
+        "id": "h4",
+        "date": "2025-04-20",
+        "event": "borrow",
+        "description": "小明 借走了这本书",
+        "person": "小明"
+      }
+    ]
+  },
+  {
+    "id": "8",
+    "title": "人类简史",
+    "author": "尤瓦尔·赫拉利",
+    "isbn": "978-7-5086-5189-7",
+    "year": 2014,
+    "condition": "近新",
+    "currentHolder": "小孙",
+    "borrowCount": 4,
+    "status": "available",
+    "borrower": null,
+    "borrowDate": null,
+    "expectedReturnDate": null,
+    "requester": null,
+    "color": "#B0C4DE",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2025-02-01",
+        "event": "add",
+        "description": "小孙 将书放入漂流池",
+        "person": "小孙"
+      },
+      {
+        "id": "h2",
+        "date": "2025-03-01",
+        "event": "borrow",
+        "description": "小李 借走了这本书",
+        "person": "小李"
+      },
+      {
+        "id": "h3",
+        "date": "2025-04-01",
+        "event": "return",
+        "description": "小李 归还了书籍",
+        "person": "小李"
+      }
+    ]
+  },
+  {
+    "id": "9",
+    "title": "挪威的森林",
+    "author": "村上春树",
+    "isbn": "978-7-5327-4292-0",
+    "year": 2007,
+    "condition": "良好",
+    "currentHolder": "小周",
+    "borrowCount": 7,
+    "status": "pending",
+    "borrower": null,
+    "borrowDate": null,
+    "expectedReturnDate": null,
+    "requester": "小张",
+    "color": "#DDA0DD",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2024-11-15",
+        "event": "add",
+        "description": "小周 将书放入漂流池",
+        "person": "小周"
+      },
+      {
+        "id": "h2",
+        "date": "2024-12-10",
+        "event": "borrow",
+        "description": "小王 借走了这本书",
+        "person": "小王"
+      },
+      {
+        "id": "h3",
+        "date": "2025-01-20",
+        "event": "return",
+        "description": "小王 归还了书籍",
+        "person": "小王"
+      },
+      {
+        "id": "h4",
+        "date": "2025-05-10",
+        "event": "request",
+        "description": "小张 申请借阅",
+        "person": "小张"
+      }
+    ]
+  },
+  {
+    "id": "10",
+    "title": "朝花夕拾",
+    "author": "鲁迅",
+    "isbn": "978-7-02-007145-3",
+    "year": 2006,
+    "condition": "较差",
+    "currentHolder": "小吴",
+    "borrowCount": 10,
+    "status": "available",
+    "borrower": null,
+    "borrowDate": null,
+    "expectedReturnDate": null,
+    "requester": null,
+    "color": "#F5DEB3",
+    "pathHistory": [
+      {
+        "id": "h1",
+        "date": "2024-09-01",
+        "event": "add",
+        "description": "小吴 将书放入漂流池",
+        "person": "小吴"
+      },
+      {
+        "id": "h2",
+        "date": "2024-10-05",
+        "event": "borrow",
+        "description": "小赵 借走了这本书",
+        "person": "小赵"
+      },
+      {
+        "id": "h3",
+        "date": "2024-11-15",
+        "event": "return",
+        "description": "小赵 归还了书籍",
+        "person": "小赵"
+      }
+    ]
+  }
+]
