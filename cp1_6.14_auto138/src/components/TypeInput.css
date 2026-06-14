@@ -1,0 +1,44 @@
+.type-input-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.type-input {
+  width: 320px;
+  padding: 14px 18px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: #39ff14;
+  background-color: #1a1a2e;
+  border: 2px solid #39ff14;
+  outline: none;
+  text-align: center;
+  letter-spacing: 2px;
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.3), inset 0 0 10px rgba(57, 255, 20, 0.05);
+  transition: all 0.2s ease;
+}
+
+.type-input:focus {
+  border-color: #ff007f;
+  box-shadow: 0 0 20px rgba(255, 0, 127, 0.5), inset 0 0 10px rgba(255, 0, 127, 0.1);
+  color: #ffffff;
+}
+
+.type-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.type-input::placeholder {
+  color: rgba(57, 255, 20, 0.4);
+}
+
+.input-hint {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #ff007f;
+  letter-spacing: 1px;
+}

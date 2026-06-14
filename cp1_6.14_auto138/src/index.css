@@ -1,0 +1,53 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: 'Press Start 2P', monospace;
+  background-color: #1a1a2e;
+  color: #39ff14;
+  overflow: hidden;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 900px;
+  position: relative;
+  background-color: #1a1a2e;
+  border: 3px solid #39ff14;
+  box-shadow: 0 0 40px rgba(57, 255, 20, 0.2);
+}
+
+.game-main-area {
+  position: relative;
+  padding: 16px;
+}
+
+.game-footer {
+  padding: 0 16px 20px;
+}
+
+button {
+  font-family: 'Press Start 2P', monospace;
+}
+
+input {
+  font-family: 'Press Start 2P', monospace;
+}

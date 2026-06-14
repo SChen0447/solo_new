@@ -1,0 +1,180 @@
+.game-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background-color: #1a1a2e;
+  border-bottom: 2px solid #39ff14;
+  margin-bottom: 16px;
+}
+
+.hud-left, .hud-right {
+  width: 180px;
+}
+
+.hud-center {
+  flex: 1;
+  text-align: center;
+}
+
+.hud-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #ff007f;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.game-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 18px;
+  color: #39ff14;
+  margin: 0;
+  text-shadow: 0 0 10px rgba(57, 255, 20, 0.6);
+}
+
+.hearts {
+  display: flex;
+  gap: 6px;
+}
+
+.pixel-heart {
+  font-size: 20px;
+  transition: all 0.2s ease;
+}
+
+.pixel-heart.active {
+  color: #ff007f;
+  text-shadow: 0 0 8px rgba(255, 0, 127, 0.8);
+}
+
+.pixel-heart.empty {
+  color: #333;
+}
+
+.score-section {
+  text-align: right;
+}
+
+.score-value {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: #ff007f;
+  text-shadow: 0 0 8px rgba(255, 0, 127, 0.6);
+}
+
+.difficulty-badge {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #1a1a2e;
+  background-color: #39ff14;
+  padding: 4px 8px;
+  margin-top: 8px;
+  text-align: right;
+  float: right;
+}
+
+.combo-display {
+  position: absolute;
+  bottom: 90px;
+  right: 30px;
+  text-align: center;
+  z-index: 5;
+}
+
+.combo-display .combo-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #ff007f;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.combo-display .combo-value {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 28px;
+  color: #39ff14;
+  text-shadow: 0 0 10px rgba(57, 255, 20, 0.8);
+  display: inline-block;
+  animation: combo-pop 0.3s ease-out;
+}
+
+.combo-display.gold .combo-value {
+  color: #ffd700;
+  text-shadow: 0 0 15px rgba(255, 215, 0, 0.9);
+  transform: scale(1.2);
+}
+
+@keyframes combo-pop {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.combo-display.gold .combo-value {
+  animation: combo-pop-gold 0.3s ease-out;
+}
+
+@keyframes combo-pop-gold {
+  0% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1.2);
+  }
+}
+
+.pixel-avatar {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  background-color: #1a1a2e;
+  border: 2px solid #39ff14;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.avatar-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.avatar-eyes {
+  display: flex;
+  gap: 12px;
+}
+
+.eye {
+  font-size: 12px;
+  color: #39ff14;
+}
+
+.avatar-mouth {
+  font-size: 16px;
+  color: #ff007f;
+  transition: all 0.2s ease;
+}
+
+.avatar-mouth.open {
+  font-size: 18px;
+}
+
+.pixel-avatar.active {
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.6);
+}
