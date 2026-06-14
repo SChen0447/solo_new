@@ -1,0 +1,122 @@
+[
+  {
+    "id": "dev-001-fender-strat",
+    "name": "Fender Stratocaster 电吉他",
+    "category": "吉他",
+    "dailyPrice": 80,
+    "deposit": 2000,
+    "imageUrl": "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=600&q=80",
+    "description": "经典款 Fender Stratocaster 电吉他，美产，音色通透，适合流行、摇滚、布鲁斯等多种风格。配有琴包和背带。",
+    "ownerId": "owner-001",
+    "ownerName": "音乐人小王",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  },
+  {
+    "id": "dev-002-yamaha-piano",
+    "name": "Yamaha P-125 电钢琴",
+    "category": "键盘",
+    "dailyPrice": 50,
+    "deposit": 1500,
+    "imageUrl": "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=600&q=80",
+    "description": "Yamaha P-125 88键重锤电钢琴，音色逼真，便携设计，适合演出和练习使用。",
+    "ownerId": "owner-001",
+    "ownerName": "音乐人小王",
+    "createdAt": "2026-06-02T00:00:00.000Z"
+  },
+  {
+    "id": "dev-003-marshall-amp",
+    "name": "Marshall DSL40CR 音箱",
+    "category": "音响",
+    "dailyPrice": 120,
+    "deposit": 3000,
+    "imageUrl": "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=600&q=80",
+    "description": "Marshall DSL40CR 全电子管吉他音箱，40瓦功率，经典英式失真音色，排练演出首选。",
+    "ownerId": "owner-002",
+    "ownerName": "老炮儿老李",
+    "createdAt": "2026-06-03T00:00:00.000Z"
+  },
+  {
+    "id": "dev-004-boss-gt100",
+    "name": "Boss GT-100 效果器",
+    "category": "效果器",
+    "dailyPrice": 35,
+    "deposit": 800,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80",
+    "description": "Boss GT-100 综合效果器，内置多种经典效果，支持表情踏板，演出排练利器。",
+    "ownerId": "owner-002",
+    "ownerName": "老炮儿老李",
+    "createdAt": "2026-06-04T00:00:00.000Z"
+  },
+  {
+    "id": "dev-005-gibson-lespaul",
+    "name": "Gibson Les Paul Studio 电吉他",
+    "category": "吉他",
+    "dailyPrice": 100,
+    "deposit": 3500,
+    "imageUrl": "https://images.unsplash.com/photo-1550985616-10810253b84d?w=600&q=80",
+    "description": "Gibson Les Paul Studio 美产电吉他，桃花心木琴身，音色温暖厚实，适合摇滚和金属。",
+    "ownerId": "owner-003",
+    "ownerName": "吉他疯子",
+    "createdAt": "2026-06-05T00:00:00.000Z"
+  },
+  {
+    "id": "dev-006-roland-drums",
+    "name": "Roland TD-17KV 电子鼓",
+    "category": "其他",
+    "dailyPrice": 150,
+    "deposit": 4000,
+    "imageUrl": "https://images.unsplash.com/photo-1519892300165-cb5542fb47c7?w=600&q=80",
+    "description": "Roland TD-17KV 电子鼓套装，音色逼真，支持静音练习，配有鼓凳和鼓棒。",
+    "ownerId": "owner-003",
+    "ownerName": "吉他疯子",
+    "createdAt": "2026-06-06T00:00:00.000Z"
+  },
+  {
+    "id": "dev-007-korg-kronos",
+    "name": "Korg Kronos 合成器工作站",
+    "category": "键盘",
+    "dailyPrice": 200,
+    "deposit": 8000,
+    "imageUrl": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&q=80",
+    "description": "Korg Kronos 顶级合成器工作站，9种音色引擎，功能强大，专业演出录音必备。",
+    "ownerId": "owner-004",
+    "ownerName": "键盘手小张",
+    "createdAt": "2026-06-07T00:00:00.000Z"
+  },
+  {
+    "id": "dev-008-line6-helix",
+    "name": "Line 6 Helix 效果器",
+    "category": "效果器",
+    "dailyPrice": 60,
+    "deposit": 2000,
+    "imageUrl": "https://images.unsplash.com/photo-1621360841013-c768371e93cf?w=600&q=80",
+    "description": "Line 6 Helix 旗舰级综合效果器，模拟真实音箱和效果器音色，专业级演出设备。",
+    "ownerId": "owner-004",
+    "ownerName": "键盘手小张",
+    "createdAt": "2026-06-08T00:00:00.000Z"
+  },
+  {
+    "id": "dev-009-jbl-speaker",
+    "name": "JBL EON 615 有源音箱",
+    "category": "音响",
+    "dailyPrice": 90,
+    "deposit": 2500,
+    "imageUrl": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&q=80",
+    "description": "JBL EON 615 15寸有源音箱，1000瓦功率，适合中小型演出和活动使用。",
+    "ownerId": "owner-005",
+    "ownerName": "音响达人",
+    "createdAt": "2026-06-09T00:00:00.000Z"
+  },
+  {
+    "id": "dev-010-akg-mic",
+    "name": "AKG C414 电容麦克风",
+    "category": "其他",
+    "dailyPrice": 45,
+    "deposit": 1800,
+    "imageUrl": "https://images.unsplash.com/photo-1487180144351-b8472da7d491?w=600&q=80",
+    "description": "AKG C414 多指向电容麦克风，专业录音级别，人声和乐器录制效果出色。",
+    "ownerId": "owner-005",
+    "ownerName": "音响达人",
+    "createdAt": "2026-06-10T00:00:00.000Z"
+  }
+]
