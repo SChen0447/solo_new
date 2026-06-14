@@ -1,0 +1,111 @@
+{
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "主排练室",
+      "maxCapacity": 6,
+      "defaultDuration": 120
+    },
+    {
+      "id": "room-2",
+      "name": "小型创作室",
+      "maxCapacity": 3,
+      "defaultDuration": 60
+    }
+  ],
+  "members": [
+    { "id": "member-1", "name": "吉他手小明", "avatar": "🎸" },
+    { "id": "member-2", "name": "贝斯手小红", "avatar": "🎻" },
+    { "id": "member-3", "name": "鼓手小刚", "avatar": "🥁" },
+    { "id": "member-4", "name": "主唱小美", "avatar": "🎤" },
+    { "id": "member-5", "name": "键盘手小李", "avatar": "🎹" }
+  ],
+  "events": [
+    {
+      "id": "event-1",
+      "roomId": "room-1",
+      "title": "新歌排练",
+      "date": "2026-06-16",
+      "startTime": "14:00",
+      "endTime": "16:00",
+      "description": "排练新专辑主打歌",
+      "memberIds": ["member-1", "member-2", "member-3", "member-4"]
+    },
+    {
+      "id": "event-2",
+      "roomId": "room-1",
+      "title": "编曲讨论",
+      "date": "2026-06-17",
+      "startTime": "19:00",
+      "endTime": "21:00",
+      "description": "讨论间奏部分编曲",
+      "memberIds": ["member-1", "member-5"]
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-1",
+      "content": "副歌部分可以升调，更有爆发力",
+      "emotion": "激昂",
+      "audio": null,
+      "createdAt": "2026-06-10T10:30:00Z"
+    },
+    {
+      "id": "note-2",
+      "content": "主歌的分解和弦可以用琶音效果",
+      "emotion": "实验",
+      "audio": null,
+      "createdAt": "2026-06-11T15:20:00Z"
+    },
+    {
+      "id": "note-3",
+      "content": "结尾部分可以渐弱淡出，留有余韵",
+      "emotion": "感伤",
+      "audio": null,
+      "createdAt": "2026-06-12T09:15:00Z"
+    }
+  ],
+  "sheets": [
+    {
+      "id": "sheet-1",
+      "title": "新专辑主打歌",
+      "tonality": "大调",
+      "timeSignature": "4/4",
+      "bpm": 120,
+      "blocks": [
+        {
+          "id": "block-1",
+          "instrument": "吉他",
+          "startBar": 1,
+          "endBar": 8,
+          "chords": "Cmaj7-G-Am-F",
+          "notes": "分解和弦，轻柔进入"
+        },
+        {
+          "id": "block-2",
+          "instrument": "贝斯",
+          "startBar": 1,
+          "endBar": 8,
+          "chords": "C-G-A-F",
+          "notes": "根音为主，第三拍加花"
+        },
+        {
+          "id": "block-3",
+          "instrument": "鼓",
+          "startBar": 5,
+          "endBar": 16,
+          "chords": "",
+          "notes": "军鼓在2、4拍，镲片渐强"
+        },
+        {
+          "id": "block-4",
+          "instrument": "人声",
+          "startBar": 9,
+          "endBar": 24,
+          "chords": "",
+          "notes": "主歌第一段，叙述性唱腔"
+        }
+      ]
+    }
+  ]
+}
