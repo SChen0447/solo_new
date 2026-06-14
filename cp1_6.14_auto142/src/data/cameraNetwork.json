@@ -1,0 +1,291 @@
+[
+  {
+    "id": "cam-001",
+    "name": "街区A-01 固定监控",
+    "type": "fixed",
+    "status": "unencrypted",
+    "encryptionLevel": 1,
+    "coverageRadius": 50,
+    "defenseRating": 1,
+    "posX": 15,
+    "posY": 20,
+    "vulnerabilities": [
+      { "id": "vul-001", "name": "固件版本过旧", "exploitDifficulty": 1, "description": "未更新固件存在已知缓冲区溢出漏洞" },
+      { "id": "vul-002", "name": "默认密码", "exploitDifficulty": 1, "description": "管理员账户使用出厂默认密码" }
+    ]
+  },
+  {
+    "id": "cam-002",
+    "name": "商业区B-12 旋转监控",
+    "type": "rotating",
+    "status": "encrypted",
+    "encryptionLevel": 3,
+    "coverageRadius": 80,
+    "defenseRating": 2,
+    "posX": 35,
+    "posY": 30,
+    "vulnerabilities": [
+      { "id": "vul-003", "name": "旋转间隙盲区", "exploitDifficulty": 2, "description": "360度旋转时存在2秒监控盲区" },
+      { "id": "vul-004", "name": "协议降级攻击", "exploitDifficulty": 3, "description": "支持旧版通信协议可被降级攻击" }
+    ]
+  },
+  {
+    "id": "cam-003",
+    "name": "工业区C-07 固定监控",
+    "type": "fixed",
+    "status": "encrypted",
+    "encryptionLevel": 2,
+    "coverageRadius": 60,
+    "defenseRating": 2,
+    "posX": 55,
+    "posY": 15,
+    "vulnerabilities": [
+      { "id": "vul-005", "name": "物理接口暴露", "exploitDifficulty": 2, "description": "调试端口未禁用可直接接入" }
+    ]
+  },
+  {
+    "id": "cam-004",
+    "name": "军事区D-01 军用监控",
+    "type": "military",
+    "status": "alert-linked",
+    "encryptionLevel": 5,
+    "coverageRadius": 120,
+    "defenseRating": 4,
+    "posX": 75,
+    "posY": 40,
+    "vulnerabilities": [
+      { "id": "vul-006", "name": "供应链后门", "exploitDifficulty": 4, "description": "芯片供应商遗留的硬件级后门" },
+      { "id": "vul-007", "name": "固件签名绕过", "exploitDifficulty": 5, "description": "特定版本的签名校验可被绕过" }
+    ]
+  },
+  {
+    "id": "cam-005",
+    "name": "居民区E-09 固定监控",
+    "type": "fixed",
+    "status": "unencrypted",
+    "encryptionLevel": 1,
+    "coverageRadius": 40,
+    "defenseRating": 1,
+    "posX": 25,
+    "posY": 55,
+    "vulnerabilities": [
+      { "id": "vul-008", "name": "未加密传输", "exploitDifficulty": 1, "description": "视频流未加密可直接截取" },
+      { "id": "vul-009", "name": "远程管理端口开放", "exploitDifficulty": 1, "description": "Telnet端口对外暴露" }
+    ]
+  },
+  {
+    "id": "cam-006",
+    "name": "港口区F-03 旋转监控",
+    "type": "rotating",
+    "status": "alert-linked",
+    "encryptionLevel": 4,
+    "coverageRadius": 100,
+    "defenseRating": 3,
+    "posX": 65,
+    "posY": 65,
+    "vulnerabilities": [
+      { "id": "vul-010", "name": "GPS同步漏洞", "exploitDifficulty": 3, "description": "GPS时间同步可被欺骗导致录制中断" }
+    ]
+  },
+  {
+    "id": "cam-007",
+    "name": "金融区G-15 旋转监控",
+    "type": "rotating",
+    "status": "encrypted",
+    "encryptionLevel": 3,
+    "coverageRadius": 70,
+    "defenseRating": 3,
+    "posX": 45,
+    "posY": 50,
+    "vulnerabilities": [
+      { "id": "vul-011", "name": "中间人攻击", "exploitDifficulty": 2, "description": "证书校验不严可实施中间人攻击" },
+      { "id": "vul-012", "name": "存储注入", "exploitDifficulty": 3, "description": "本地存储未做输入验证" }
+    ]
+  },
+  {
+    "id": "cam-008",
+    "name": "行政区H-01 军用监控",
+    "type": "military",
+    "status": "alert-linked",
+    "encryptionLevel": 5,
+    "coverageRadius": 150,
+    "defenseRating": 5,
+    "posX": 85,
+    "posY": 25,
+    "vulnerabilities": [
+      { "id": "vul-013", "name": "零日漏洞", "exploitDifficulty": 5, "description": "特定型号存在未公开的远程执行漏洞" }
+    ]
+  },
+  {
+    "id": "cam-009",
+    "name": "地下城I-22 固定监控",
+    "type": "fixed",
+    "status": "encrypted",
+    "encryptionLevel": 2,
+    "coverageRadius": 45,
+    "defenseRating": 2,
+    "posX": 10,
+    "posY": 70,
+    "vulnerabilities": [
+      { "id": "vul-014", "name": "电磁干扰敏感", "exploitDifficulty": 2, "description": "对电磁干扰极度敏感可导致重启" },
+      { "id": "vul-015", "name": "日志未加密", "exploitDifficulty": 1, "description": "操作日志明文存储可被篡改" }
+    ]
+  },
+  {
+    "id": "cam-010",
+    "name": "市集区J-08 固定监控",
+    "type": "fixed",
+    "status": "unencrypted",
+    "encryptionLevel": 1,
+    "coverageRadius": 35,
+    "defenseRating": 1,
+    "posX": 40,
+    "posY": 75,
+    "vulnerabilities": [
+      { "id": "vul-016", "name": "物理防护缺失", "exploitDifficulty": 1, "description": "设备未锁可直接物理接触" }
+    ]
+  },
+  {
+    "id": "cam-011",
+    "name": "数据塔K-01 旋转监控",
+    "type": "rotating",
+    "status": "encrypted",
+    "encryptionLevel": 4,
+    "coverageRadius": 90,
+    "defenseRating": 3,
+    "posX": 80,
+    "posY": 70,
+    "vulnerabilities": [
+      { "id": "vul-017", "name": "时间同步偏移", "exploitDifficulty": 3, "description": "NTP同步存在偏移可预测切换时间" },
+      { "id": "vul-018", "name": "固件回滚", "exploitDifficulty": 2, "description": "可强制回滚到有漏洞的旧版固件" }
+    ]
+  },
+  {
+    "id": "cam-012",
+    "name": "霓虹街L-44 固定监控",
+    "type": "fixed",
+    "status": "encrypted",
+    "encryptionLevel": 2,
+    "coverageRadius": 55,
+    "defenseRating": 2,
+    "posX": 20,
+    "posY": 40,
+    "vulnerabilities": [
+      { "id": "vul-019", "name": "弱加密算法", "exploitDifficulty": 2, "description": "使用已破解的DES加密算法" }
+    ]
+  },
+  {
+    "id": "cam-013",
+    "name": "黑市M-07 固定监控",
+    "type": "fixed",
+    "status": "unencrypted",
+    "encryptionLevel": 1,
+    "coverageRadius": 30,
+    "defenseRating": 1,
+    "posX": 50,
+    "posY": 85,
+    "vulnerabilities": [
+      { "id": "vul-020", "name": "硬编码密钥", "exploitDifficulty": 1, "description": "通信密钥硬编码在固件中" }
+    ]
+  },
+  {
+    "id": "cam-014",
+    "name": "电力站N-02 军用监控",
+    "type": "military",
+    "status": "alert-linked",
+    "encryptionLevel": 5,
+    "coverageRadius": 130,
+    "defenseRating": 4,
+    "posX": 90,
+    "posY": 55,
+    "vulnerabilities": [
+      { "id": "vul-021", "name": "热过载漏洞", "exploitDifficulty": 4, "description": "过载特定处理线程可导致安全模块失效" }
+    ]
+  },
+  {
+    "id": "cam-015",
+    "name": "交通枢纽O-11 旋转监控",
+    "type": "rotating",
+    "status": "encrypted",
+    "encryptionLevel": 3,
+    "coverageRadius": 85,
+    "defenseRating": 3,
+    "posX": 30,
+    "posY": 85,
+    "vulnerabilities": [
+      { "id": "vul-022", "name": "频段重叠", "exploitDifficulty": 2, "description": "无线频段与民用设备重叠可产生干扰" },
+      { "id": "vul-023", "name": "API认证绕过", "exploitDifficulty": 3, "description": "REST API的OAuth实现存在绕过漏洞" }
+    ]
+  },
+  {
+    "id": "cam-016",
+    "name": "医疗区P-05 固定监控",
+    "type": "fixed",
+    "status": "encrypted",
+    "encryptionLevel": 2,
+    "coverageRadius": 50,
+    "defenseRating": 2,
+    "posX": 70,
+    "posY": 15,
+    "vulnerabilities": [
+      { "id": "vul-024", "name": "固件更新劫持", "exploitDifficulty": 2, "description": "OTA更新未签名可被劫持替换" }
+    ]
+  },
+  {
+    "id": "cam-017",
+    "name": "研究塔Q-01 军用监控",
+    "type": "military",
+    "status": "alert-linked",
+    "encryptionLevel": 4,
+    "coverageRadius": 110,
+    "defenseRating": 4,
+    "posX": 60,
+    "posY": 35,
+    "vulnerabilities": [
+      { "id": "vul-025", "name": "量子加密实现缺陷", "exploitDifficulty": 4, "description": "量子密钥分发协议实现存在边信道漏洞" }
+    ]
+  },
+  {
+    "id": "cam-018",
+    "name": "废弃物区R-03 固定监控",
+    "type": "fixed",
+    "status": "unencrypted",
+    "encryptionLevel": 1,
+    "coverageRadius": 25,
+    "defenseRating": 1,
+    "posX": 15,
+    "posY": 90,
+    "vulnerabilities": [
+      { "id": "vul-026", "name": "硬件篡改痕迹", "exploitDifficulty": 1, "description": "前次入侵留下的后门尚未清除" }
+    ]
+  },
+  {
+    "id": "cam-019",
+    "name": "天际线S-20 旋转监控",
+    "type": "rotating",
+    "status": "encrypted",
+    "encryptionLevel": 3,
+    "coverageRadius": 75,
+    "defenseRating": 3,
+    "posX": 85,
+    "posY": 85,
+    "vulnerabilities": [
+      { "id": "vul-027", "name": "镜头眩光干扰", "exploitDifficulty": 2, "description": "强光可导致图像处理模块崩溃" },
+      { "id": "vul-028", "name": "蓝牙调试接口", "exploitDifficulty": 2, "description": "蓝牙调试接口未关闭可远程连接" }
+    ]
+  },
+  {
+    "id": "cam-020",
+    "name": "深城区T-06 固定监控",
+    "type": "fixed",
+    "status": "encrypted",
+    "encryptionLevel": 2,
+    "coverageRadius": 40,
+    "defenseRating": 2,
+    "posX": 50,
+    "posY": 10,
+    "vulnerabilities": [
+      { "id": "vul-029", "name": "DNS重绑定", "exploitDifficulty": 2, "description": "DNS重绑定攻击可绕过同源策略" }
+    ]
+  }
+]
