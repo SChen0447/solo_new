@@ -1,0 +1,247 @@
+:root {
+  --bg-deep: #0a0a1a;
+  --bg-indigo: #0d1b2a;
+  --gold-start: #D4AF37;
+  --gold-end: #B8860B;
+  --gold-glow: rgba(212, 175, 55, 0.3);
+  --danger: #8B0000;
+  --danger-hover: #A52A2A;
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(212, 175, 55, 0.25);
+  --glass-blur: blur(12px);
+  --text-primary: #E8E0D0;
+  --text-secondary: #A09080;
+  --text-gold: #D4AF37;
+  --font-display: 'Playfair Display', Georgia, serif;
+
+  --fire-color: #FF4500;
+  --water-color: #00B4D8;
+  --wind-color: #C8A2C8;
+  --rock-color: #8B7355;
+  --shadow-color: #6B3FA0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(ellipse at center, var(--bg-indigo) 0%, var(--bg-deep) 70%, #000000 100%);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@keyframes breathe {
+  0%, 100% { background-color: rgba(255, 255, 255, 0.03); }
+  50% { background-color: rgba(212, 175, 55, 0.06); }
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 0 0 var(--gold-glow); }
+  50% { box-shadow: 0 0 20px 8px var(--gold-glow); }
+  100% { box-shadow: 0 0 0 0 var(--gold-glow); }
+}
+
+@keyframes floatUp {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes spin360 {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+
+@keyframes bounceJump {
+  0% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-20px) scale(1.1); }
+  40% { transform: translateY(0) scale(0.95); }
+  55% { transform: translateY(-10px) scale(1.05); }
+  70% { transform: translateY(0) scale(1); }
+  80% { transform: rotate(15deg); }
+  90% { transform: rotate(-15deg); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes mushroomShake {
+  0%, 100% { transform: translateX(0) scale(1); }
+  10% { transform: translateX(-4px) scale(1.02); }
+  20% { transform: translateX(4px) scale(0.98); }
+  30% { transform: translateX(-3px) scale(1.01); }
+  40% { transform: translateX(3px) scale(0.99); }
+  50% { transform: translateX(-2px) scale(1); }
+  60% { transform: translateX(2px); }
+  70% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+  90% { transform: translateX(0); }
+}
+
+@keyframes swayDance {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(-12deg); }
+  30% { transform: rotate(10deg); }
+  45% { transform: rotate(-8deg); }
+  60% { transform: rotate(6deg); }
+  75% { transform: rotate(-4deg); }
+  90% { transform: rotate(2deg); }
+}
+
+@keyframes cleanStretch {
+  0% { transform: scale(0.8) translateY(10px); }
+  30% { transform: scale(0.7) translateY(15px); }
+  50% { transform: scale(0.7) translateY(15px); }
+  70% { transform: scale(1.1) translateY(-5px); }
+  85% { transform: scale(1.05) translateY(0); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+@keyframes sleepIdle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+
+@keyframes bubblePop {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bottlePulse {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  30% { box-shadow: 0 0 25px 10px var(--gold-glow); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glowRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes waveFloat {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  25% { transform: translateX(2px) translateY(-1px); }
+  50% { transform: translateX(0) translateY(-2px); }
+  75% { transform: translateX(-2px) translateY(-1px); }
+}
+
+@keyframes flameDance {
+  0%, 100% { transform: scaleY(1) scaleX(1); }
+  25% { transform: scaleY(1.1) scaleX(0.95); }
+  50% { transform: scaleY(0.95) scaleX(1.05); }
+  75% { transform: scaleY(1.05) scaleX(0.98); }
+}
+
+@keyframes sparkleBlink {
+  0%, 100% { opacity: 0; }
+  10% { opacity: 1; }
+  20% { opacity: 0; }
+  30% { opacity: 0.8; }
+  50% { opacity: 0; }
+  70% { opacity: 0.6; }
+  80% { opacity: 0; }
+}
+
+@keyframes progressFill {
+  from { width: 0; }
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-start), var(--gold-end));
+  color: #1a1a1a;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.15s;
+}
+
+.btn-gold:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.btn-gold:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: var(--font-display);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+  transform: translateY(-1px);
+}
+
+.creature-anim-feeding {
+  animation: bounceJump 1.2s ease-in-out;
+}
+
+.creature-anim-mushroom {
+  animation: mushroomShake 1s ease-in-out;
+}
+
+.creature-anim-music {
+  animation: swayDance 2s ease-in-out;
+}
+
+.creature-anim-cleaning {
+  animation: cleanStretch 1.5s ease-in-out;
+}
+
+.creature-anim-sleeping {
+  animation: sleepIdle 3s ease-in-out infinite;
+}
+
+.creature-anim-idle {
+  animation: floatUp 3s ease-in-out infinite;
+}
+
+.bottle-pulse {
+  animation: bottlePulse 0.3s ease-out;
+}
+
+.bubble-anim {
+  animation: bubblePop 0.4s ease-out forwards;
+}
