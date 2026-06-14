@@ -1,0 +1,76 @@
+{
+  "artworks": [
+    {
+      "id": "artwork-001",
+      "name": "晨光中的向日葵",
+      "category": "oil",
+      "width": 80,
+      "height": 100,
+      "year": 2023,
+      "price": 15800,
+      "artistName": "李丹青",
+      "artistBio": "李丹青，当代青年油画家，毕业于中央美术学院。作品以自然风景和花卉为主题，色彩明亮温暖，曾多次参加国内外重要展览。",
+      "thumbnailUrl": ""
+    },
+    {
+      "id": "artwork-002",
+      "name": "城市印象系列之三",
+      "category": "photography",
+      "width": 60,
+      "height": 90,
+      "year": 2024,
+      "price": 8600,
+      "artistName": "张明远",
+      "artistBio": "张明远，独立摄影师，专注城市人文摄影十余年。作品曾获国家地理摄影奖，被多家艺术机构收藏。",
+      "thumbnailUrl": ""
+    },
+    {
+      "id": "artwork-003",
+      "name": "沉思者",
+      "category": "sculpture",
+      "width": 40,
+      "height": 60,
+      "year": 2022,
+      "price": 28000,
+      "artistName": "王砚秋",
+      "artistBio": "王砚秋，青年雕塑家，擅长青铜雕塑。作品探索人与自然的关系，兼具古典美与当代意识。",
+      "thumbnailUrl": ""
+    },
+    {
+      "id": "artwork-004",
+      "name": "声音装置 #7",
+      "category": "installation",
+      "width": 200,
+      "height": 250,
+      "year": 2024,
+      "price": 45000,
+      "artistName": "陈雨桐",
+      "artistBio": "陈雨桐，跨媒介艺术家，作品涵盖声音、影像、装置等多种形式。关注技术与感知的边界问题。",
+      "thumbnailUrl": ""
+    },
+    {
+      "id": "artwork-005",
+      "name": "静物与柠檬",
+      "category": "oil",
+      "width": 50,
+      "height": 60,
+      "year": 2023,
+      "price": 12000,
+      "artistName": "李丹青",
+      "artistBio": "李丹青，当代青年油画家，毕业于中央美术学院。作品以自然风景和花卉为主题，色彩明亮温暖，曾多次参加国内外重要展览。",
+      "thumbnailUrl": ""
+    },
+    {
+      "id": "artwork-006",
+      "name": "旧时光",
+      "category": "photography",
+      "width": 50,
+      "height": 50,
+      "year": 2023,
+      "price": 6500,
+      "artistName": "张明远",
+      "artistBio": "张明远，独立摄影师，专注城市人文摄影十余年。作品曾获国家地理摄影奖，被多家艺术机构收藏。",
+      "thumbnailUrl": ""
+    }
+  ]
+}
