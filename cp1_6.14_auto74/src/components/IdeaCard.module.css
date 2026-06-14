@@ -1,0 +1,162 @@
+.card {
+  position: absolute;
+  width: 280px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 4px 4px 6px 0px rgba(0, 0, 0, 0.08);
+  transition: transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 300ms ease,
+              opacity 300ms ease;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+  will-change: transform;
+  border: 1.5px solid transparent;
+}
+
+.card:hover {
+  box-shadow: 6px 6px 12px 0px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+}
+
+.card.dragging {
+  cursor: grabbing;
+  transition: none;
+  z-index: 100;
+  box-shadow: 8px 8px 16px 0px rgba(0, 0, 0, 0.15);
+}
+
+.card.highlighted {
+  animation: pulseGold 1s ease-in-out 2;
+}
+
+@keyframes pulseGold {
+  0%, 100% {
+    border-color: rgba(255, 215, 0, 0.3);
+    box-shadow: 4px 4px 6px 0px rgba(0, 0, 0, 0.08),
+                0 0 0 0 rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    border-color: rgba(255, 215, 0, 1);
+    box-shadow: 4px 4px 6px 0px rgba(0, 0, 0, 0.08),
+                0 0 0 4px rgba(255, 215, 0, 0.2);
+  }
+}
+
+.card.filteredOut {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.cardInner {
+  padding: 16px 16px 14px 16px;
+  position: relative;
+}
+
+.emotionDot {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 300ms ease;
+  cursor: pointer;
+}
+
+.emotionDot:hover {
+  transform: scale(1.2);
+}
+
+.emotionTooltip {
+  position: absolute;
+  top: -28px;
+  right: 0;
+  background: rgba(50, 50, 50, 0.9);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+  transform: translateY(4px);
+}
+
+.emotionDotWrapper:hover .emotionTooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.emotionDotWrapper {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2c2c2c;
+  margin: 0 28px 8px 0;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.content {
+  font-size: 13px;
+  color: #5c5c5c;
+  line-height: 1.6;
+  margin: 0;
+  max-height: 96px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+}
+
+.emotionBar {
+  height: 4px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.deleteBtn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  border: none;
+  color: #888;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 300ms ease, background 300ms ease, color 300ms ease;
+}
+
+.card:hover .deleteBtn {
+  opacity: 1;
+}
+
+.deleteBtn:hover {
+  background: rgba(235, 59, 90, 0.15);
+  color: #EB3B5A;
+}
