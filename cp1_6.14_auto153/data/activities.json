@@ -1,0 +1,112 @@
+[
+  {
+    "id": "act-001",
+    "name": "春日创意市集",
+    "description": "汇聚本地优秀创作者，展示手工艺、美食、文创产品的大型创意市集活动",
+    "location": "市中心文化广场",
+    "startDate": "2026-04-15T09:00:00",
+    "endDate": "2026-04-15T20:00:00",
+    "activityCode": "SPRM2026",
+    "status": "active",
+    "schedule": [
+      { "time": "09:00", "event": "开幕式暨摊主签到" },
+      { "time": "10:00", "event": "市集正式开始" },
+      { "time": "12:00", "event": "美食摊位专场展示" },
+      { "time": "14:00", "event": "手工艺品现场制作体验" },
+      { "time": "16:00", "event": "文创产品分享会" },
+      { "time": "18:00", "event": "音乐表演" },
+      { "time": "19:30", "event": "活动总结暨颁奖" },
+      { "time": "20:00", "event": "活动结束" }
+    ],
+    "booths": [
+      {
+        "id": "booth-001",
+        "name": "糖霜小筑",
+        "ownerName": "李明",
+        "type": "food",
+        "description": "手工曲奇饼干和创意糖霜蛋糕",
+        "contact": "13800000001",
+        "status": "approved",
+        "position": { "row": 0, "col": 0 },
+        "rating": 4.8,
+        "ratingCount": 56
+      },
+      {
+        "id": "booth-002",
+        "name": "织梦工坊",
+        "ownerName": "王芳",
+        "type": "craft",
+        "description": "手工编织挂件、毛线玩偶和定制围巾",
+        "contact": "13800000002",
+        "status": "approved",
+        "position": { "row": 0, "col": 1 },
+        "rating": 4.6,
+        "ratingCount": 42
+      },
+      {
+        "id": "booth-003",
+        "name": "墨香文创",
+        "ownerName": "张伟",
+        "type": "cultural",
+        "description": "原创插画明信片、手账本和个性化印章",
+        "contact": "13800000003",
+        "status": "approved",
+        "position": { "row": 0, "col": 2 },
+        "rating": 4.9,
+        "ratingCount": 81
+      },
+      {
+        "id": "booth-004",
+        "name": "绿意多肉",
+        "ownerName": "陈静",
+        "type": "other",
+        "description": "多肉植物组合盆栽和创意花盆",
+        "contact": "13800000004",
+        "status": "approved",
+        "position": { "row": 1, "col": 0 },
+        "rating": 4.5,
+        "ratingCount": 35
+      },
+      {
+        "id": "booth-005",
+        "name": "烤物达人",
+        "ownerName": "刘强",
+        "type": "food",
+        "description": "日式烤饭团和现做关东煮",
+        "contact": "13800000005",
+        "status": "approved",
+        "position": { "row": 1, "col": 1 },
+        "rating": 4.7,
+        "ratingCount": 68
+      },
+      {
+        "id": "booth-006",
+        "name": "木语手作",
+        "ownerName": "赵磊",
+        "type": "craft",
+        "description": "原木雕刻摆件、檀木书签和首饰盒",
+        "contact": "13800000006",
+        "status": "pending",
+        "position": null,
+        "rating": 0,
+        "ratingCount": 0
+      },
+      {
+        "id": "booth-007",
+        "name": "流光摄影",
+        "ownerName": "孙丽",
+        "type": "cultural",
+        "description": "复古风格照片打印和拍立得体验",
+        "contact": "13800000007",
+        "status": "pending",
+        "position": null,
+        "rating": 0,
+        "ratingCount": 0
+      }
+    ],
+    "checkIns": [
+      { "id": "ci-001", "userId": "u-001", "userName": "游客A", "timestamp": "2026-04-15T09:15:00" },
+      { "id": "ci-002", "userId": "u-002", "userName": "游客B", "timestamp": "2026-04-15T09:32:00" },
+      { "id": "ci-003", "userId": "u-003", "userName": "游客C", "timestamp": "2026-04-15T10:05:00" },
+      { "id": "ci-004", "userId": "u-004", "userName": "游客D", "timestamp": "2026-04-15T10:28:00" },
+      { "id": "ci-005", "userId": "u-
