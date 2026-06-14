@@ -1,0 +1,21 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "title": "Kind of Blue",
+    "artist": "Miles Davis",
+    "year": 1959,
+    "styles": ["爵士"],
+    "label": "Columbia",
+    "price": 30.0,
+    "channel": "实体店",
+    "ratings": [
+      {
+        "stars": 5,
+        "note": "里程碑式的 Modal Jazz，午夜独自聆听的最佳选择。每一件乐器的呼吸都清晰可闻。",
+        "moods": ["放松", "怀旧"],
+        "createdAt": "2026-03-18T21:12:00.000Z"
+      }
+    ],
+    "createdAt": "2026-03-15T10:00:00.000Z"
+  }
+]
