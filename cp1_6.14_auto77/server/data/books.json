@@ -1,0 +1,202 @@
+[
+  {
+    "id": "b001",
+    "title": "百年孤独",
+    "author": "加西亚·马尔克斯",
+    "isbn": "9787544253994",
+    "category": "文学小说",
+    "status": "in_stock",
+    "description": "魔幻现实主义文学的代表作，描写了布恩迪亚家族七代人的传奇故事。",
+    "price": 55.0
+  },
+  {
+    "id": "b002",
+    "title": "追风筝的人",
+    "author": "卡勒德·胡赛尼",
+    "isbn": "9787208061644",
+    "category": "文学小说",
+    "status": "out_of_stock",
+    "description": "一个关于友谊、背叛与救赎的感人故事。",
+    "price": 36.0
+  },
+  {
+    "id": "b003",
+    "title": "瓦尔登湖",
+    "author": "亨利·戴维·梭罗",
+    "isbn": "9787532729265",
+    "category": "散文随笔",
+    "status": "restocking",
+    "description": "梭罗在瓦尔登湖畔独居两年的生活记录和思考。",
+    "price": 28.0
+  },
+  {
+    "id": "b004",
+    "title": "人类简史",
+    "author": "尤瓦尔·赫拉利",
+    "isbn": "9787508647357",
+    "category": "历史科普",
+    "status": "in_stock",
+    "description": "从认知革命到科学革命，讲述智人如何登上食物链顶端。",
+    "price": 68.0
+  },
+  {
+    "id": "b005",
+    "title": "三体",
+    "author": "刘慈欣",
+    "isbn": "9787536692930",
+    "category": "科幻小说",
+    "status": "in_stock",
+    "description": "地球文明与三体文明的生死博弈，中国科幻的巅峰之作。",
+    "price": 23.0
+  },
+  {
+    "id": "b006",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "isbn": "9787530209554",
+    "category": "文学小说",
+    "status": "out_of_stock",
+    "description": "讲述中国70年代到80年代十年间城乡社会生活的长篇小说。",
+    "price": 64.0
+  },
+  {
+    "id": "b007",
+    "title": "活着",
+    "author": "余华",
+    "isbn": "9787506365437",
+    "category": "文学小说",
+    "status": "in_stock",
+    "description": "讲述了农村人福贵悲惨的人生遭遇，展现生命的张力。",
+    "price": 20.0
+  },
+  {
+    "id": "b008",
+    "title": "小王子",
+    "author": "安托万·德·圣-埃克苏佩里",
+    "isbn": "9787544733083",
+    "category": "儿童文学",
+    "status": "in_stock",
+    "description": "一部写给大人的童话，关于爱、责任与成长。",
+    "price": 22.0
+  },
+  {
+    "id": "b009",
+    "title": "围城",
+    "author": "钱锺书",
+    "isbn": "9787020024759",
+    "category": "文学小说",
+    "status": "restocking",
+    "description": "一部新\"儒林外史\"，讽刺当时社会的各种弊病。",
+    "price": 19.0
+  },
+  {
+    "id": "b010",
+    "title": "呐喊",
+    "author": "鲁迅",
+    "isbn": "9787020058341",
+    "category": "文学小说",
+    "status": "in_stock",
+    "description": "鲁迅的第一部短篇小说集，收录《狂人日记》《阿Q正传》等。",
+    "price": 12.0
+  },
+  {
+    "id": "b011",
+    "title": "明朝那些事儿",
+    "author": "当年明月",
+    "isbn": "9787213026850",
+    "category": "历史科普",
+    "status": "in_stock",
+    "description": "用通俗易懂的笔法讲述明朝三百年兴衰史。",
+    "price": 28.0
+  },
+  {
+    "id": "b012",
+    "title": "沙丘",
+    "author": "弗兰克·赫伯特",
+    "isbn": "9787539934563",
+    "category": "科幻小说",
+    "status": "out_of_stock",
+    "description": "科幻史上的里程碑之作，沙漠行星厄拉科斯的传奇。",
+    "price": 58.0
+  },
+  {
+    "id": "b013",
+    "title": "思考，快与慢",
+    "author": "丹尼尔·卡尼曼",
+    "isbn": "9787508633558",
+    "category": "心理学",
+    "status": "in_stock",
+    "description": "诺贝尔经济学奖得主揭示人类思维的两套系统。",
+    "price": 69.0
+  },
+  {
+    "id": "b014",
+    "title": "苏菲的世界",
+    "author": "乔斯坦·贾德",
+    "isbn": "9787506395168",
+    "category": "哲学入门",
+    "status": "in_stock",
+    "description": "一部关于西方哲学史的长篇小说，启蒙无数读者。",
+    "price": 38.0
+  },
+  {
+    "id": "b015",
+    "title": "麦田里的守望者",
+    "author": "杰罗姆·大卫·塞林格",
+    "isbn": "9787544727488",
+    "category": "文学小说",
+    "status": "restocking",
+    "description": "少年霍尔顿的纽约三日流浪记，青春的反叛与迷茫。",
+    "price": 26.0
+  },
+  {
+    "id": "b016",
+    "title": "解忧杂货店",
+    "author": "东野圭吾",
+    "isbn": "9787544270878",
+    "category": "文学小说",
+    "status": "in_stock",
+    "description": "一家跨越时空的杂货店，解答人生的种种困惑。",
+    "price": 39.5
+  },
+  {
+    "id": "b017",
+    "title": "白夜行",
+    "author": "东野圭吾",
+    "isbn": "9787544258609",
+    "category": "悬疑推理",
+    "status": "out_of_stock",
+    "description": "一段跨越十九年的悲惨爱恋，悬疑小说的巅峰之作。",
+    "price": 35.0
+  },
+  {
+    "id": "b018",
+    "title": "嫌疑人X的献身",
+    "author": "东野圭吾",
+    "isbn": "9787544267618",
+    "category": "悬疑推理",
+    "status": "in_stock",
+    "description": "一个天才数学家与一位邻居的感人故事。",
+    "price": 28.0
+  },
+  {
+    "id": "b019",
+    "title": "挪威的森林",
+    "author": "村上春树",
+    "isbn": "9787544268288",
+    "category": "文学小说",
+    "status": "in_stock",
+    "description": "青春、爱情与死亡的感伤物语。",
+    "price": 36.0
+  },
+  {
+    "id": "b020",
+    "title": "海边的卡夫卡",
+    "author": "村上春树",
+    "isbn": "9787544244121",
+    "category": "文学小说",
+    "status": "out_of_stock",
+    "description": "少年田村卡夫卡的奇妙命运之旅。",
+    "price": 35.0
+  }
+]
