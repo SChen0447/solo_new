@@ -1,0 +1,68 @@
+{
+  "courses": [
+    {
+      "id": "c1",
+      "name": "陶艺基础班",
+      "type": "陶艺",
+      "date": "2025-06-16",
+      "startTime": "09:00",
+      "duration": 2,
+      "capacity": 10,
+      "materials": [
+        { "materialId": "m1", "quantity": 2 },
+        { "materialId": "m2", "quantity": 1 }
+      ],
+      "enrolledStudents": ["s1", "s2", "s3"],
+      "attendance": {}
+    },
+    {
+      "id": "c2",
+      "name": "编织入门课",
+      "type": "编织",
+      "date": "2025-06-17",
+      "startTime": "14:00",
+      "duration": 1.5,
+      "capacity": 8,
+      "materials": [
+        { "materialId": "m3", "quantity": 1 },
+        { "materialId": "m4", "quantity": 3 }
+      ],
+      "enrolledStudents": ["s1", "s4"],
+      "attendance": { "s1": "14:05" }
+    },
+    {
+      "id": "c3",
+      "name": "木工基础",
+      "type": "木工",
+      "date": "2025-06-18",
+      "startTime": "10:00",
+      "duration": 3,
+      "capacity": 6,
+      "materials": [
+        { "materialId": "m5", "quantity": 1 },
+        { "materialId": "m6", "quantity": 2 }
+      ],
+      "enrolledStudents": ["s2", "s3", "s5"],
+      "attendance": {}
+    }
+  ],
+  "students": [
+    { "id": "s1", "name": "张三", "phone": "13800138001" },
+    { "id": "s2", "name": "李四", "phone": "13800138002" },
+    { "id": "s3", "name": "王五", "phone": "13800138003" },
+    { "id": "s4", "name": "赵六", "phone": "13800138004" },
+    { "id": "s5", "name": "钱七", "phone": "13800138005" }
+  ],
+  "materials": [
+    { "id": "m1", "name": "陶土", "stock": 25, "threshold": 10 },
+    { "id": "m2", "name": "釉料", "stock": 8, "threshold": 5 },
+    { "id": "m3", "name": "毛线", "stock": 30, "threshold": 15 },
+    { "id": "m4", "name": "编织针", "stock": 12, "threshold": 10 },
+    { "id": "m5", "name": "木板", "stock": 5, "threshold": 8 },
+    { "id": "m6", "name": "砂纸", "stock": 20, "threshold": 10 },
+    { "id": "m7", "name": "丙烯颜料", "stock": 3, "threshold": 6 },
+    { "id": "m8", "name": "画笔", "stock": 15, "threshold": 8 },
+    { "id": "m9", "name": "画布", "stock": 18, "threshold": 10 },
+    { "id": "m10", "name": "防护手套", "stock": 50, "threshold": 20 }
+  ]
+}
