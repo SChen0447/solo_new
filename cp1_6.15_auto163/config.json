@@ -1,0 +1,234 @@
+{
+  "player": {
+    "startRoomId": 0,
+    "startX": 128,
+    "startY": 200,
+    "width": 16,
+    "height": 32,
+    "maxHealth": 5,
+    "gravity": -0.5,
+    "jumpForce": 8,
+    "moveSpeed": 2,
+    "shortJumpMultiplier": 0.5
+  },
+  "enemy": {
+    "patrolSpeed": 40,
+    "chaseSpeed": 80,
+    "aggroDistance": 120,
+    "deAggroDistance": 170,
+    "patrolRange": 80,
+    "fireballCooldown": 2000,
+    "fireballSpeed": 200,
+    "fireballDamage": 1
+  },
+  "room": {
+    "width": 256,
+    "height": 256,
+    "backgroundColor": "#2a2a2a",
+    "platformColor": "#8b5a2b",
+    "wallColor": "#808080",
+    "borderRadius": 6
+  },
+  "portal": {
+    "radius": 16,
+    "pulsePeriod": 0.8,
+    "transitionDuration": 300
+  },
+  "ui": {
+    "heartSize": 24,
+    "minimapSize": 120,
+    "minimapRoomSize": 40
+  },
+  "particle": {
+    "jumpParticleCount": 4,
+    "jumpParticleRadius": 2,
+    "jumpParticleLifetime": 0.15
+  },
+  "item": {
+    "keySize": 12,
+    "keyRotationPeriod": 1.2,
+    "heartSize": 16,
+    "heartPulsePeriod": 0.6,
+    "weaponSize": 16,
+    "dartSpeed": 400,
+    "dartWidth": 6,
+    "dartHeight": 16,
+    "unlockTextDuration": 2000
+  },
+  "rooms": [
+    {
+      "id": 0,
+      "name": "起始洞穴",
+      "platforms": [
+        { "x": 0, "y": 240, "w": 256, "h": 16 },
+        { "x": 40, "y": 180, "w": 60, "h": 12 },
+        { "x": 150, "y": 140, "w": 60, "h": 12 }
+      ],
+      "walls": [
+        { "x": 0, "y": 0, "w": 8, "h": 256 },
+        { "x": 248, "y": 0, "w": 8, "h": 256 }
+      ],
+      "portals": [
+        { "x": 232, "y": 208, "targetRoomId": 1, "targetX": 24, "targetY": 200, "requiredKey": false }
+      ],
+      "enemies": [
+        {
+          "id": "s1_0",
+          "type": "slime",
+          "x": 120,
+          "y": 216,
+          "patrolStartX": 80,
+          "patrolEndX": 180
+        },
+        {
+          "id": "s1_1",
+          "type": "slime",
+          "x": 170,
+          "y": 116,
+          "patrolStartX": 150,
+          "patrolEndX": 210
+        }
+      ],
+      "items": [
+        { "id": "k0", "type": "key", "x": 180, "y": 120 },
+        { "id": "h0", "type": "heart", "x": 70, "y": 160 }
+      ],
+      "minimapX": 0,
+      "minimapY": 1
+    },
+    {
+      "id": 1,
+      "name": "走廊",
+      "platforms": [
+        { "x": 0, "y": 240, "w": 256, "h": 16 },
+        { "x": 80, "y": 170, "w": 100, "h": 12 }
+      ],
+      "walls": [
+        { "x": 0, "y": 0, "w": 8, "h": 256 },
+        { "x": 248, "y": 0, "w": 8, "h": 256 },
+        { "x": 0, "y": 0, "w": 256, "h": 8 }
+      ],
+      "portals": [
+        { "x": 24, "y": 208, "targetRoomId": 0, "targetX": 216, "targetY": 200, "requiredKey": false },
+        { "x": 232, "y": 208, "targetRoomId": 2, "targetX": 24, "targetY": 200, "requiredKey": true }
+      ],
+      "enemies": [
+        {
+          "id": "s2_0",
+          "type": "slime",
+          "x": 120,
+          "y": 216,
+          "patrolStartX": 50,
+          "patrolEndX": 200
+        },
+        {
+          "id": "m2_0",
+          "type": "mage",
+          "x": 130,
+          "y": 138,
+          "patrolStartX": 100,
+          "patrolEndX": 160
+        }
+      ],
+      "items": [
+        { "id": "w1", "type": "weapon", "x": 130, "y": 150 }
+      ],
+      "minimapX": 1,
+      "minimapY": 1
+    },
+    {
+      "id": 2,
+      "name": "法师密室",
+      "platforms": [
+        { "x": 0, "y": 240, "w": 256, "h": 16 },
+        { "x": 20, "y": 160, "w": 50, "h": 12 },
+        { "x": 180, "y": 160, "w": 50, "h": 12 },
+        { "x": 100, "y": 100, "w": 60, "h": 12 }
+      ],
+      "walls": [
+        { "x": 0, "y": 0, "w": 8, "h": 256 },
+        { "x": 248, "y": 0, "w": 8, "h": 256 },
+        { "x": 0, "y": 0, "w": 256, "h": 8 }
+      ],
+      "portals": [
+        { "x": 24, "y": 208, "targetRoomId": 1, "targetX": 216, "targetY": 200, "requiredKey": false },
+        { "x": 232, "y": 208, "targetRoomId": 3, "targetX": 24, "targetY": 200, "requiredKey": false }
+      ],
+      "enemies": [
+        {
+          "id": "m3_0",
+          "type": "mage",
+          "x": 60,
+          "y": 208,
+          "patrolStartX": 20,
+          "patrolEndX": 100
+        },
+        {
+          "id": "s3_0",
+          "type": "slime",
+          "x": 130,
+          "y": 216,
+          "patrolStartX": 100,
+          "patrolEndX": 180
+        },
+        {
+          "id": "m3_1",
+          "type": "mage",
+          "x": 200,
+          "y": 208,
+          "patrolStartX": 170,
+          "patrolEndX": 230
+        }
+      ],
+      "items": [
+        { "id": "h2", "type": "heart", "x": 130, "y": 80 },
+        { "id": "k2", "type": "key", "x": 205, "y": 140 }
+      ],
+      "minimapX": 2,
+      "minimapY": 1
+    },
+    {
+      "id": 3,
+      "name": "宝藏洞穴",
+      "platforms": [
+        { "x": 0, "y": 240, "w": 256, "h": 16 },
+        { "x": 30, "y": 190, "w": 40, "h": 12 },
+        { "x": 108, "y": 140, "w": 40, "h": 12 },
+        { "x": 186, "y": 190, "w": 40, "h": 12 }
+      ],
+      "walls": [
+        { "x": 0, "y": 0, "w": 8, "h": 256 },
+        { "x": 248, "y": 0, "w": 8, "h": 256 },
+        { "x": 0, "y": 0, "w": 256, "h": 8 }
+      ],
+      "portals": [
+        { "x": 24, "y": 208, "targetRoomId": 2, "targetX": 216, "targetY": 200, "requiredKey": false }
+      ],
+      "enemies": [
+        {
+          "id": "s4_0",
+          "type": "slime",
+          "x": 100,
+          "y": 216,
+          "patrolStartX": 50,
+          "patrolEndX": 200
+        },
+        {
+          "id": "s4_1",
+          "type": "slime",
+          "x": 128,
+          "y": 216,
+          "patrolStartX": 80,
+          "patrolEndX": 180
+        }
+      ],
+      "items": [
+        { "id": "h3", "type": "heart", "x": 50, "y": 170 },
+        { "id": "h4", "type": "heart", "x": 206, "y": 170 },
+        { "id": "w5", "type": "weapon", "x": 128, "y": 120 }
+      ],
+      "minimapX": 3,
+      "minimapY": 1
+    }
+  ]
+}
