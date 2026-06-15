@@ -1,0 +1,139 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f0eb;
+}
+
+.navbar {
+  background: #1a1a2e;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: 'Georgia', serif;
+  transition: color 0.2s ease;
+}
+
+.nav-logo:hover {
+  color: #c9a84c;
+}
+
+.logo-icon {
+  font-size: 28px;
+}
+
+.logo-text {
+  background: linear-gradient(135deg, #ffffff 0%, #c9a84c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav-link {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+  color: #c9a84c;
+}
+
+.cart-toggle-btn {
+  position: relative;
+  background: none;
+  border: 2px solid #c9a84c;
+  color: #c9a84c;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.cart-toggle-btn:hover {
+  background: #c9a84c;
+  color: #1a1a2e;
+}
+
+.cart-icon {
+  font-size: 18px;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e74c3c;
+  color: #ffffff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.main-content {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .nav-container {
+    height: 56px;
+    padding: 0 16px;
+  }
+
+  .logo-text {
+    font-size: 16px;
+  }
+
+  .nav-actions {
+    gap: 12px;
+  }
+
+  .nav-link {
+    font-size: 13px;
+  }
+
+  .cart-toggle-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}

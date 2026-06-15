@@ -1,0 +1,263 @@
+.book-detail-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+  min-height: 100vh;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: #1a1a2e;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-bottom: 24px;
+  transition: color 0.2s ease;
+}
+
+.back-button:hover {
+  color: #c9a84c;
+}
+
+.detail-container {
+  display: flex;
+  gap: 40px;
+}
+
+.detail-left {
+  flex: 6;
+}
+
+.detail-right {
+  flex: 4;
+}
+
+.preview-wrapper {
+  height: 500px;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: opacity 2s ease;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
+.fade-in {
+  opacity: 1;
+}
+
+.preview-hint {
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.book-detail-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 8px 0;
+  font-family: 'Georgia', serif;
+}
+
+.book-detail-author {
+  font-size: 18px;
+  color: #666;
+  margin: 0 0 24px 0;
+}
+
+.book-meta {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-label {
+  font-size: 12px;
+  color: #999;
+}
+
+.meta-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2c2c2c;
+}
+
+.book-description {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #555;
+  margin-bottom: 24px;
+}
+
+.special-features {
+  margin-bottom: 32px;
+}
+
+.features-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 12px 0;
+}
+
+.features-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feature-tag {
+  background: linear-gradient(135deg, #c9a84c 0%, #d4b560 100%);
+  color: #1a1a2e;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.edition-section,
+.engraving-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 12px 0;
+}
+
+.edition-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.edition-btn {
+  flex: 1;
+  padding: 16px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.edition-btn:hover {
+  border-color: #c9a84c;
+}
+
+.edition-btn.selected {
+  border-color: #c9a84c;
+  background: rgba(201, 168, 76, 0.1);
+}
+
+.edition-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.edition-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #c9a84c;
+}
+
+.edition-multiplier {
+  font-size: 12px;
+  color: #999;
+}
+
+.engraving-hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+}
+
+.price-section {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #1a1a2e;
+  border-radius: 8px;
+}
+
+.price-label {
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.price-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: #c9a84c;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.add-to-cart-btn {
+  flex: 1;
+  padding: 16px !important;
+  font-size: 16px !important;
+}
+
+.not-found {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.not-found h2 {
+  color: #1a1a2e;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .detail-container {
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .detail-left,
+  .detail-right {
+    flex: 1;
+  }
+
+  .preview-wrapper {
+    height: 350px;
+  }
+
+  .book-detail-title {
+    font-size: 28px;
+  }
+
+  .edition-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,73 @@
+.btn {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.btn-content {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-primary {
+  background-color: #1a1a2e;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #16213e;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: #1a1a2e;
+  border: 2px solid #1a1a2e;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #1a1a2e;
+  color: #ffffff;
+}
+
+.btn-gold {
+  background-color: #c9a84c;
+  color: #1a1a2e;
+}
+
+.btn-gold:hover:not(:disabled) {
+  background-color: #d4b560;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(201, 168, 76, 0.4);
+}
+
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.6);
+  transform: scale(0);
+  animation: ripple-animation 0.6s ease-out;
+  pointer-events: none;
+}
+
+.btn-secondary .ripple {
+  background-color: rgba(26, 26, 46, 0.3);
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
