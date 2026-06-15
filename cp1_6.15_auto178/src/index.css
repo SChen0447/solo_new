@@ -1,0 +1,24 @@
+@media (max-width: 768px) {
+  .nav-desktop {
+    display: none !important;
+  }
+  .nav-hamburger {
+    display: flex !important;
+  }
+  .comment-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  .comment-item .avatar-circle {
+    margin-bottom: 4px;
+  }
+}
+
+@media (min-width: 769px) {
+  .nav-hamburger {
+    display: none !important;
+  }
+  .nav-mobile {
+    display: none !important;
+  }
+}
