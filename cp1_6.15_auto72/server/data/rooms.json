@@ -1,0 +1,20 @@
+[
+  {
+    "id": "room-001",
+    "name": "主展厅 - 当代艺术展",
+    "description": "展示精选当代艺术家的优秀作品，融合绘画、雕塑和数字艺术。",
+    "wallColor": "#2c2c3a",
+    "initialCamera": { "x": 0, "y": 2, "z": 12 },
+    "createdAt": "2024-01-15T10:00:00.000Z",
+    "updatedAt": "2024-01-15T10:00:00.000Z"
+  },
+  {
+    "id": "room-002",
+    "name": "数字艺术长廊",
+    "description": "探索数字艺术的无限可能，体验科技与艺术的完美融合。",
+    "wallColor": "#1e2a3a",
+    "initialCamera": { "x": 0, "y": 2, "z": 12 },
+    "createdAt": "2024-01-16T10:00:00.000Z",
+    "updatedAt": "2024-01-16T10:00:00.000Z"
+  }
+]
