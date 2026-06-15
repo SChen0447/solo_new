@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D天体数据可视化看板</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #0a0a1a;
+      color: #ffffff;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      position: relative;
+    }
+
+    /* 渐变分割线 */
+    .divider {
+      width: 2px;
+      height: 100%;
+      background: linear-gradient(to bottom, #16213e, #0a0a1a);
+      flex-shrink: 0;
+    }
+
+    /* 左侧控制面板 */
+    #control-panel {
+      width: 240px;
+      height: 100%;
+      background: #1a1a2e;
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: #888888;
+      margin-bottom: 8px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-label {
+      font-size: 14px;
+      color: #cccccc;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease-out;
+      outline: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23cccccc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    select:hover {
+      border-color: #e94560;
+      background-color: #1a2744;
+    }
+
+    select:focus {
+      border-color: #e94560;
+      box-shadow: 0 0 0 2px rgba(233, 69, 96, 0.2);
+    }
+
+    select option {
+      background: #16213e;
+      color: #ffffff;
+    }
+
+    .stats-box {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+    }
+
+    .stats-label {
+      font-size: 12px;
+      color: #888888;
+    }
+
+    .stats-value {
+      font-size: 14px;
+      color: #ffffff;
+      font-weight: 500;
+    }
+
+    /* 中央场景容器 */
+    #scene-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #three-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 上传遮罩 */
+    #upload-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 10, 26, 0.85);
+      z-index: 50;
+      backdrop-filter: blur(4px);
+    }
+
+    .upload-area {
+      width: 400px;
+      height: 300px;
+      background: #1a1a2e;
+      border: 2px dashed #e94560;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-area::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 16px;
+      opacity: 0;
+      transition: opacity 0.3s ease-out;
+      pointer-events: none;
+    }
+
+    .upload-area:hover {
+      background: #22223a;
+      transform: translateY(-2px);
+    }
+
+    .upload-area:hover::before {
+      opacity: 1;
+      box-shadow: 0 0 30px rgba(233, 69, 96, 0.4), inset 0 0 30px rgba(233, 69, 96, 0.1);
+    }
+
+    .upload-area.dragging {
+      border-style: solid;
+      background: #22223a;
+      animation: glowPulse 1.2s ease-in-out infinite;
+    }
+
+    .upload-area.dragging::before {
+      opacity: 1;
+      box-shadow: 0 0 40px rgba(233, 69, 96, 0.6), inset 0 0 40px rgba(233, 69, 96, 0.15);
+    }
+
+    @keyframes glowPulse {
+      0%, 100% {
+        box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+      }
+      50% {
+        box-shadow: 0 0 50px rgba(233, 69, 96, 0.7), 0 0 80px rgba(233, 69, 96, 0.3);
+      }
+    }
+
+    .upload-icon {
+      width: 64px;
+      height: 64px;
+      opacity: 0.8;
+    }
+
+    .upload-title {
+      font-size: 16px;
+      color: #ffffff;
+      font-weight: 500;
+    }
+
+    .upload-hint {
+      font-size: 12px;
+      color: #888888;
+    }
+
+    .upload-input {
+      display: none;
+    }
+
+    /* 加载状态 */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 10, 26, 0.9);
+      z-index: 60;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid #0f3460;
+      border-top-color: #e94560;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 14px;
+      color: #cccccc;
+    }
+
+    /* 顶部工具栏（移动端） */
+    #mobile-toolbar {
+      display: none;
+      width: 100%;
+      height: 60px;
+      background: #1a1a2e;
+      padding: 8px 16px;
+      gap: 12px;
+      align-items: center;
+      overflow-x: auto;
+      flex-shrink: 0;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    #mobile-toolbar .control-group {
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    #mobile-toolbar .control-label {
+      white-space: nowrap;
+      font-size: 12px;
+    }
+
+    #mobile-toolbar select {
+      width: auto;
+      min-width: 140px;
+      padding: 8px 32px 8px 10px;
+      font-size: 12px;
+    }
+
+    /* 详情卡片 */
+    #detail-card {
+      position: absolute;
+      top: 20px;
+      right: -360px;
+      width: 320px;
+      background: #16213e;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #0f3460;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      z-index: 40;
+      transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-out;
+      opacity: 0;
+      pointer-events: none;
+      max-height: calc(100% - 40px);
+      overflow-y: auto;
+    }
+
+    #detail-card.visible {
+      right: 20px;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #detail-card.hiding {
+      opacity: 0;
+      right: -360px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .close-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #e94560;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease-out;
+      flex-shrink: 0;
+    }
+
+    .close-btn:hover {
+      background: #ff6b6b;
+      transform: scale(1.1);
+    }
+
+    .close-btn:active {
+      transform: scale(0.95);
+    }
+
+    .close-btn svg {
+      width: 12px;
+      height: 12px;
+      stroke: #ffffff;
+      stroke-width: 2.5;
+      fill: none;
+    }
+
+    .thumbnail-container {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #0a0a1a;
+      border-radius: 8px;
+      border: 1px solid #0f3460;
+      overflow: hidden;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .thumbnail-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .thumbnail-placeholder {
+      font-size: 12px;
+      color: #888888;
+    }
+
+    .data-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .data-label {
+      font-size: 14px;
+      color: #cccccc;
+    }
+
+    .data-value {
+      font-size: 14px;
+      color: #ffffff;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      flex-shrink: 0;
+    }
+
+    .brightness-bar {
+      flex: 1;
+      height: 6px;
+      background: #0f3460;
+      border-radius: 3px;
+      margin-left: 12px;
+      overflow: hidden;
+    }
+
+    .brightness-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0f3460, #e94560);
+      border-radius: 3px;
+      transition: width 0.3s ease-out;
+    }
+
+    .coords-box {
+      background: #0a0a1a;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 8px;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+    }
+
+    .coord-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #888888;
+      padding: 2px 0;
+    }
+
+    .coord-value {
+      color: #cccccc;
+    }
+
+    /* 视角提示 */
+    .view-hint {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(22, 33, 62, 0.85);
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 12px;
+      color: #888888;
+      display: flex;
+      gap: 16px;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+
+    .view-hint kbd {
+      background: #0a0a1a;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      color: #cccccc;
+      margin: 0 2px;
+    }
+
+    /* 移动端响应式 */
+    @media (max-width: 768px) {
+      #app {
+        flex-direction: column;
+      }
+
+      #control-panel {
+        display: none;
+      }
+
+      .divider {
+        display: none;
+      }
+
+      #mobile-toolbar {
+        display: flex;
+      }
+
+      #scene-container {
+        height: calc(100% - 60px);
+      }
+    }
+
+    @media (max-width: 480px) {
+      #detail-card {
+        top: auto;
+        bottom: -50%;
+        right: 0 !important;
+        width: 100%;
+        max-height: 40%;
+        border-radius: 16px 16px 0 0;
+        transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-out;
+      }
+
+      #detail-card.visible {
+        bottom: 0;
+      }
+
+      #detail-card.hiding {
+        bottom: -50%;
+      }
+
+      .view-hint {
+        font-size: 10px;
+        padding: 6px 10px;
+        gap: 8px;
+        bottom: 8px;
+      }
+
+      .upload-area {
+        width: 85%;
+        max-width: 360px;
+        height: 260px;
+      }
+    }
+
+    /* 滚动条样式 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #0f3460;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #e94560;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 左侧控制面板 -->
+    <aside id="control-panel">
+      <div>
+        <div class="panel-title">3D天体看板</div>
+        <div class="panel-subtitle">可视化深空天体数据</div>
+      </div>
+
+      <div class="stats-box">
+        <div class="stats-row">
+          <span class="stats-label">识别天体数</span>
+          <span class="stats-value" id="stat-total">0</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">可见天体数</span>
+          <span class="stats-value" id="stat-visible">0</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">选中状态</span>
+          <span class="stats-value" id="stat-selected">未选中</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="filter-select">亮度过滤</label>
+        <select id="filter-select">
+          <option value="all">全部</option>
+          <option value="bright">亮（&gt; 80）</option>
+          <option value="medium">中等（50-80）</option>
+          <option value="dim">暗（&lt; 50）</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="sort-select">排序方式</label>
+        <select id="sort-select">
+          <option value="brightnessDesc">按亮度降序</option>
+          <option value="brightnessAsc">按亮度升序</option>
+          <option value="xAsc">按坐标 X 升序</option>
+        </select>
+      </div>
+
+      <div style="margin-top: auto;">
+        <div class="panel-subtitle" style="margin-bottom: 8px;">操作提示</div>
+        <div style="font-size: 12px; color: #888888; line-height: 1.8;">
+          • 拖拽：旋转场景<br/>
+          • 滚轮：缩放视角<br/>
+          • 双击天体：居中聚焦<br/>
+          • R 键：重置视角
+        </div>
+      </div>
+    </aside>
+
+    <div class="divider"></div>
+
+    <!-- 中央场景 -->
+    <main id="scene-container">
+      <!-- 移动端工具栏 -->
+      <div id="mobile-toolbar">
+        <div class="control-group">
+          <label class="control-label">亮度:</label>
+          <select id="mobile-filter-select">
+            <option value="all">全部</option>
+            <option value="bright">亮</option>
+            <option value="medium">中</option>
+            <option value="dim">暗</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label class="control-label">排序:</label>
+          <select id="mobile-sort-select">
+            <option value="brightnessDesc">亮度降</option>
+            <option value="brightnessAsc">亮度升</option>
+            <option value="xAsc">X升序</option>
+          </select>
+        </div>
+      </div>
+
+      <canvas id="three-canvas"></canvas>
+
+      <!-- 上传遮罩 -->
+      <div id="upload-overlay">
+        <label class="upload-area" id="upload-area">
+          <input type="file" class="upload-input" id="file-input" accept="image/jpeg,image/png,image/jpg" />
+          <svg class="upload-icon" viewBox="0 0 64 64" fill="none" stroke="#e94560" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 37.5V51h22V37.5"></path>
+            <polyline points="16 37.5 32 21.5 48 37.5"></polyline>
+            <line x1="32" y1="21.5" x2="32" y2="10.5"></line>
+            <circle cx="52" cy="18.5" r="4"></circle>
+            <circle cx="12" cy="44.5" r="3.5"></circle>
+          </svg>
+          <div class="upload-title">点击或拖入星空照片</div>
+          <div class="upload-hint">支持 JPEG / PNG 格式</div>
+        </label>
+      </div>
+
+      <!-- 详情卡片 -->
+      <aside id="detail-card">
+        <div class="card-header">
+          <div class="card-title" id="card-name">天体详情</div>
+          <button class="close-btn" id="close-card" aria-label="关闭">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="thumbnail-container" id="thumbnail-container">
+          <span class="thumbnail-placeholder">无缩略图</span>
+        </div>
+        <div class="data-list">
+          <div class="data-row">
+            <span class="data-label">亮度值</span>
+            <div style="display: flex; align-items: center; flex: 1; justify-content: flex-end;">
+              <span class="data-value" id="card-brightness">0</span>
+              <div class="brightness-bar">
+                <div class="brightness-fill" id="brightness-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="data-row">
+            <span class="data-label">颜色代码</span>
+            <span class="data-value" id="card-color">
+              <span class="color-dot" id="color-dot"></span>
+              <span id="color-hex">#000000</span>
+            </span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">估算尺寸</span>
+            <span class="data-value" id="card-size">0.00 单位</span>
+          </div>
+        </div>
+        <div class="coords-box">
+          <div class="coord-line">
+            <span>X 坐标</span>
+            <span class="coord-value" id="card-x">0.00</span>
+          </div>
+          <div class="coord-line">
+            <span>Y 坐标</span>
+            <span class="coord-value" id="card-y">0.00</span>
+          </div>
+          <div class="coord-line">
+            <span>像素位置</span>
+            <span class="coord-value" id="card-pixel">(0, 0)</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 视角提示 -->
+      <div class="view-hint">
+        <span>拖拽旋转</span>
+        <span>滚轮缩放</span>
+        <span>双击聚焦</span>
+        <span><kbd>R</kbd>重置</span>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
