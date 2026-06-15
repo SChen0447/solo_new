@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D 城市天际线生成器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0d0d0d;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #fff;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 280px;
+      bottom: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .control-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 280px;
+      height: 100%;
+      background: linear-gradient(to left, #2a2a2a, #1a1a1a);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 20px;
+      overflow-y: auto;
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+    }
+
+    .control-panel h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #00bcd4;
+      letter-spacing: 1px;
+    }
+
+    .control-group {
+      margin-bottom: 24px;
+    }
+
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #ccc;
+      margin-bottom: 10px;
+    }
+
+    .control-group label .value {
+      color: #00bcd4;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 200px;
+      height: 4px;
+      background: #444;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #00bcd4;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+      box-shadow: 0 0 10px rgba(0, 188, 212, 0.4);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:active {
+      transform: scale(0.95);
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: #00bcd4;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.2s ease;
+      box-shadow: 0 0 10px rgba(0, 188, 212, 0.4);
+    }
+
+    input[type="range"]::-moz-range-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    input[type="range"]::-moz-range-thumb:active {
+      transform: scale(0.95);
+      transition: transform 0.1s ease;
+    }
+
+    .select-wrapper {
+      position: relative;
+      width: 200px;
+    }
+
+    .select-wrapper select {
+      width: 100%;
+      padding: 10px 14px;
+      background: #333;
+      border: 1px solid #444;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      transition: border-color 0.2s;
+    }
+
+    .select-wrapper select:hover {
+      border-color: #00bcd4;
+    }
+
+    .select-wrapper::after {
+      content: "▼";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #00bcd4;
+      font-size: 10px;
+      pointer-events: none;
+      transition: transform 0.2s;
+    }
+
+    .select-wrapper.open::after {
+      transform: translateY(-50%) rotate(180deg);
+    }
+
+    .button-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .day-night-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #00bcd4;
+      background: #333;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .day-night-btn:hover {
+      background: #00bcd4;
+      transform: scale(1.1);
+    }
+
+    .day-night-btn:active {
+      transform: scale(0.95);
+    }
+
+    .day-night-btn .icon {
+      transition: opacity 0.3s ease;
+    }
+
+    .day-night-btn.night .sun {
+      display: none;
+    }
+
+    .day-night-btn:not(.night) .moon {
+      display: none;
+    }
+
+    .regenerate-btn {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #00bcd4, #008fa3);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 0.5px;
+    }
+
+    .regenerate-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 188, 212, 0.4);
+    }
+
+    .regenerate-btn:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    .info-section {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 16px;
+    }
+
+    .info-section h3 {
+      font-size: 14px;
+      color: #00bcd4;
+      margin-bottom: 12px;
+    }
+
+    .info-section p {
+      font-size: 12px;
+      color: #aaa;
+      line-height: 1.8;
+    }
+
+    .info-section kbd {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #fff;
+      margin: 0 2px;
+    }
+
+    .building-info {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      width: 240px;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 8px;
+      padding: 16px;
+      z-index: 50;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: none;
+      border: 1px solid rgba(0, 188, 212, 0.3);
+    }
+
+    .building-info.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .building-info h3 {
+      font-size: 13px;
+      color: #00bcd4;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .building-info .info-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #fff;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .building-info .info-row .label {
+      color: #aaa;
+    }
+
+    .building-info .info-row .val {
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .color-preview {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .loading {
+      position: fixed;
+      top: 50%;
+      left: calc(50% - 140px);
+      transform: translate(-50%, -50%);
+      color: #00bcd4;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+
+    .loading.active {
+      opacity: 1;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #00bcd4;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container"></div>
+
+    <div class="control-panel">
+      <h1>🏙️ 城市天际线</h1>
+
+      <div class="button-row">
+        <button class="day-night-btn" id="dayNightBtn">
+          <span class="icon sun">☀️</span>
+          <span class="icon moon">🌙</span>
+        </button>
+        <button class="regenerate-btn" id="regenerateBtn">重新生成</button>
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>建筑数量</span>
+          <span class="value" id="buildingCountValue">100</span>
+        </label>
+        <input type="range" id="buildingCount" min="20" max="200" value="100" />
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>最大高度</span>
+          <span class="value" id="maxHeightValue">50</span>
+        </label>
+        <input type="range" id="maxHeight" min="10" max="100" step="1" value="50" />
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>布局密度</span>
+          <span class="value" id="densityValue">0.6</span>
+        </label>
+        <input type="range" id="density" min="0.3" max="0.9" step="0.05" value="0.6" />
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>建筑风格</span>
+        </label>
+        <div class="select-wrapper" id="styleSelectWrapper">
+          <select id="buildingStyle">
+            <option value="modern">现代</option>
+            <option value="gothic">哥特</option>
+            <option value="cyberpunk">赛博朋克</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <h3>操作说明</h3>
+        <p>
+          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动<br />
+          <kbd>Shift</kbd> 加速移动<br />
+          <kbd>鼠标左键拖拽</kbd> 旋转视角<br />
+          <kbd>点击建筑</kbd> 查看信息
+        </p>
+      </div>
+    </div>
+
+    <div class="building-info" id="buildingInfo">
+      <h3>📐 建筑信息</h3>
+      <div class="info-row">
+        <span class="label">高度:</span>
+        <span class="val" id="infoHeight">-</span>
+      </div>
+      <div class="info-row">
+        <span class="label">楼层数:</span>
+        <span class="val" id="infoFloors">-</span>
+      </div>
+      <div class="info-row">
+        <span class="label">颜色:</span>
+        <span class="val" id="infoColor">-</span>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">
+      <span class="spinner"></span>
+      正在生成城市...
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
