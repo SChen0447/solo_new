@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D城市交通流量热力图</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="loading-ring"></div>
+    <div class="loading-text">
+      <span id="loading-percent">0</span>%
+    </div>
+  </div>
+  
+  <canvas id="scene-canvas"></canvas>
+  
+  <div id="info-panel" class="info-panel">
+    <div class="panel-header">
+      <span class="panel-title">数据概览</span>
+      <button id="toggle-panel" class="toggle-btn">−</button>
+    </div>
+    <div class="panel-content">
+      <div class="stat-item">
+        <span class="stat-label">路段总数</span>
+        <span class="stat-value" id="stat-roads">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">平均速度</span>
+        <span class="stat-value" id="stat-speed">0 <small>km/h</small></span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">最高拥堵等级</span>
+        <span class="stat-value" id="stat-congestion">0</span>
+      </div>
+      <div class="congestion-distribution">
+        <div class="dist-title">拥堵等级分布</div>
+        <div class="dist-bars" id="dist-bars"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="time-controls" class="time-controls">
+    <button class="time-btn" data-period="morning">早高峰</button>
+    <button class="time-btn" data-period="evening">晚高峰</button>
+    <button class="time-btn" data-period="night">夜间</button>
+  </div>
+  
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,272 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #1a1a2e;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#scene-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #1a1a2e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: opacity 0.5s ease-out;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-ring {
+  width: 80px;
+  height: 80px;
+  border: 4px solid transparent;
+  border-top-color: #00FF00;
+  border-right-color: #FFFF00;
+  border-bottom-color: #FF0000;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: white;
+  font-size: 18px;
+  font-family: 'Fira Code', monospace;
+}
+
+#loading-percent {
+  font-weight: bold;
+}
+
+.info-panel {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  min-width: 280px;
+  background: rgba(20, 20, 20, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 16px;
+  color: white;
+  z-index: 100;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  user-select: none;
+}
+
+.info-panel.collapsed {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  cursor: move;
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.toggle-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.panel-content {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  overflow: hidden;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'Fira Code', monospace;
+  transition: color 0.3s ease;
+}
+
+.stat-value small {
+  font-size: 11px;
+  font-weight: normal;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stat-value.highlight {
+  color: #FFD700;
+}
+
+.congestion-distribution {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dist-title {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.dist-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dist-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dist-bar-label {
+  font-size: 11px;
+  width: 20px;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dist-bar-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dist-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.dist-bar-percent {
+  font-size: 11px;
+  width: 36px;
+  text-align: right;
+  font-family: 'Fira Code', monospace;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.time-controls {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+.time-btn {
+  width: 120px;
+  height: 40px;
+  border: none;
+  border-radius: 20px;
+  background-color: #444;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  transform-origin: center;
+}
+
+.time-btn:hover {
+  transform: scale(1.05);
+}
+
+.time-btn[data-period="morning"]:hover {
+  background-color: #FF8C00;
+}
+
+.time-btn[data-period="evening"]:hover {
+  background-color: #00008B;
+}
+
+.time-btn[data-period="night"]:hover {
+  background-color: #800080;
+}
+
+.time-btn.active {
+  color: white;
+  font-weight: 600;
+  transform: scale(1.05);
+}
+
+.time-btn[data-period="morning"].active {
+  background-color: #FF8C00;
+}
+
+.time-btn[data-period="evening"].active {
+  background-color: #00008B;
+}
+
+.time-btn[data-period="night"].active {
+  background-color: #800080;
+}
