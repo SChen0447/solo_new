@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Terrain Heatmap</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a1a; }
+    #canvas-container { width: 100%; height: 100%; position: relative; }
+    canvas { display: block; }
+
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 1000;
+      background: #0a0a1a;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.5s ease;
+    }
+    #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+    .loading-rings {
+      position: relative; width: 120px; height: 120px;
+    }
+    .loading-rings .ring {
+      position: absolute; inset: 0;
+      border: 3px solid transparent;
+      border-radius: 50%;
+      animation: spin 2s linear infinite;
+    }
+    .loading-rings .ring:nth-child(1) {
+      border-top-color: #ff0000; border-bottom-color: #ff0000;
+      animation-delay: 0s;
+    }
+    .loading-rings .ring:nth-child(2) {
+      inset: 12px;
+      border-top-color: #ffff00; border-bottom-color: #ffff00;
+      animation-delay: 0.3s; animation-direction: reverse;
+    }
+    .loading-rings .ring:nth-child(3) {
+      inset: 24px;
+      border-top-color: #00ffff; border-bottom-color: #00ffff;
+      animation-delay: 0.6s;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .loading-rings .ring {
+      box-shadow: 0 0 15px currentColor, 0 0 30px currentColor;
+    }
+
+    #tooltip {
+      position: fixed; z-index: 100;
+      pointer-events: none; display: none;
+      background: rgba(20, 20, 40, 0.9);
+      color: #ffffff; font-family: 'Segoe UI', monospace; font-size: 12px;
+      padding: 6px 10px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(6px);
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="loading-rings">
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+    </div>
+  </div>
+  <div id="canvas-container"></div>
+  <div id="tooltip"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
