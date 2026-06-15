@@ -1,0 +1,32 @@
+{
+  "name": "json-api-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:front": "vite",
+    "dev:back": "ts-node --project tsconfig.server.json src/backend/server.ts",
+    "build": "tsc && vite build"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "monaco-editor": "^0.44.0",
+    "recharts": "^2.10.0",
+    "socket.io-client": "^4.7.2",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "socket.io": "^4.7.2",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.2",
+    "vite": "^5.0.4",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/uuid": "^9.0.7",
+    "ts-node": "^10.9.2"
+  }
+}
