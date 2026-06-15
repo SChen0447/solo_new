@@ -1,0 +1,25 @@
+{
+  "name": "css-specificity-analyzer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "css-tree": "^2.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@types/css-tree": "^2.3.4",
+    "@vitejs/plugin-react": "^4.2.1",
+    "csstree-validator": "^3.0.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  }
+}
