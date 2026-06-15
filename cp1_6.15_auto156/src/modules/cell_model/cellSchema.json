@@ -1,0 +1,107 @@
+{
+  "organelles": {
+    "nucleus": {
+      "id": "nucleus",
+      "name": "细胞核",
+      "position": [0, 0, 0],
+      "size": 1.5,
+      "color": "#9c27b0",
+      "opacity": 0.4,
+      "shape": "sphere",
+      "segments": 32,
+      "cellTypes": ["plant", "animal"]
+    },
+    "mitochondria": {
+      "id": "mitochondria",
+      "name": "线粒体",
+      "position": [2.5, 1, 1.5],
+      "size": 0.8,
+      "color": "#e53935",
+      "opacity": 0.4,
+      "shape": "ellipsoid",
+      "segments": 24,
+      "cellTypes": ["plant", "animal"],
+      "instances": [
+        { "position": [2.5, 1, 1.5], "rotation": [0, 0.5, 0.3] },
+        { "position": [-2, -0.5, 2], "rotation": [0.3, -0.2, 0.5] },
+        { "position": [1, -2, -1.5], "rotation": [-0.3, 0.4, -0.2] }
+      ]
+    },
+    "chloroplast": {
+      "id": "chloroplast",
+      "name": "叶绿体",
+      "position": [-2, 1.5, -1],
+      "size": 0.9,
+      "color": "#4caf50",
+      "opacity": 0.4,
+      "shape": "ellipsoid",
+      "segments": 24,
+      "cellTypes": ["plant"],
+      "instances": [
+        { "position": [-2, 1.5, -1], "rotation": [0.2, 0.3, 0] },
+        { "position": [1.5, -1.5, 2], "rotation": [-0.1, 0.5, 0.2] },
+        { "position": [-1, 2, 1.5], "rotation": [0.4, -0.1, 0.3] }
+      ]
+    },
+    "golgi": {
+      "id": "golgi",
+      "name": "高尔基体",
+      "position": [1.5, -1, -2],
+      "size": 0.7,
+      "color": "#ff9800",
+      "opacity": 0.4,
+      "shape": "cisternae",
+      "segments": 16,
+      "cellTypes": ["plant", "animal"]
+    },
+    "endoplasmicReticulum": {
+      "id": "endoplasmicReticulum",
+      "name": "内质网",
+      "position": [0, 0.5, 0],
+      "size": 2,
+      "color": "#2196f3",
+      "opacity": 0.25,
+      "shape": "membrane",
+      "segments": 32,
+      "cellTypes": ["plant", "animal"]
+    },
+    "cellMembrane": {
+      "id": "cellMembrane",
+      "name": "细胞膜",
+      "position": [0, 0, 0],
+      "size": 4,
+      "color": "#795548",
+      "opacity": 0.15,
+      "shape": "sphere",
+      "segments": 48,
+      "cellTypes": ["plant", "animal"]
+    },
+    "cellWall": {
+      "id": "cellWall",
+      "name": "细胞壁",
+      "position": [0, 0, 0],
+      "size": 4.3,
+      "color": "#8bc34a",
+      "opacity": 0.2,
+      "shape": "box",
+      "segments": 1,
+      "cellTypes": ["plant"]
+    },
+    "vacuole": {
+      "id": "vacuole",
+      "name": "液泡",
+      "position": [0, -0.5, 0],
+      "size": 2.5,
+      "color": "#00bcd4",
+      "opacity": 0.3,
+      "shape": "sphere",
+      "segments": 32,
+      "cellTypes": ["plant"]
+    }
+  },
+  "connections": [
+    { "from": "nucleus", "to": "endoplasmicReticulum", "type": "membrane" },
+    { "from": "endoplasmicReticulum", "to": "golgi", "type": "vesicle" },
+    { "from": "mitochondria", "to": "nucleus", "type": "energy" }
+  ]
+}
