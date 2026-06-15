@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave Defender</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0d0221;
+      font-family: 'Courier New', monospace;
+    }
+    
+    #game-container {
+      width: 100vw;
+      height: 100vh;
+      min-width: 800px;
+      min-height: 600px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #game-canvas {
+      display: block;
+      background: linear-gradient(180deg, #1a0a2e 0%, #0d0221 100%);
+      cursor: crosshair;
+    }
+    
+    #start-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 15px 40px;
+      font-size: 20px;
+      font-family: 'Courier New', monospace;
+      color: #39ff14;
+      background: transparent;
+      border: 2px solid #39ff14;
+      cursor: pointer;
+      text-shadow: 0 0 10px #39ff14;
+      box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
+      transition: all 0.2s ease;
+      z-index: 100;
+    }
+    
+    #start-btn:hover {
+      transform: translate(-50%, -50%) scale(1.1);
+      box-shadow: 0 0 30px rgba(57, 255, 20, 0.6);
+      text-shadow: 0 0 20px #39ff14;
+    }
+    
+    #skip-btn {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 20px;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      color: #39ff14;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid #39ff14;
+      cursor: pointer;
+      text-shadow: 0 0 5px #39ff14;
+      box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+      transition: all 0.2s ease;
+      z-index: 50;
+      display: none;
+    }
+    
+    #skip-btn:hover {
+      transform: translateX(-50%) scale(1.05);
+      box-shadow: 0 0 20px rgba(57, 255, 20, 0.4);
+    }
+    
+    #game-over-panel {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 40px 60px;
+      background: rgba(13, 2, 33, 0.95);
+      border: 2px solid #ff0066;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 200;
+      display: none;
+      box-shadow: 0 0 40px rgba(255, 0, 102, 0.4);
+    }
+    
+    #game-over-panel h2 {
+      color: #ff0066;
+      font-size: 36px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 15px #ff0066;
+    }
+    
+    #final-score {
+      color: #39ff14;
+      font-size: 24px;
+      margin-bottom: 30px;
+      text-shadow: 0 0 10px #39ff14;
+    }
+    
+    #restart-btn {
+      padding: 12px 30px;
+      font-size: 18px;
+      font-family: 'Courier New', monospace;
+      color: #00d4ff;
+      background: transparent;
+      border: 2px solid #00d4ff;
+      cursor: pointer;
+      text-shadow: 0 0 10px #00d4ff;
+      box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+      transition: all 0.2s ease;
+    }
+    
+    #restart-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 25px rgba(0, 212, 255, 0.6);
+      text-shadow: 0 0 20px #00d4ff;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+    <button id="start-btn">START GAME</button>
+    <button id="skip-btn">立即开始</button>
+    <div id="game-over-panel">
+      <h2>GAME OVER</h2>
+      <div id="final-score">Final Score: 0</div>
+      <button id="restart-btn">重新开始</button>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
