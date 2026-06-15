@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>地牢地图生成器 - Dungeon Map Generator</title>
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #1a1a2e;
+      --panel-bg: rgba(255, 255, 255, 0.1);
+      --text: #e0e0e0;
+      --text-dim: #8e8e8e;
+      --accent: #00ff88;
+      --danger: #ff3355;
+      --border: rgba(255, 255, 255, 0.08);
+      --panel-width: 280px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', 'Consolas', monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .app {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .panel-left {
+      width: var(--panel-width);
+      min-width: var(--panel-width);
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .panel-right {
+      width: var(--panel-width);
+      min-width: var(--panel-width);
+      background: var(--panel-bg);
+      border-left: 1px solid var(--border);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .canvas-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #mapCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .control-label .value {
+      color: var(--text);
+      font-family: 'Consolas', monospace;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 14px rgba(0, 255, 136, 0.6);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+    }
+
+    .btn-generate {
+      background: linear-gradient(135deg, #00ff88, #00cc6a);
+      color: #0f0f23;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    }
+
+    .btn-generate:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(0, 255, 136, 0.35);
+      filter: brightness(1.1);
+    }
+
+    .btn-generate:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 10px rgba(0, 255, 136, 0.2);
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stat-value {
+      font-family: 'Consolas', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      transition: color 0.3s ease;
+    }
+
+    .stat-value.warn {
+      color: var(--danger) !important;
+    }
+
+    .instruction {
+      padding: 10px 14px;
+      background: rgba(0, 255, 136, 0.08);
+      border: 1px solid rgba(0, 255, 136, 0.2);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--accent);
+      text-align: center;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
+    @media (max-width: 1023px) {
+      .app {
+        flex-direction: column;
+      }
+
+      .panel-left, .panel-right {
+        width: 100%;
+        min-width: unset;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 12px;
+        border-right: none;
+        border-left: none;
+        max-height: 140px;
+        overflow-y: auto;
+      }
+
+      .panel-left {
+        border-bottom: 1px solid var(--border);
+        order: -1;
+      }
+
+      .panel-right {
+        border-top: 1px solid var(--border);
+        order: 1;
+      }
+
+      .control-group {
+        flex: 1;
+        min-width: 120px;
+      }
+
+      .stat-item {
+        flex: 1;
+        min-width: 100px;
+        padding: 8px;
+      }
+
+      .stat-value {
+        font-size: 16px;
+      }
+
+      .btn-generate {
+        padding: 8px 16px;
+        font-size: 12px;
+      }
+
+      .panel-title, .legend, .instruction, .divider {
+        display: none;
+      }
+
+      .canvas-area {
+        flex: 1;
+        order: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel-left">
+      <div class="panel-title">参数配置</div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>地图宽度</span>
+          <span class="value" id="widthValue">35</span>
+        </div>
+        <input type="range" id="widthSlider" min="20" max="50" value="35" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>地图高度</span>
+          <span class="value" id="heightValue">35</span>
+        </div>
+        <input type="range" id="heightSlider" min="20" max="50" value="35" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>房间数量</span>
+          <span class="value" id="roomCountValue">8</span>
+        </div>
+        <input type="range" id="roomCountSlider" min="5" max="15" value="8" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>最小房间尺寸</span>
+          <span class="value" id="minRoomSizeValue">4</span>
+        </div>
+        <input type="range" id="minRoomSizeSlider" min="3" max="6" value="4" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>走廊宽度</span>
+          <span class="value" id="corridorWidthValue">2</span>
+        </div>
+        <input type="range" id="corridorWidthSlider" min="1" max="3" value="2" />
+      </div>
+
+      <button class="btn-generate" id="generateBtn">生成地图</button>
+
+      <div class="instruction" id="instruction">右键点击房间格子设置起点</div>
+
+      <div class="divider"></div>
+
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background:#e0e0e0; border:1px solid #8e8e8e;"></div>
+          <span>房间</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#4a4a4a;"></div>
+          <span>走廊</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#0f0f23;"></div>
+          <span>墙壁</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#00ff88; border-radius:50%;"></div>
+          <span>起点（闪烁）</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#ff3355; border-radius:50%;"></div>
+          <span>终点</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background:#ffffff; height:3px; border-radius:2px;"></div>
+          <span>寻路路径</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="canvas-area" id="canvasContainer">
+      <canvas id="mapCanvas"></canvas>
+    </main>
+
+    <aside class="panel-right">
+      <div class="panel-title">性能统计</div>
+
+      <div class="stat-item">
+        <span class="stat-label">生成耗时</span>
+        <span class="stat-value" id="genTime">-</span>
+      </div>
+
+      <div class="stat-item">
+        <span class="stat-label">房间数量</span>
+        <span class="stat-value" id="roomCount">-</span>
+      </div>
+
+      <div class="stat-item">
+        <span class="stat-label">走廊长度（格）</span>
+        <span class="stat-value" id="corridorLen">-</span>
+      </div>
+
+      <div class="stat-item">
+        <span class="stat-label">寻路耗时</span>
+        <span class="stat-value" id="pathTime">-</span>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
