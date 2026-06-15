@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>僵尸生存射击 - 2D俯视角</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      user-select: none;
+      cursor: crosshair;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #game-canvas {
+      display: block;
+      background: #2d4a2e;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+    }
+
+    .hud {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 8px;
+      padding: 8px;
+      color: #fff;
+      transition: all 0.2s ease-out;
+      pointer-events: none;
+    }
+
+    #hud-score {
+      top: 16px;
+      left: 16px;
+      font-size: 20px;
+      font-weight: bold;
+      min-width: 120px;
+    }
+
+    #score-value {
+      color: #ffd700;
+    }
+
+    #score-float-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .score-float {
+      position: absolute;
+      color: #ffd700;
+      font-weight: bold;
+      font-size: 16px;
+      text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+      animation: floatUp 0.5s ease-out forwards;
+    }
+
+    @keyframes floatUp {
+      0% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+
+    #hud-lives {
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .heart {
+      width: 20px;
+      height: 18px;
+      position: relative;
+      display: inline-block;
+    }
+
+    .heart::before,
+    .heart::after {
+      content: '';
+      position: absolute;
+      width: 10px;
+      height: 16px;
+      background: #e74c3c;
+      border-radius: 10px 10px 0 0;
+      transition: all 0.2s ease-out;
+    }
+
+    .heart::before {
+      left: 0;
+      transform: rotate(-45deg);
+      transform-origin: 0 100%;
+    }
+
+    .heart::after {
+      right: 0;
+      transform: rotate(45deg);
+      transform-origin: 100% 100%;
+    }
+
+    .heart.empty::before,
+    .heart.empty::after {
+      background: #4a2020;
+    }
+
+    #hud-weapon {
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    #weapon-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #weapon-name {
+      font-size: 16px;
+      font-weight: bold;
+      color: #00bfff;
+    }
+
+    #weapon-info {
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    #buff-indicator {
+      position: absolute;
+      top: 60px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: none;
+    }
+
+    .buff-item {
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: #2ecc71;
+      font-size: 12px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease-out;
+    }
+
+    #game-over-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: all 0.2s ease-out;
+    }
+
+    #game-over-overlay.visible {
+      display: flex;
+    }
+
+    #game-over-panel {
+      width: 400px;
+      height: 300px;
+      background: rgba(30, 30, 30, 0.95);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      border: 2px solid #e74c3c;
+      box-shadow: 0 0 40px rgba(231, 76, 60, 0.4);
+    }
+
+    #game-over-title {
+      font-size: 36px;
+      font-weight: bold;
+      color: #e74c3c;
+      text-shadow: 0 0 20px rgba(231, 76, 60, 0.6);
+    }
+
+    #final-score {
+      font-size: 24px;
+      color: #ffd700;
+    }
+
+    #restart-btn {
+      background: #e74c3c;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 40px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease-out;
+      pointer-events: auto;
+    }
+
+    #restart-btn:hover {
+      background: #c0392b;
+      transform: scale(1.05);
+    }
+
+    #restart-btn:active {
+      transform: scale(0.95);
+    }
+
+    #revive-flash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(231, 76, 60, 0);
+      pointer-events: none;
+      z-index: 50;
+      transition: background-color 0.1s ease-out;
+    }
+
+    #revive-flash.flashing {
+      animation: reviveFlash 0.4s ease-in-out infinite;
+    }
+
+    @keyframes reviveFlash {
+      0%, 100% {
+        background: rgba(231, 76, 60, 0);
+      }
+      50% {
+        background: rgba(231, 76, 60, 0.4);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas" width="800" height="600"></canvas>
+    
+    <div id="hud-score" class="hud">
+      <span>得分: </span><span id="score-value">0</span>
+      <div id="combo-display" style="font-size: 12px; color: #ff6b6b; margin-top: 4px;"></div>
+    </div>
+
+    <div id="score-float-container"></div>
+
+    <div id="hud-lives" class="hud"></div>
+
+    <div id="buff-indicator"></div>
+
+    <div id="hud-weapon" class="hud">
+      <div id="weapon-icon"></div>
+      <div>
+        <div id="weapon-name">手枪</div>
+        <div id="weapon-info">弹药: ∞ | 射速: 正常</div>
+      </div>
+    </div>
+
+    <div id="revive-flash"></div>
+
+    <div id="game-over-overlay">
+      <div id="game-over-panel">
+        <div id="game-over-title">游戏结束</div>
+        <div id="final-score">最终得分: 0</div>
+        <button id="restart-btn">再来一次</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
