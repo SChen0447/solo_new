@@ -1,0 +1,57 @@
+.home-page {
+  padding: 0;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.challenge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: #636e72;
+  text-align: center;
+}
+
+.empty-emoji {
+  font-size: 80px;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
+}
+
+.empty-state p {
+  font-size: 18px;
+  color: #636e72;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .challenge-grid {
+    grid-template-columns: 1fr;
+  }
+  .challenge-grid > * {
+    width: 100%;
+  }
+}
