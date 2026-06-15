@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>音乐频谱 3D 雕塑可视化</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0a0a1a;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: calc(100% - 200px);
+      position: relative;
+    }
+
+    #loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 10, 26, 0.85);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    #loading-overlay.active {
+      display: flex;
+    }
+
+    #loading-text {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+
+    #loading-progress {
+      width: 300px;
+      height: 8px;
+      background: #2a2a3a;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    #loading-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6c63ff, #48dbfb);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    #controls {
+      width: 100%;
+      height: 200px;
+      background: #1a1a2ebb;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 40px;
+      gap: 20px;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 10px 24px;
+      font-size: 16px;
+      color: #ffffff;
+      background: #6c63ff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px #00000050;
+      transition: all 0.2s ease-out;
+      font-weight: 500;
+    }
+
+    .btn:hover {
+      background: #5a52d5;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px #00000070;
+    }
+
+    .btn:disabled {
+      background: #3a3a4a;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 0 2px 8px #00000030;
+      opacity: 0.6;
+    }
+
+    .btn:disabled:hover {
+      background: #3a3a4a;
+      transform: none;
+      box-shadow: 0 2px 8px #00000030;
+    }
+
+    .btn-upload {
+      background: #48dbfb;
+      color: #0a0a1a;
+    }
+
+    .btn-upload:hover {
+      background: #3ac5e6;
+    }
+
+    .btn-mode {
+      border: 3px solid transparent;
+      padding: 8px 20px;
+      background: #2a2a3a;
+    }
+
+    .btn-mode:hover {
+      background: #3a3a4a;
+    }
+
+    .btn-mode.active {
+      border: 3px solid #48dbfb;
+    }
+
+    .volume-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .volume-label {
+      font-size: 14px;
+      color: #aaaaaa;
+    }
+
+    .volume-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 150px;
+      height: 6px;
+      background: #2a2a3a;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #6c63ff;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.15s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      box-shadow: 0 2px 6px #00000050;
+    }
+
+    .volume-slider::-webkit-slider-thumb:hover,
+    .volume-slider::-webkit-slider-thumb:active {
+      background: #48dbfb;
+      transform: scale(1.2);
+    }
+
+    .volume-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: #6c63ff;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      box-shadow: 0 2px 6px #00000050;
+    }
+
+    .volume-slider::-moz-range-thumb:hover,
+    .volume-slider::-moz-range-thumb:active {
+      background: #48dbfb;
+      transform: scale(1.2);
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    .progress-container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .time-display {
+      font-size: 14px;
+      color: #aaaaaa;
+      font-family: 'Courier New', monospace;
+    }
+
+    .waveform-progress {
+      width: 100%;
+      height: 4px;
+      background: #2a2a3a;
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .waveform-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6c63ff, #48dbfb);
+      border-radius: 2px;
+      transition: width 0.1s linear;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container">
+      <div id="loading-overlay">
+        <div id="loading-text">正在解码音频...</div>
+        <div id="loading-progress">
+          <div id="loading-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+    <div id="controls">
+      <div class="controls-row">
+        <button id="btn-upload" class="btn btn-upload">上传音频</button>
+        <input type="file" id="file-input" accept=".mp3,.wav,audio/mpeg,audio/wav" />
+        <button id="btn-play" class="btn" disabled>播放</button>
+        <div class="volume-container">
+          <span class="volume-label">音量</span>
+          <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="70" />
+        </div>
+      </div>
+      <div class="controls-row">
+        <button id="btn-mode-default" class="btn btn-mode active">默认模式</button>
+        <button id="btn-mode-low" class="btn btn-mode">低频突出</button>
+        <button id="btn-mode-high" class="btn btn-mode">高频突出</button>
+      </div>
+      <div class="progress-container">
+        <span id="time-display" class="time-display">00:00 / 00:00</span>
+        <div id="waveform-progress" class="waveform-progress">
+          <div id="waveform-progress-fill" class="waveform-progress-fill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
