@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D 虚拟音乐节舞台</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      background: #1a1a2e;
+    }
+    #scene-container {
+      flex: 0 0 70%;
+      width: 70%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    #scene {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    #controls-container {
+      flex: 0 0 30%;
+      width: 30%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-left: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+    #panel-header {
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    #panel-header:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    #panel-header .arrow {
+      transition: transform 0.3s ease;
+      font-size: 12px;
+    }
+    #panel-header.collapsed .arrow {
+      transform: rotate(180deg);
+    }
+    #panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      transition: all 0.3s ease;
+    }
+    #panel-content.collapsed {
+      flex: 0;
+      padding: 0 16px;
+      overflow: hidden;
+    }
+    #panel-content::-webkit-scrollbar {
+      width: 6px;
+    }
+    #panel-content::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    #panel-content::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+    }
+    .tp-dfwv {
+      width: 100% !important;
+    }
+    @media (max-width: 768px) {
+      #app {
+        flex-direction: column;
+      }
+      #scene-container {
+        flex: 1;
+        width: 100%;
+        height: calc(100% - 150px);
+      }
+      #controls-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 150px;
+        flex: none;
+        border-left: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        z-index: 100;
+        transition: height 0.3s ease;
+      }
+      #controls-container.expanded {
+        height: 70vh;
+      }
+      #panel-content {
+        overflow-y: auto;
+      }
+    }
+    .view-btn {
+      display: inline-block;
+      padding: 10px 16px;
+      margin: 4px;
+      background: rgba(0, 191, 255, 0.2);
+      border: 1px solid rgba(0, 191, 255, 0.4);
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+    .view-btn:hover {
+      transform: scale(1.1);
+      background: rgba(0, 191, 255, 0.35);
+      border-color: rgba(0, 191, 255, 0.6);
+    }
+    .view-btn.active {
+      background: rgba(0, 191, 255, 0.5);
+      border-color: #00BFFF;
+    }
+    .view-buttons {
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    h3.section-title {
+      color: #00BFFF;
+      font-size: 14px;
+      margin: 16px 0 8px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(0, 191, 255, 0.2);
+    }
+    #fps-counter {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #00BFFF;
+      font-size: 12px;
+      font-family: monospace;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 4px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="scene-container">
+      <div id="scene"></div>
+      <div id="fps-counter">FPS: --</div>
+    </div>
+    <div id="controls-container">
+      <div id="panel-header">
+        <span>🎵 控制台</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div id="panel-content"></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
