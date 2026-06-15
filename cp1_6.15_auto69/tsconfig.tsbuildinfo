@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/canvasdrawing.tsx","./src/gifencoder.ts","./src/historypanel.tsx","./src/pixelanimationengine.ts","./src/pixelpreview.tsx","./src/main.tsx","./src/store.ts","./src/types.ts","./src/vite-env.d.ts"],"errors":true,"version":"5.8.3"}
