@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>地震波传播模拟与三维震感可视化</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 50%, #0f3460 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #ffffff;
+    }
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      outline: none;
+    }
+
+    .control-panel {
+      position: fixed;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 280px;
+      background: rgba(26, 26, 46, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(233, 69, 96, 0.25);
+      border-radius: 10px;
+      padding: 16px;
+      z-index: 100;
+      display: grid;
+      grid-template-rows: auto auto auto auto auto auto;
+      gap: 14px;
+      box-shadow: 0 8px 32px rgba(15, 52, 96, 0.45),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(233, 69, 96, 0.3);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-title::before {
+      content: '';
+      width: 3px;
+      height: 14px;
+      background: linear-gradient(180deg, #e94560, #0f3460);
+      border-radius: 2px;
+    }
+    .control-group {
+      display: grid;
+      gap: 6px;
+    }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.78);
+      letter-spacing: 0.3px;
+    }
+    .control-label .value {
+      color: #e94560;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: #4a4a6a;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #e94560;
+      box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.25);
+      cursor: pointer;
+      transition: transform 0.1s cubic-bezier(.34,1.56,.64,1);
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    input[type="range"]::-webkit-slider-thumb:active { transform: scale(0.95); }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #e94560;
+      border: none;
+      box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.25);
+      cursor: pointer;
+      transition: transform 0.1s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    .wave-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .wave-btn {
+      border: none;
+      outline: none;
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ffffff;
+      background: #2d2d44;
+      border-radius: 6px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .wave-btn:hover { background: #3d3d58; transform: translateY(-1px); }
+    .wave-btn.active {
+      background: #e94560;
+      box-shadow: 0 4px 14px rgba(233, 69, 96, 0.45);
+    }
+    .wave-btn small {
+      display: block;
+      font-size: 10px;
+      opacity: 0.7;
+      font-weight: 400;
+      margin-top: 2px;
+    }
+
+    .start-wrap {
+      display: grid;
+      place-items: center;
+      padding: 4px 0;
+    }
+    .start-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: none;
+      outline: none;
+      background: radial-gradient(circle at 30% 30%, #ff5f7c, #e94560 60%, #b2334a);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(233, 69, 96, 0.5),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      transition: transform 0.15s ease;
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+    .start-btn:hover { transform: scale(1.05); }
+    .start-btn:active { transform: scale(0.95); }
+    .start-btn.running {
+      background: radial-gradient(circle at 30% 30%, #5f9fff, #0f3460 60%, #0a2648);
+      box-shadow: 0 6px 20px rgba(15, 52, 96, 0.5),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+    .start-btn .ripple {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid #e94560;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .start-btn.rippling .ripple { animation: ripple 0.6s ease-out; }
+    .start-btn.running .ripple { border-color: #5f9fff; }
+    @keyframes ripple {
+      0% { transform: scale(1); opacity: 0.7; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+
+    .progress-wrap {
+      display: grid;
+      gap: 6px;
+    }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .progress-bar {
+      height: 6px;
+      background: #2d2d44;
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #e94560, #533483, #0f3460);
+      border-radius: 3px;
+      transition: width 0.1s linear;
+      box-shadow: 0 0 8px rgba(233, 69, 96, 0.6);
+      position: relative;
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      animation: shimmer 1.2s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .mobile-bar {
+      display: none;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 60px;
+      background: rgba(26, 26, 46, 0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(233, 69, 96, 0.25);
+      z-index: 100;
+      padding: 0 16px;
+      align-items: center;
+      justify-content: space-around;
+    }
+    .mobile-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 2px solid #4a4a6a;
+      background: #2d2d44;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all 0.2s;
+    }
+    .mobile-btn.active {
+      border-color: #e94560;
+      background: rgba(233, 69, 96, 0.25);
+      color: #e94560;
+    }
+    .mobile-btn.start {
+      background: #e94560;
+      border-color: #e94560;
+      width: 48px;
+      height: 48px;
+      box-shadow: 0 4px 14px rgba(233, 69, 96, 0.45);
+    }
+
+    @media (max-width: 768px) {
+      .control-panel { display: none; }
+      .mobile-bar { display: flex; }
+    }
+
+    .info-hud {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: rgba(26, 26, 46, 0.7);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(15, 52, 96, 0.5);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.75);
+      z-index: 50;
+      line-height: 1.6;
+    }
+    .info-hud b { color: #e94560; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div class="info-hud">
+    <div>🖱️ <b>拖拽</b> 旋转视角</div>
+    <div>🔍 <b>滚轮</b> 缩放场景</div>
+    <div>📍 <b>右键</b> 平移视角</div>
+  </div>
+
+  <div class="control-panel" id="controlPanel">
+    <div class="panel-title">地震波模拟控制台</div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>震源深度</span>
+        <span class="value"><span id="depthVal">15</span> km</span>
+      </div>
+      <input type="range" id="depthSlider" min="5" max="50" step="1" value="15" />
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>震级</span>
+        <span class="value">M<span id="magVal">6.0</span></span>
+      </div>
+      <input type="range" id="magSlider" min="3" max="9" step="0.1" value="6" />
+    </div>
+
+    <div class="control-group">
+      <div class="control-label"><span>波形类型</span></div>
+      <div class="wave-buttons" id="waveButtons">
+        <button class="wave-btn active" data-wave="P">P<small>纵波</small></button>
+        <button class="wave-btn active" data-wave="S">S<small>横波</small></button>
+        <button class="wave-btn active" data-wave="L">L<small>面波</small></button>
+      </div>
+    </div>
+
+    <div class="start-wrap">
+      <button class="start-btn" id="startBtn" title="开始模拟">
+        <span>▶</span>
+        <span class="ripple"></span>
+      </button>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>波传播进度</span>
+        <span id="progPct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progFill"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mobile-bar" id="mobileBar">
+    <button class="mobile-btn" id="mDepth" title="震源深度">D</button>
+    <button class="mobile-btn" id="mMag" title="震级">M</button>
+    <button class="mobile-btn" id="mWave" title="波形切换">W</button>
+    <button class="mobile-btn start" id="mStart" title="开始模拟">▶</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
