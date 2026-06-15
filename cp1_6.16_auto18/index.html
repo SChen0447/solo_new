@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlowViz 3D</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        color: #e0e0e0;
+        background: #0d1b2a;
+      }
+
+      #app {
+        display: flex;
+        width: 100%;
+        height: 100%;
+      }
+
+      #control-panel {
+        width: 300px;
+        min-width: 300px;
+        height: 100%;
+        background: rgba(30, 41, 59, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-radius: 0 12px 12px 0;
+        padding: 20px;
+        overflow-y: auto;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        transition: all 0.3s ease;
+      }
+
+      #control-panel h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 4px;
+        color: #e0e0e0;
+        letter-spacing: 0.5px;
+      }
+
+      #control-panel .section-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: #90a4ae;
+        margin-top: 8px;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #fff;
+        background: linear-gradient(135deg, #1976d2, #42a5f5);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .btn:hover {
+        transform: scale(1.04);
+        box-shadow: 0 4px 15px rgba(25, 118, 210, 0.4);
+      }
+
+      .btn:active {
+        transform: scale(0.97);
+      }
+
+      .btn .ripple {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.35);
+        transform: scale(0);
+        animation: ripple-anim 0.5s ease-out;
+        pointer-events: none;
+      }
+
+      @keyframes ripple-anim {
+        to {
+          transform: scale(4);
+          opacity: 0;
+        }
+      }
+
+      .btn-danger {
+        background: linear-gradient(135deg, #c62828, #e53935);
+      }
+
+      .btn-danger:hover {
+        box-shadow: 0 4px 15px rgba(229, 57, 53, 0.4);
+      }
+
+      #node-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .node-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        transition: background 0.2s, opacity 0.3s;
+      }
+
+      .node-item:hover,
+      .node-item.selected {
+        background: rgba(66, 165, 245, 0.2);
+      }
+
+      .node-item .node-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 10px;
+      }
+
+      .node-item .node-name {
+        flex: 1;
+        font-size: 13px;
+      }
+
+      .node-item .delete-btn {
+        background: none;
+        border: none;
+        color: #e53935;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: background 0.2s;
+      }
+
+      .node-item .delete-btn:hover {
+        background: rgba(229, 57, 53, 0.2);
+      }
+
+      .node-item.fade-out {
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      #scene-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+
+      #scene-container canvas {
+        display: block;
+      }
+
+      #info-panel {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: rgba(30, 41, 59, 0.9);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 10px;
+        padding: 14px 18px;
+        font-size: 13px;
+        line-height: 1.6;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s;
+        z-index: 20;
+        min-width: 180px;
+      }
+
+      #info-panel.visible {
+        opacity: 1;
+      }
+
+      #info-panel .info-title {
+        font-weight: 600;
+        font-size: 15px;
+        margin-bottom: 4px;
+        color: #ffeb3b;
+      }
+
+      #info-panel .info-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      #info-panel .info-row .label {
+        color: #90a4ae;
+      }
+
+      .slider-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .slider-group label {
+        font-size: 12px;
+        color: #90a4ae;
+      }
+
+      .slider-group input[type="range"] {
+        width: 100%;
+        accent-color: #42a5f5;
+      }
+
+      .slider-group .slider-value {
+        font-size: 12px;
+        color: #42a5f5;
+        text-align: right;
+      }
+
+      @media (max-width: 768px) {
+        #app {
+          flex-direction: column;
+        }
+
+        #control-panel {
+          width: 100%;
+          min-width: unset;
+          height: 80px;
+          min-height: 80px;
+          flex-direction: row;
+          flex-wrap: wrap;
+          align-items: center;
+          border-radius: 12px 12px 0 0;
+          padding: 10px 16px;
+          gap: 8px;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+
+        #control-panel h2 {
+          display: none;
+        }
+
+        #control-panel .section-label {
+          display: none;
+        }
+
+        #node-list {
+          display: none;
+        }
+
+        .btn {
+          width: auto;
+          padding: 8px 14px;
+          font-size: 12px;
+          white-space: nowrap;
+        }
+
+        .slider-group {
+          flex-direction: row;
+          align-items: center;
+          gap: 8px;
+          min-width: 180px;
+        }
+
+        .slider-group input[type="range"] {
+          width: 80px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="control-panel">
+        <h2>FlowViz 3D</h2>
+        <div class="section-label">Actions</div>
+        <button class="btn" id="btn-add-node">添加节点</button>
+        <button class="btn btn-danger" id="btn-delete-node">删除选中节点</button>
+        <button class="btn" id="btn-reset-view">重置视图</button>
+        <div class="section-label">Data Rate</div>
+        <div class="slider-group">
+          <label>数据包速率</label>
+          <input type="range" id="packet-rate" min="1" max="10" value="3" />
+          <span class="slider-value" id="packet-rate-value">3 包/秒</span>
+        </div>
+        <div class="section-label">Nodes</div>
+        <div id="node-list"></div>
+      </div>
+      <div id="scene-container">
+        <div id="info-panel">
+          <div class="info-title" id="info-name"></div>
+          <div class="info-row"><span class="label">连接数</span><span id="info-connections"></span></div>
+          <div class="info-row"><span class="label">接收包总数</span><span id="info-packets"></span></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
