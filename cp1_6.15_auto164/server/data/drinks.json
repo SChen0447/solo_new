@@ -1,0 +1,92 @@
+[
+  {
+    "id": "drink-001",
+    "name": "季节拿铁",
+    "description": "当季限定风味，丝滑醇厚，融合精选咖啡豆与特调风味糖浆",
+    "price": 38,
+    "image": "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?w=800&q=80",
+    "thumbnail": "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?w=150&q=80",
+    "customizations": {
+      "milkTypes": ["全脂奶", "脱脂奶", "燕麦奶", "椰奶", "杏仁奶"],
+      "syrupFlavors": ["香草", "焦糖", "榛果", "无糖", "枫糖"],
+      "temperatures": ["热饮", "冰饮", "常温"],
+      "espressoShots": { "min": 1, "max": 4, "default": 2 },
+      "iceLevels": { "min": 0, "max": 100, "default": 50 }
+    }
+  },
+  {
+    "id": "drink-002",
+    "name": "手冲单品",
+    "description": "精选单一产区咖啡豆，手工萃取，展现原始风味层次",
+    "price": 48,
+    "image": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80",
+    "thumbnail": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=150&q=80",
+    "customizations": {
+      "milkTypes": ["不加奶"],
+      "syrupFlavors": ["无糖"],
+      "temperatures": ["热饮", "冰饮"],
+      "espressoShots": { "min": 1, "max": 1, "default": 1 },
+      "iceLevels": { "min": 0, "max": 100, "default": 0 }
+    }
+  },
+  {
+    "id": "drink-003",
+    "name": "Dirty咖啡",
+    "description": "冰牛奶与热浓缩的碰撞，层次分明，口感浓郁",
+    "price": 42,
+    "image": "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=800&q=80",
+    "thumbnail": "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=150&q=80",
+    "customizations": {
+      "milkTypes": ["全脂奶", "燕麦奶"],
+      "syrupFlavors": ["无糖", "焦糖"],
+      "temperatures": ["冰饮"],
+      "espressoShots": { "min": 1, "max": 3, "default": 2 },
+      "iceLevels": { "min": 0, "max": 30, "default": 10 }
+    }
+  },
+  {
+    "id": "drink-004",
+    "name": "燕麦卡布奇诺",
+    "description": "燕麦奶与浓缩咖啡完美融合，绵密奶泡，植物基首选",
+    "price": 40,
+    "image": "https://images.unsplash.com/photo-1561882468-9110e03e0f78?w=800&q=80",
+    "thumbnail": "https://images.unsplash.com/photo-1561882468-9110e03e0f78?w=150&q=80",
+    "customizations": {
+      "milkTypes": ["燕麦奶", "椰奶"],
+      "syrupFlavors": ["香草", "无糖", "榛果"],
+      "temperatures": ["热饮", "冰饮"],
+      "espressoShots": { "min": 1, "max": 3, "default": 2 },
+      "iceLevels": { "min": 0, "max": 100, "default": 30 }
+    }
+  },
+  {
+    "id": "drink-005",
+    "name": "焦糖玛奇朵",
+    "description": "香甜焦糖与微苦咖啡的经典搭配，丝滑顺口",
+    "price": 36,
+    "image": "https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=800&q=80",
+    "thumbnail": "https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=150&q=80",
+    "customizations": {
+      "milkTypes": ["全脂奶", "脱脂奶", "燕麦奶"],
+      "syrupFlavors": ["焦糖", "香草", "无糖"],
+      "temperatures": ["热饮", "冰饮"],
+      "espressoShots": { "min": 1, "max": 4, "default": 2 },
+      "iceLevels": { "min": 0, "max": 100, "default": 50 }
+    }
+  },
+  {
+    "id": "drink-006",
+    "name": "冷萃黑咖",
+    "description": "12小时低温慢萃，口感顺滑，果香馥郁，夏季首选",
+    "price": 35,
+    "image": "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=800&q=80",
+    "thumbnail": "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=150&q=80",
+    "customizations": {
+      "milkTypes": ["不加奶", "全脂奶", "燕麦奶"],
+      "syrupFlavors": ["无糖", "香草"],
+      "temperatures": ["冰饮"],
+      "espressoShots": { "min": 1, "max": 2, "default": 1 },
+      "iceLevels": { "min": 30, "max": 100, "default": 80 }
+    }
+  }
+]

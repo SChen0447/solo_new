@@ -1,0 +1,72 @@
+[
+  {
+    "id": "note-001",
+    "drinkId": "drink-001",
+    "content": "丝滑的口感，焦糖香气浓郁，非常适合下午时光。入口顺滑，回味悠长。",
+    "mood": "happy",
+    "createdAt": "2026-06-15T10:30:00Z"
+  },
+  {
+    "id": "note-002",
+    "drinkId": "drink-001",
+    "content": "今天的拿铁奶泡特别绵密，拉花也很好看，治愈了周一的疲惫。",
+    "mood": "relaxed",
+    "createdAt": "2026-06-15T09:15:00Z"
+  },
+  {
+    "id": "note-003",
+    "drinkId": "drink-002",
+    "content": "埃塞俄比亚的耶加雪菲，果酸明亮，有茉莉花和柑橘的香气，手冲的温度控制得很好。",
+    "mood": "surprised",
+    "createdAt": "2026-06-14T15:45:00Z"
+  },
+  {
+    "id": "note-004",
+    "drinkId": "drink-003",
+    "content": "Dirty的层次很棒，第一口是浓郁的浓缩，接着是冰凉的牛奶，口感丰富。",
+    "mood": "energized",
+    "createdAt": "2026-06-14T08:30:00Z"
+  },
+  {
+    "id": "note-005",
+    "drinkId": "drink-005",
+    "content": "焦糖玛奇朵有点太甜了，下次可能要少糖。咖啡味还是很正的。",
+    "mood": "disappointed",
+    "createdAt": "2026-06-13T14:20:00Z"
+  },
+  {
+    "id": "note-006",
+    "drinkId": "drink-006",
+    "content": "冷萃口感很干净，没有杂味，夏天喝特别清爽。加了一点点燕麦奶，口感更顺滑。",
+    "mood": "happy",
+    "createdAt": "2026-06-13T11:00:00Z"
+  },
+  {
+    "id": "note-007",
+    "drinkId": "drink-004",
+    "content": "燕麦奶卡布奇诺的奶泡超级绵密，燕麦的香气和咖啡很配，素食友好！",
+    "mood": "happy",
+    "createdAt": "2026-06-12T16:30:00Z"
+  },
+  {
+    "id": "note-008",
+    "drinkId": "drink-002",
+    "content": "今天的手冲水温好像有点高，苦味偏重，风味层次没有完全展现出来。",
+    "mood": "disappointed",
+    "createdAt": "2026-06-12T10:15:00Z"
+  },
+  {
+    "id": "note-009",
+    "drinkId": "drink-006",
+    "content": "冷萃提神效果一流，下午喝了一杯，工作效率都提高了。",
+    "mood": "energized",
+    "createdAt": "2026-06-11T15:00:00Z"
+  },
+  {
+    "id": "note-010",
+    "drinkId": "drink-003",
+    "content": "Dirty一定要快点喝，不然冰化了就没那味儿了。今天的浓缩特别香。",
+    "mood": "surprised",
+    "createdAt": "2026-06-11T09:00:00Z"
+  }
+]
