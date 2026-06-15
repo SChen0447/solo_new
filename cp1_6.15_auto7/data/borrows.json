@@ -1,0 +1,52 @@
+[
+  {
+    "id": "br001",
+    "bookId": "b003",
+    "bookTitle": "深度学习",
+    "borrowerName": "张三",
+    "borrowDate": "2026-05-20",
+    "expectedReturnDate": "2026-06-03",
+    "returnDate": null,
+    "status": "overdue"
+  },
+  {
+    "id": "br002",
+    "bookId": "b006",
+    "bookTitle": "苏菲的世界",
+    "borrowerName": "李四",
+    "borrowDate": "2026-06-05",
+    "expectedReturnDate": "2026-06-19",
+    "returnDate": null,
+    "status": "borrowed"
+  },
+  {
+    "id": "br003",
+    "bookId": "b010",
+    "bookTitle": "思考，快与慢",
+    "borrowerName": "王五",
+    "borrowDate": "2026-06-01",
+    "expectedReturnDate": "2026-06-15",
+    "returnDate": null,
+    "status": "overdue"
+  },
+  {
+    "id": "br004",
+    "bookId": "b001",
+    "bookTitle": "三体",
+    "borrowerName": "赵六",
+    "borrowDate": "2026-05-10",
+    "expectedReturnDate": "2026-05-24",
+    "returnDate": "2026-05-22",
+    "status": "returned"
+  },
+  {
+    "id": "br005",
+    "bookId": "b005",
+    "bookTitle": "活着",
+    "borrowerName": "钱七",
+    "borrowDate": "2026-05-28",
+    "expectedReturnDate": "2026-06-11",
+    "returnDate": "2026-06-10",
+    "status": "returned"
+  }
+]

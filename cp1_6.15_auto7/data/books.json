@@ -1,0 +1,112 @@
+[
+  {
+    "id": "b001",
+    "title": "三体",
+    "author": "刘慈欣",
+    "isbn": "9787536692930",
+    "category": "小说",
+    "coverUrl": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200",
+    "description": "地球文明与三体文明的生死博弈，中国科幻的里程碑之作。",
+    "status": "available",
+    "location": "北京市朝阳区"
+  },
+  {
+    "id": "b002",
+    "title": "人类简史",
+    "author": "尤瓦尔·赫拉利",
+    "isbn": "9787508647357",
+    "category": "历史",
+    "coverUrl": "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=200",
+    "description": "从认知革命到科学革命，一部宏大的人类发展史诗。",
+    "status": "available",
+    "location": "北京市海淀区"
+  },
+  {
+    "id": "b003",
+    "title": "深度学习",
+    "author": "Ian Goodfellow",
+    "isbn": "9787115461476",
+    "category": "科技",
+    "coverUrl": "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=200",
+    "description": "深度学习领域的经典教材，AI从业者必读书籍。",
+    "status": "borrowed",
+    "location": "北京市海淀区"
+  },
+  {
+    "id": "b004",
+    "title": "艺术的故事",
+    "author": "贡布里希",
+    "isbn": "9787549557882",
+    "category": "艺术",
+    "coverUrl": "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?w=200",
+    "description": "从史前洞穴壁画到现代实验艺术，讲述艺术发展的故事。",
+    "status": "available",
+    "location": "北京市东城区"
+  },
+  {
+    "id": "b005",
+    "title": "活着",
+    "author": "余华",
+    "isbn": "9787506365437",
+    "category": "小说",
+    "coverUrl": "https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=200",
+    "description": "讲述福贵一生的苦难与坚韧，中国当代文学经典。",
+    "status": "available",
+    "location": "北京市西城区"
+  },
+  {
+    "id": "b006",
+    "title": "苏菲的世界",
+    "author": "乔斯坦·贾德",
+    "isbn": "9787506395168",
+    "category": "哲学",
+    "coverUrl": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=200",
+    "description": "一部关于哲学史的小说，用故事讲述西方哲学发展。",
+    "status": "borrowed",
+    "location": "北京市朝阳区"
+  },
+  {
+    "id": "b007",
+    "title": "算法导论",
+    "author": "Thomas H. Cormen",
+    "isbn": "9787111407010",
+    "category": "科技",
+    "coverUrl": "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=200",
+    "description": "计算机算法领域的权威著作，程序员必备参考书。",
+    "status": "available",
+    "location": "北京市海淀区"
+  },
+  {
+    "id": "b008",
+    "title": "明朝那些事儿",
+    "author": "当年明月",
+    "isbn": "9787213078477",
+    "category": "历史",
+    "coverUrl": "https://images.unsplash.com/photo-1461360370896-922624d12a14?w=200",
+    "description": "用通俗幽默的笔法讲述明朝三百年历史风云。",
+    "status": "available",
+    "location": "北京市丰台区"
+  },
+  {
+    "id": "b009",
+    "title": "追风筝的人",
+    "author": "卡勒德·胡赛尼",
+    "isbn": "9787208061644",
+    "category": "小说",
+    "coverUrl": "https://images.unsplash.com/photo-1589998059171-988d887df646?w=200",
+    "description": "关于友谊、背叛与救赎的感人故事，阿富汗文学代表。",
+    "status": "available",
+    "location": "北京市石景山区"
+  },
+  {
+    "id": "b010",
+    "title": "思考，快与慢",
+    "author": "丹尼尔·卡尼曼",
+    "isbn": "9787508633558",
+    "category": "其他",
+    "coverUrl": "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=200",
+    "description": "诺贝尔经济学奖得主揭示人类思维的两套系统。",
+    "status": "borrowed",
+    "location": "北京市海淀区"
+  }
+]
