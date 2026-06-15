@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>太空舰队对战沙盒</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0a0a1a;
+      color: #ffffff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .command-bar {
+      background: #1a1a2e;
+      border-radius: 8px;
+      padding: 12px 24px;
+      margin: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .command-bar button,
+    .command-bar select {
+      background: transparent;
+      border: 2px solid #00d4aa;
+      color: #00d4aa;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .command-bar button:hover,
+    .command-bar select:hover {
+      background: #00d4aa20;
+      border-color: #00ffcc;
+      color: #00ffcc;
+    }
+
+    .command-bar button:active {
+      transform: scale(0.98);
+    }
+
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(0, 212, 170, 0.4);
+      transform: scale(0);
+      animation: ripple-animation 0.6s ease-out;
+      pointer-events: none;
+    }
+
+    @keyframes ripple-animation {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+
+    .main-container {
+      display: flex;
+      flex: 1;
+      gap: 16px;
+      padding: 0 16px 16px;
+    }
+
+    .battle-area-wrapper {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      position: relative;
+    }
+
+    #battleCanvas {
+      background: #0a0a1a;
+      border: 2px solid #1a1a2e;
+      border-radius: 8px;
+      display: block;
+    }
+
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 600px;
+      background: #00000080;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      border-radius: 8px;
+      z-index: 10;
+    }
+
+    .pause-overlay.active {
+      display: flex;
+    }
+
+    .pause-text {
+      font-size: 48px;
+      color: #00d4aa;
+      text-shadow: 0 0 20px #00d4aa;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+
+    .side-panel {
+      width: 320px;
+      background: #1a1a2e;
+      border-radius: 8px;
+      padding: 16px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+
+    .bottom-panel {
+      display: none;
+      background: #1a1a2e;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 0 16px 16px;
+    }
+
+    .panel-section {
+      margin-bottom: 20px;
+    }
+
+    .panel-section h3 {
+      color: #00d4aa;
+      margin-bottom: 12px;
+      font-size: 16px;
+      border-bottom: 1px solid #00d4aa40;
+      padding-bottom: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      color: #aaa;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .form-group input[type="number"],
+    .form-group select {
+      width: 100%;
+      background: #0a0a1a;
+      border: 1px solid #00d4aa40;
+      color: #fff;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .form-group input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 6px;
+      background: #0a0a1a;
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .form-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #00d4aa;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .form-group input[type="range"]::-webkit-slider-thumb:hover {
+      background: #00ffcc;
+    }
+
+    .form-group .value-display {
+      display: inline-block;
+      color: #00d4aa;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+
+    .ship-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #00d4aa20;
+      border-radius: 4px;
+    }
+
+    .ship-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #00d4aa10;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+
+    .ship-item:hover {
+      background: #00d4aa10;
+    }
+
+    .ship-item.selected {
+      background: #00d4aa30;
+      border-left: 3px solid #00d4aa;
+    }
+
+    .ship-item.destroyed {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #00d4aa10;
+      font-size: 13px;
+    }
+
+    .stat-row .label {
+      color: #aaa;
+    }
+
+    .stat-row .value {
+      color: #00d4aa;
+      font-weight: bold;
+    }
+
+    .replay-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .replay-controls button {
+      flex: 1;
+      background: transparent;
+      border: 1px solid #00d4aa;
+      color: #00d4aa;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .replay-controls button:hover {
+      background: #00d4aa20;
+    }
+
+    .replay-timeline {
+      margin-top: 12px;
+    }
+
+    .replay-timeline input[type="range"] {
+      width: 100%;
+    }
+
+    .replay-time {
+      text-align: center;
+      color: #00d4aa;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .faction-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .faction-toggle button {
+      flex: 1;
+      background: transparent;
+      border: 2px solid transparent;
+      padding: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .faction-toggle button.active.player {
+      border-color: #4a90d9;
+      background: #4a90d920;
+      color: #4a90d9;
+    }
+
+    .faction-toggle button.active.enemy {
+      border-color: #d94a4a;
+      background: #d94a4a20;
+      color: #d94a4a;
+    }
+
+    .faction-toggle button:not(.active) {
+      color: #666;
+      border-color: #333;
+    }
+
+    @media (max-width: 768px) {
+      .main-container {
+        flex-direction: column;
+      }
+
+      .side-panel {
+        display: none;
+      }
+
+      .bottom-panel {
+        display: block;
+      }
+
+      #battleCanvas {
+        width: 100%;
+        max-width: 900px;
+        height: auto;
+      }
+
+      .pause-overlay {
+        width: 100%;
+        max-width: 900px;
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0a0a1a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #00d4aa40;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00d4aa60;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="command-bar" id="commandBar">
+      <button id="startBattleBtn">开始战斗</button>
+      <button id="pauseBtn">暂停</button>
+      <button id="resetBtn">重置</button>
+      <select id="formationSelect">
+        <option value="line">直线阵型</option>
+        <option value="circle">包围阵型</option>
+        <option value="triangle">三角阵型</option>
+      </select>
+      <span style="color: #666; margin-left: auto;">FPS: <span id="fpsDisplay">60</span></span>
+    </div>
+
+    <div class="main-container">
+      <div class="battle-area-wrapper">
+        <canvas id="battleCanvas" width="900" height="600"></canvas>
+        <div class="pause-overlay" id="pauseOverlay">
+          <div class="pause-text">已暂停</div>
+        </div>
+      </div>
+
+      <div class="side-panel" id="sidePanel">
+        <div id="configPanel"></div>
+        <div id="reportPanel"></div>
+      </div>
+    </div>
+
+    <div class="bottom-panel" id="bottomPanel">
+      <div id="configPanelMobile"></div>
+      <div id="reportPanelMobile"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
