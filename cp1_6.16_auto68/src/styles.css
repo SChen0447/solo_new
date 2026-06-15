@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #1976D2;
+  --color-primary-dark: #1565C0;
+  --color-critical: #F44336;
+  --color-critical-bg: #F4433680;
+  --color-medium: #FFC107;
+  --color-low: #2196F3;
+  --color-progress: #64B5F6;
+  --color-success: #4CAF50;
+  --color-sidebar-hover: #FAFAFA;
+  --color-active-line: #E3F2FD;
+  --color-drag-bg: #E3F2FD;
+  --color-code-bg: #F5F5F5;
+  --color-border: #E0E0E0;
+  --color-text-secondary: #757575;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #ffffff;
+  color: #333;
+  overflow: hidden;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: #F4433680; }
+  50% { border-color: #F44336CC; }
+}
+
+@keyframes flash-element {
+  0% { border-color: #ffffff; border-width: 3px; box-shadow: 0 0 0 3px #ffffff; }
+  100% { border-color: #F4433680; border-width: 2px; box-shadow: none; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes progress-fill {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.95); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+@keyframes copy-success {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.Resizer {
+  background: var(--color-border);
+  opacity: 1;
+  z-index: 1;
+  transition: background-color 0.3s ease-out, width 0.3s ease-out;
+}
+
+.Resizer:hover {
+  background: var(--color-primary);
+  width: 3px !important;
+}
+
+.Resizer.vertical {
+  width: 1px;
+  cursor: col-resize;
+}
+
+.Resizer.vertical:hover {
+  width: 3px;
+}
+
+.audit-highlight {
+  border: 2px solid #F4433680 !important;
+  animation: pulse-border 0.6s ease-in-out infinite !important;
+  position: relative;
+}
+
+.audit-highlight-flash {
+  animation: flash-element 1s ease-out !important;
+}
+
+.audit-highlight-tag {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  background: var(--color-critical);
+  color: white;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  z-index: 9999;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.audit-highlight-tag.medium {
+  background: var(--color-medium);
+  color: #333;
+}
+
+.audit-highlight-tag.low {
+  background: var(--color-low);
+}
+
+.tab-content-enter {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.issue-card {
+  animation: fade-in 0.2s ease-out;
+}
+
+.issue-card.dragging {
+  background: var(--color-drag-bg) !important;
+  transform: scale(1.02);
+  transition: transform 0.2s ease-out, background-color 0.2s ease-out;
+}
+
+.drag-drop-animation {
+  animation: bounce-in 0.2s ease-out;
+}
+
+.copy-btn-success {
+  animation: copy-success 0.5s ease-out;
+}
+
+.progress-bar-scan {
+  animation: progress-fill 0.5s linear forwards;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.monaco-editor-container .editor-scrollable .view-overlays .current-line {
+  background: var(--color-active-line) !important;
+}
