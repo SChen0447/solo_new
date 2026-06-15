@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>交通流量3D可视化</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <nav class="navbar">
+      <div class="navbar-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2196f3" stroke-width="2">
+          <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        <span>交通流量3D可视化</span>
+      </div>
+      <div class="navbar-actions">
+        <button id="export-btn" class="export-btn" title="导出快照">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+            <circle cx="12" cy="13" r="4" />
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <div class="main-container">
+      <div class="scene-container" id="scene-container">
+        <div id="loading-overlay" class="loading-overlay">
+          <div class="loading-content">
+            <div class="loading-text">正在加载交通数据...</div>
+            <div class="progress-bar">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <div id="progress-text" class="progress-text">0%</div>
+          </div>
+        </div>
+        <div id="detail-card" class="detail-card hidden">
+          <div class="detail-header">
+            <span id="detail-title">路口详情</span>
+            <button id="detail-close" class="detail-close">&times;</button>
+          </div>
+          <div class="detail-body" id="detail-body"></div>
+        </div>
+        <div id="tooltip" class="tooltip hidden"></div>
+      </div>
+
+      <aside class="filter-panel" id="filter-panel">
+        <button id="panel-toggle" class="panel-toggle" title="折叠/展开面板">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+
+        <div class="panel-content">
+          <h3 class="panel-title">筛选与聚焦</h3>
+
+          <div class="filter-group">
+            <label class="filter-label">搜索路口ID</label>
+            <input type="text" id="search-input" class="filter-input" placeholder="输入路口ID..." />
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">
+              车流量阈值: <span id="flow-range-text">0 - 1000</span>
+            </label>
+            <div class="dual-slider">
+              <input type="range" id="flow-min" class="range-slider" min="0" max="1000" step="10" value="0" />
+              <input type="range" id="flow-max" class="range-slider" min="0" max="1000" step="10" value="1000" />
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">车辆类型</label>
+            <div class="checkbox-group">
+              <label class="checkbox-item">
+                <input type="checkbox" id="type-car" value="car" checked />
+                <span>轿车</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="type-truck" value="truck" checked />
+                <span>货车</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="type-bus" value="bus" checked />
+                <span>公交</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">速度颜色图例</label>
+            <div class="legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: #00e676"></div>
+                <span>高速 (&gt;40 km/h)</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #ffeb3b"></div>
+                <span>中速 (20-40 km/h)</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #ff1744"></div>
+                <span>低速 (&lt;20 km/h)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="timeline-bar">
+      <button id="play-btn" class="control-btn" title="播放/暂停">
+        <svg id="play-icon" width="18" height="18" viewBox="0 0 24 24" fill="white">
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+        <svg id="pause-icon" width="18" height="18" viewBox="0 0 24 24" fill="white" class="hidden">
+          <rect x="6" y="4" width="4" height="16" />
+          <rect x="14" y="4" width="4" height="16" />
+        </svg>
+      </button>
+
+      <div class="timeline-container">
+        <span id="time-label" class="time-label">06:00</span>
+        <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="23" step="1" value="6" />
+        <span id="time-end" class="time-label">24:00</span>
+      </div>
+
+      <div class="speed-group">
+        <button class="speed-btn" data-speed="0.5">x0.5</button>
+        <button class="speed-btn active" data-speed="1">x1</button>
+        <button class="speed-btn" data-speed="2">x2</button>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
