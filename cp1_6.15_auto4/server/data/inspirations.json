@@ -1,0 +1,182 @@
+[
+  {
+    "id": "1",
+    "emoji": "🌱",
+    "text": "环保+科技",
+    "gradientIndex": 0
+  },
+  {
+    "id": "2",
+    "emoji": "🚀",
+    "text": "复古未来主义",
+    "gradientIndex": 1
+  },
+  {
+    "id": "3",
+    "emoji": "🎨",
+    "text": "极简艺术表达",
+    "gradientIndex": 2
+  },
+  {
+    "id": "4",
+    "emoji": "🤖",
+    "text": "AI辅助创作",
+    "gradientIndex": 3
+  },
+  {
+    "id": "5",
+    "emoji": "🌍",
+    "text": "全球化思维",
+    "gradientIndex": 4
+  },
+  {
+    "id": "6",
+    "emoji": "🎮",
+    "text": "游戏化体验",
+    "gradientIndex": 5
+  },
+  {
+    "id": "7",
+    "emoji": "♻️",
+    "text": "循环经济模式",
+    "gradientIndex": 0
+  },
+  {
+    "id": "8",
+    "emoji": "🧘",
+    "text": "正念与效率",
+    "gradientIndex": 1
+  },
+  {
+    "id": "9",
+    "emoji": "🌈",
+    "text": "多元化包容",
+    "gradientIndex": 2
+  },
+  {
+    "id": "10",
+    "emoji": "🏙️",
+    "text": "智慧城市",
+    "gradientIndex": 3
+  },
+  {
+    "id": "11",
+    "emoji": "🎵",
+    "text": "音乐可视化",
+    "gradientIndex": 4
+  },
+  {
+    "id": "12",
+    "emoji": "📚",
+    "text": "知识图谱",
+    "gradientIndex": 5
+  },
+  {
+    "id": "13",
+    "emoji": "🌊",
+    "text": "海洋保护",
+    "gradientIndex": 0
+  },
+  {
+    "id": "14",
+    "emoji": "⚡",
+    "text": "清洁能源",
+    "gradientIndex": 1
+  },
+  {
+    "id": "15",
+    "emoji": "🎭",
+    "text": "沉浸式剧场",
+    "gradientIndex": 2
+  },
+  {
+    "id": "16",
+    "emoji": "🌿",
+    "text": "生物仿生设计",
+    "gradientIndex": 3
+  },
+  {
+    "id": "17",
+    "emoji": "🔗",
+    "text": "去中心化应用",
+    "gradientIndex": 4
+  },
+  {
+    "id": "18",
+    "emoji": "🎯",
+    "text": "精准个性化",
+    "gradientIndex": 5
+  },
+  {
+    "id": "19",
+    "emoji": "👥",
+    "text": "社区共建",
+    "gradientIndex": 0
+  },
+  {
+    "id": "20",
+    "emoji": "🔬",
+    "text": "跨界融合创新",
+    "gradientIndex": 1
+  },
+  {
+    "id": "21",
+    "emoji": "🏔️",
+    "text": "户外数字化",
+    "gradientIndex": 2
+  },
+  {
+    "id": "22",
+    "emoji": "💡",
+    "text": "开放式创新",
+    "gradientIndex": 3
+  },
+  {
+    "id": "23",
+    "emoji": "🎪",
+    "text": "互动展览",
+    "gradientIndex": 4
+  },
+  {
+    "id": "24",
+    "emoji": "📱",
+    "text": "移动端优先",
+    "gradientIndex": 5
+  },
+  {
+    "id": "25",
+    "emoji": "🌟",
+    "text": "太空探索主题",
+    "gradientIndex": 0
+  },
+  {
+    "id": "26",
+    "emoji": "🍃",
+    "text": "可持续时尚",
+    "gradientIndex": 1
+  },
+  {
+    "id": "27",
+    "emoji": "🧬",
+    "text": "健康科技",
+    "gradientIndex": 2
+  },
+  {
+    "id": "28",
+    "emoji": "🎬",
+    "text": "叙事式设计",
+    "gradientIndex": 3
+  },
+  {
+    "id": "29",
+    "emoji": "🌾",
+    "text": "农业智能化",
+    "gradientIndex": 4
+  },
+  {
+    "id": "30",
+    "emoji": "🎨",
+    "text": "色彩心理学应用",
+    "gradientIndex": 5
+  }
+]
