@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Molecule Viewer - 3D分子结构可视化</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #1a1a2e;
+      --bg-deep: #0a0a2e;
+      --text-primary: #e0e0e0;
+      --text-secondary: #a0a0b0;
+      --accent-blue: #4a9eff;
+      --accent-cyan: #00e5ff;
+      --btn-hover: #4a4a6a;
+      --btn-active: #5a5a7a;
+      --panel-bg: rgba(255, 255, 255, 0.08);
+      --card-bg: rgba(255, 255, 255, 0.12);
+      --glass-bg: rgba(26, 26, 46, 0.8);
+      --error-red: #ff4466;
+      --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+      --font-ui: 'Source Sans 3', 'Segoe UI', sans-serif;
+    }
+
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: var(--font-ui); background: var(--bg-primary); color: var(--text-primary); }
+
+    #app { display: flex; flex-direction: column; width: 100%; height: 100%; }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+      background: var(--glass-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06); z-index: 100; min-height: 52px;
+    }
+
+    .toolbar-title {
+      font-family: var(--font-mono); font-size: 14px; font-weight: 700;
+      color: var(--accent-cyan); letter-spacing: 1px; margin-right: 16px; white-space: nowrap;
+    }
+
+    .toolbar-btn {
+      font-family: var(--font-ui); font-size: 13px; font-weight: 600;
+      padding: 7px 16px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px;
+      background: var(--panel-bg); color: var(--text-primary); cursor: pointer;
+      transition: background 0.2s, transform 0.15s, border-color 0.2s; white-space: nowrap;
+    }
+
+    .toolbar-btn:hover { background: var(--btn-hover); border-color: rgba(255, 255, 255, 0.2); }
+    .toolbar-btn:active { transform: scale(0.95); }
+    .toolbar-btn.active { background: var(--btn-active); border-color: var(--accent-blue); color: var(--accent-cyan); }
+
+    .toolbar-separator { width: 1px; height: 28px; background: rgba(255, 255, 255, 0.1); margin: 0 4px; }
+
+    #mol-info {
+      font-family: var(--font-mono); font-size: 13px; color: var(--accent-cyan);
+      margin-left: auto; display: none; white-space: nowrap;
+    }
+
+    .content { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    #info-panel {
+      width: 260px; min-width: 260px; padding: 16px; overflow-y: auto;
+      background: var(--panel-bg); border-right: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex; flex-direction: column; gap: 12px; z-index: 50;
+    }
+
+    .info-section-title {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+      color: var(--text-secondary); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;
+    }
+
+    .info-card {
+      background: var(--card-bg); border-radius: 12px; padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+    .info-label { font-size: 12px; color: var(--text-secondary); }
+    .info-value { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); font-weight: 500; }
+
+    #atom-info-panel { display: none; }
+
+    .viewport-wrapper { flex: 1; position: relative; min-width: 0; }
+
+    #viewport-container { width: 100%; height: 100%; position: relative; }
+
+    #mol-canvas { width: 100%; height: 100%; display: block; }
+
+    #drop-zone {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 16px; margin: 20px;
+      transition: transform 0.3s ease, border-color 0.3s ease; cursor: pointer; z-index: 10;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    #drop-zone.drag-over {
+      border-color: var(--accent-blue); transform: scale(1.05);
+      background: rgba(74, 158, 255, 0.05);
+    }
+
+    .drop-icon {
+      width: 64px; height: 64px; margin-bottom: 16px;
+      border: 2px solid var(--text-secondary); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: var(--text-secondary);
+    }
+
+    .drop-text { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
+    .drop-hint { font-size: 12px; color: rgba(255, 255, 255, 0.3); }
+
+    #loading-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(10, 10, 46, 0.85); z-index: 20;
+    }
+
+    .loader-spinner {
+      width: 48px; height: 48px; border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid var(--accent-cyan); border-radius: 50%;
+      animation: spin 1s linear infinite; margin-bottom: 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #progress-text { font-family: var(--font-mono); font-size: 14px; color: var(--accent-cyan); margin-bottom: 12px; }
+
+    .progress-bar-track {
+      width: 200px; height: 4px; background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px; overflow: hidden;
+    }
+
+    #progress-bar { width: 0%; height: 100%; background: var(--accent-cyan); border-radius: 2px; transition: width 0.15s; }
+
+    #error-message {
+      position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+      background: rgba(255, 68, 102, 0.15); border: 1px solid var(--error-red);
+      color: var(--error-red); padding: 10px 24px; border-radius: 8px;
+      font-size: 14px; font-weight: 600; display: none; z-index: 30;
+      backdrop-filter: blur(4px);
+    }
+
+    #mobile-panel-toggle {
+      display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 60; padding: 10px 24px; border-radius: 24px;
+      background: var(--glass-bg); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-primary);
+      font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+
+    #mobile-panel-toggle:active { transform: translateX(-50%) scale(0.95); }
+
+    input[type="file"] { display: none; }
+
+    @media (max-width: 768px) {
+      .toolbar { flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+      .toolbar-btn { padding: 6px 12px; font-size: 12px; }
+      .toolbar-title { font-size: 12px; margin-right: 8px; }
+
+      #info-panel {
+        position: fixed; bottom: 0; left: 0; width: 100%; height: auto;
+        max-height: 50vh; min-width: auto; border-right: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        transform: translateY(100%); transition: transform 0.3s ease;
+        z-index: 55; flex-direction: column;
+      }
+
+      #info-panel.mobile-open { transform: translateY(0); }
+      #mobile-panel-toggle { display: block; }
+
+      .viewport-wrapper { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="toolbar">
+      <span class="toolbar-title">MOLVIEW</span>
+      <button id="upload-btn" class="toolbar-btn">Upload SDF</button>
+      <div class="toolbar-separator"></div>
+      <button id="btn-ballstick" class="toolbar-btn active">Ball &amp; Stick</button>
+      <button id="btn-wireframe" class="toolbar-btn">Wireframe</button>
+      <div class="toolbar-separator"></div>
+      <button id="btn-reset" class="toolbar-btn">Reset View</button>
+      <span id="mol-info"></span>
+    </div>
+    <input type="file" id="file-input" accept=".sdf" />
+
+    <div class="content">
+      <div id="info-panel">
+        <div>
+          <div class="info-section-title">Molecule Info</div>
+          <div class="info-card">
+            <div class="info-row">
+              <span class="info-label">Format</span>
+              <span class="info-value">SDF</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Source</span>
+              <span class="info-value" id="info-source">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="atom-info-panel">
+          <div class="info-section-title">Selected Atom</div>
+          <div class="info-card">
+            <div class="info-row">
+              <span class="info-label">Element</span>
+              <span class="info-value" id="atom-element">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Index</span>
+              <span class="info-value" id="atom-index">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Position</span>
+              <span class="info-value" id="atom-coords">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Connections</span>
+              <span class="info-value" id="atom-connections">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="info-section-title">Element Legend</div>
+          <div class="info-card">
+            <div class="info-row"><span class="info-label">C Carbon</span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#808080;vertical-align:middle;"></span></div>
+            <div class="info-row"><span class="info-label">H Hydrogen</span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffffff;vertical-align:middle;border:1px solid rgba(255,255,255,0.3);"></span></div>
+            <div class="info-row"><span class="info-label">O Oxygen</span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ff0000;vertical-align:middle;"></span></div>
+            <div class="info-row"><span class="info-label">N Nitrogen</span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#0000ff;vertical-align:middle;"></span></div>
+            <div class="info-row"><span class="info-label">S Sulfur</span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffff00;vertical-align:middle;"></span></div>
+            <div class="info-row"><span class="info-label">P Phosphorus</span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffa500;vertical-align:middle;"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="viewport-wrapper">
+        <div id="viewport-container">
+          <canvas id="mol-canvas"></canvas>
+
+          <div id="drop-zone">
+            <div class="drop-icon">&#9883;</div>
+            <div class="drop-text">Drag &amp; drop SDF file here</div>
+            <div class="drop-hint">or click Upload SDF button &middot; Max 5MB</div>
+          </div>
+
+          <div id="loading-overlay">
+            <div class="loader-spinner"></div>
+            <div id="progress-text">0%</div>
+            <div class="progress-bar-track">
+              <div id="progress-bar"></div>
+            </div>
+          </div>
+
+          <div id="error-message"></div>
+        </div>
+      </div>
+    </div>
+
+    <button id="mobile-panel-toggle">Info Panel</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
