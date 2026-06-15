@@ -1,0 +1,92 @@
+[
+  {
+    "id": "wallet-001",
+    "name": "经典短款钱包",
+    "category": "wallet",
+    "description": "手工缝制植鞣革短款钱包，多卡位设计，经久耐用",
+    "basePrice": 398,
+    "modelConfig": {
+      "type": "wallet",
+      "dimensions": { "width": 12, "height": 9.5, "depth": 2 },
+      "parts": [
+        { "id": "body", "name": "主体", "geometry": "box", "materialType": "leather", "position": [0, 0, 0], "rotation": [0, 0, 0] },
+        { "id": "flap", "name": "翻盖", "geometry": "box", "materialType": "leather", "position": [0, 4.2, 1.1], "rotation": [-0.2, 0, 0] },
+        { "id": "stitch-edge", "name": "边线", "geometry": "torus", "materialType": "stitch", "position": [0, 0, 0], "rotation": [0, 0, 0] },
+        { "id": "buckle", "name": "扣具", "geometry": "box", "materialType": "hardware", "position": [0, 2, 1.2], "rotation": [0, 0, 0] }
+      ]
+    },
+    "defaultCustomization": {
+      "leather": { "id": "veg-tan", "name": "植鞣本色", "color": "#c4a578", "roughness": 0.6, "metalness": 0.05 },
+      "stitch": { "id": "brown", "name": "棕色", "color": "#8b4513" },
+      "hardware": { "id": "brass", "name": "黄铜", "color": "#b5a642", "metalness": 0.9, "roughness": 0.3 }
+    }
+  },
+  {
+    "id": "handbag-001",
+    "name": "复古手提包",
+    "category": "handbag",
+    "description": "大容量复古风手提包，手工编织提手，适合日常通勤",
+    "basePrice": 1280,
+    "modelConfig": {
+      "type": "handbag",
+      "dimensions": { "width": 30, "height": 22, "depth": 12 },
+      "parts": [
+        { "id": "body", "name": "包身", "geometry": "box", "materialType": "leather", "position": [0, 0, 0], "rotation": [0, 0, 0] },
+        { "id": "handle-left", "name": "左提手", "geometry": "torus", "materialType": "leather", "position": [-8, 14, 0], "rotation": [0, 0, 0] },
+        { "id": "handle-right", "name": "右提手", "geometry": "torus", "materialType": "leather", "position": [8, 14, 0], "rotation": [0, 0, 0] },
+        { "id": "stitch-body", "name": "包身缝线", "geometry": "torus", "materialType": "stitch", "position": [0, 0, 0], "rotation": [0, 0, 0] },
+        { "id": "clasp", "name": "锁扣", "geometry": "box", "materialType": "hardware", "position": [0, 8, 6.2], "rotation": [0, 0, 0] },
+        { "id": "feet", "name": "底钉", "geometry": "cylinder", "materialType": "hardware", "position": [0, -10, 0], "rotation": [0, 0, 0] }
+      ]
+    },
+    "defaultCustomization": {
+      "leather": { "id": "waxed-brown", "name": "擦蜡棕", "color": "#8b6914", "roughness": 0.4, "metalness": 0.1 },
+      "stitch": { "id": "beige", "name": "米色", "color": "#f5deb3" },
+      "hardware": { "id": "bronze", "name": "古铜", "color": "#cd7f32", "metalness": 0.8, "roughness": 0.5 }
+    }
+  },
+  {
+    "id": "cardholder-001",
+    "name": "极简卡包",
+    "category": "cardholder",
+    "description": "超薄极简设计，可放6张卡片，随身携带无负担",
+    "basePrice": 198,
+    "modelConfig": {
+      "type": "cardholder",
+      "dimensions": { "width": 10, "height": 7, "depth": 0.8 },
+      "parts": [
+        { "id": "body", "name": "主体", "geometry": "box", "materialType": "leather", "position": [0, 0, 0], "rotation": [0, 0, 0] },
+        { "id": "pocket-1", "name": "卡槽1", "geometry": "box", "materialType": "leather", "position": [0, 1.5, 0.45], "rotation": [0, 0, 0] },
+        { "id": "pocket-2", "name": "卡槽2", "geometry": "box", "materialType": "leather", "position": [0, -1.5, 0.45], "rotation": [0, 0, 0] },
+        { "id": "stitch-edge", "name": "边线", "geometry": "torus", "materialType": "stitch", "position": [0, 0, 0], "rotation": [0, 0, 0] }
+      ]
+    },
+    "defaultCustomization": {
+      "leather": { "id": "matte-black", "name": "雾面黑", "color": "#2d2d2d", "roughness": 0.7, "metalness": 0.05 },
+      "stitch": { "id": "red", "name": "红色", "color": "#dc143c" },
+      "hardware": { "id": "silver", "name": "银", "color": "#c0c0c0", "metalness": 0.95, "roughness": 0.15 }
+    }
+  },
+  {
+    "id": "belt-001",
+    "name": "手工皮带",
+    "category": "belt",
+    "description": "整张牛皮切割，手工封边，黄铜针扣，可定制长度",
+    "basePrice": 458,
+    "modelConfig": {
+      "type": "belt",
+      "dimensions": { "width": 110, "height": 3.5, "depth": 0.5 },
+      "parts": [
+        { "id": "strap", "name": "带身", "geometry": "box", "materialType": "leather", "position": [0, 0, 0], "rotation": [0, 0, 0] },
+        { "id": "stitch-edge", "name": "边线", "geometry": "torus", "materialType": "stitch", "position": [0, 0, 0], "rotation": [0, 0, 0] },
+        { "id": "buckle", "name": "针扣", "geometry": "torus", "materialType": "hardware", "position": [-52, 0, 0.4], "rotation": [0, 0, 0] },
+        { "id": "loop", "name": "皮带环", "geometry": "torus", "materialType": "leather", "position": [-45, 0, 0], "rotation": [0, 0, 0] }
+      ]
+    },
+    "defaultCustomization": {
+      "leather": { "id": "vintage-red", "name": "复古红", "color": "#8b0000", "roughness": 0.5, "metalness": 0.08 },
+      "stitch": { "id": "gold", "name": "金色", "color": "#ffd700" },
+      "hardware": { "id": "black-nickel", "name": "黑镍", "color": "#2a2a2a", "metalness": 0.85, "roughness": 0.4 }
+    }
+  }
+]
