@@ -1,0 +1,195 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+body {
+  background: linear-gradient(135deg, #0a0e1a 0%, #0d1321 30%, #0b0f1e 60%, #060a14 100%);
+  color: #e0e6f0;
+}
+
+.glass {
+  background: rgba(15, 20, 40, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(100, 140, 255, 0.15);
+  border-radius: 12px;
+}
+
+.glass-panel {
+  background: rgba(12, 16, 35, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(100, 140, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.glow-button {
+  background: rgba(60, 90, 180, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(100, 140, 255, 0.25);
+  border-radius: 8px;
+  color: #c0d0ff;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.glow-button:hover {
+  background: rgba(80, 120, 220, 0.45);
+  border-color: rgba(130, 170, 255, 0.5);
+  box-shadow: 0 0 20px rgba(80, 130, 255, 0.3), 0 0 40px rgba(80, 130, 255, 0.1);
+  color: #e0ecff;
+  transform: translateY(-1px);
+}
+
+.glow-button:active {
+  transform: translateY(0);
+  transition: all 0.15s ease;
+}
+
+.glow-button.active {
+  background: rgba(80, 120, 220, 0.5);
+  border-color: rgba(130, 170, 255, 0.6);
+  box-shadow: 0 0 15px rgba(80, 130, 255, 0.25);
+}
+
+.slider-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgba(180, 200, 255, 0.7);
+  letter-spacing: 0.3px;
+}
+
+.slider-label span:last-child {
+  color: rgba(200, 220, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: rgba(60, 90, 160, 0.3);
+  border-radius: 2px;
+  outline: none;
+  transition: background 0.2s ease;
+}
+
+input[type="range"]:hover {
+  background: rgba(70, 100, 180, 0.4);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #a0c0ff, #5080e0);
+  border: 1px solid rgba(160, 200, 255, 0.4);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(80, 130, 255, 0.4);
+  transition: all 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 16px rgba(80, 130, 255, 0.6);
+  transform: scale(1.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #a0c0ff, #5080e0);
+  border: 1px solid rgba(160, 200, 255, 0.4);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(80, 130, 255, 0.4);
+}
+
+.mode-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.mode-button {
+  background: rgba(40, 55, 100, 0.3);
+  border: 1px solid rgba(80, 110, 180, 0.2);
+  border-radius: 6px;
+  color: rgba(180, 200, 255, 0.7);
+  padding: 6px 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.25s ease;
+  text-align: center;
+}
+
+.mode-button:hover {
+  background: rgba(60, 80, 140, 0.4);
+  border-color: rgba(100, 140, 220, 0.35);
+  color: rgba(200, 220, 255, 0.9);
+}
+
+.mode-button.active {
+  background: rgba(70, 100, 180, 0.45);
+  border-color: rgba(120, 160, 255, 0.5);
+  color: #d0e0ff;
+  box-shadow: 0 0 12px rgba(80, 130, 255, 0.2);
+}
+
+.color-wheel-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.color-wheel-canvas {
+  cursor: crosshair;
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(80, 130, 255, 0.15);
+  transition: box-shadow 0.3s ease;
+}
+
+.color-wheel-canvas:hover {
+  box-shadow: 0 0 30px rgba(80, 130, 255, 0.25);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(80, 130, 255, 0.15); }
+  50% { box-shadow: 0 0 35px rgba(80, 130, 255, 0.25); }
+}
+
+.panel-animate {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.panel-pulse {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
