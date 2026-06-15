@@ -1,0 +1,15 @@
+{
+  "name": "sewer-stealth-game",
+  "version": "1.0.0",
+  "description": "A top-down 2D stealth survival game set in city sewers",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
+  }
+}
