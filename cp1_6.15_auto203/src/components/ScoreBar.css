@@ -1,0 +1,64 @@
+.score-bar {
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+}
+
+.score-bar__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.score-bar__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.score-bar__value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.score-bar__track {
+  position: relative;
+  height: 24px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.score-bar__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  transition: width 0.5s ease, background-color 0.5s ease;
+  z-index: 1;
+}
+
+.score-bar__gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to right,
+    #f44336 0%,
+    #ff9800 50%,
+    #4caf50 100%
+  );
+  opacity: 0.3;
+  z-index: 0;
+}
+
+.score-bar__advice {
+  margin: 12px 0 0 0;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+}

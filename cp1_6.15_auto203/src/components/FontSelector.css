@@ -1,0 +1,165 @@
+.font-selector {
+  padding: 16px;
+  background: #f5f5f5;
+}
+
+.font-selector__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 16px 0;
+}
+
+.font-dropdown {
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.font-dropdown__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.font-dropdown__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.font-dropdown__trigger:hover {
+  border-color: #1a1a2e;
+}
+
+.font-dropdown__trigger.is-open {
+  border-color: #1a1a2e;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.font-dropdown__trigger-text {
+  font-size: 14px;
+  color: #1a1a2e;
+  font-weight: 500;
+}
+
+.font-dropdown__arrow {
+  font-size: 10px;
+  color: #999;
+  transition: transform 0.2s ease;
+}
+
+.font-dropdown__trigger.is-open .font-dropdown__arrow {
+  transform: rotate(180deg);
+}
+
+.font-dropdown__menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-top: none;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.font-dropdown__section {
+  padding: 8px 0;
+}
+
+.font-dropdown__section + .font-dropdown__section {
+  border-top: 1px solid #f0f0f0;
+}
+
+.font-dropdown__section-title {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.font-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.font-dropdown__item:hover {
+  background: #f8f9fa;
+}
+
+.font-dropdown__item.is-selected {
+  background: #e8f4fd;
+}
+
+.font-dropdown__item-preview {
+  font-size: 16px;
+  color: #1a1a2e;
+  min-width: 80px;
+}
+
+.font-dropdown__item-name {
+  font-size: 13px;
+  color: #666;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+@media (max-width: 767px) {
+  .font-dropdown__menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .font-dropdown__menu::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.31);
+  }
+
+  .font-dropdown__section {
+    position: relative;
+    background: #fff;
+    border-radius: 12px 12px 0 0;
+    width: 100%;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .font-dropdown__item {
+    height: 48px;
+  }
+}
