@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>照明模拟与设计辅助系统</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    }
+    
+    #app {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    
+    #canvas-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .lil-gui {
+      --width: 320px;
+      --widget-height: 24px;
+      --background-color: rgba(22, 33, 62, 0.9);
+      --title-background-color: rgba(15, 52, 96, 0.95);
+      --widget-color: rgba(30, 41, 59, 0.8);
+      --focus-color: #0f3460;
+      --hover-color: rgba(15, 52, 96, 0.6);
+      --font-color: #e8e8e8;
+      --number-color: #e94560;
+      --string-color: #16c79a;
+      --font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      backdrop-filter: blur(10px);
+    }
+    
+    .lil-gui .controller {
+      transition: background-color 0.2s ease;
+    }
+    
+    .lil-gui .controller:hover {
+      background-color: var(--hover-color);
+    }
+    
+    .lil-gui .folder {
+      transition: max-height 0.2s ease, opacity 0.2s ease;
+    }
+    
+    .lil-gui .folder .children {
+      overflow: hidden;
+      transition: max-height 0.2s ease;
+    }
+    
+    #stats-panel {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      padding: 12px 16px;
+      background: rgba(22, 33, 62, 0.9);
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      color: #e8e8e8;
+      font-size: 12px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      z-index: 1000;
+      line-height: 1.8;
+      border: 1px solid rgba(233, 69, 96, 0.3);
+    }
+    
+    #stats-panel .stat-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    
+    #stats-panel .stat-label {
+      color: #8892b0;
+    }
+    
+    #stats-panel .stat-value {
+      color: #16c79a;
+      font-weight: 600;
+    }
+    
+    #stats-panel .stat-value.warning {
+      color: #e94560;
+    }
+    
+    #heatmap-overlay {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 300px;
+      height: 300px;
+      background: rgba(22, 33, 62, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 16px;
+      z-index: 1000;
+      border: 1px solid rgba(22, 199, 154, 0.3);
+      transition: all 0.3s ease;
+    }
+    
+    #heatmap-overlay h3 {
+      color: #e8e8e8;
+      font-size: 14px;
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+    
+    #heatmap-canvas {
+      width: 100%;
+      height: calc(100% - 60px);
+      border-radius: 8px;
+      image-rendering: pixelated;
+    }
+    
+    #heatmap-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    #heatmap-controls label {
+      color: #8892b0;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    
+    #heatmap-controls input[type="range"] {
+      flex: 1;
+      accent-color: #16c79a;
+    }
+    
+    #heatmap-legend {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 4px;
+      font-size: 10px;
+      color: #8892b0;
+    }
+    
+    #mobile-toolbar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: rgba(22, 33, 62, 0.95);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(233, 69, 96, 0.3);
+      z-index: 1001;
+      padding: 0 20px;
+      align-items: center;
+      justify-content: space-around;
+    }
+    
+    #mobile-toolbar button {
+      background: transparent;
+      border: 1px solid rgba(22, 199, 154, 0.5);
+      color: #16c79a;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    #mobile-toolbar button:hover {
+      background: rgba(22, 199, 154, 0.2);
+    }
+    
+    #floating-heatmap-toggle {
+      display: none;
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(22, 199, 154, 0.9);
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 1001;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    @media (max-width: 1440px) {
+      #heatmap-overlay {
+        width: 60px;
+        height: 60px;
+        padding: 8px;
+        cursor: pointer;
+      }
+      
+      #heatmap-overlay h3,
+      #heatmap-canvas,
+      #heatmap-controls,
+      #heatmap-legend {
+        display: none;
+      }
+      
+      #heatmap-overlay::before {
+        content: '🔥';
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        font-size: 24px;
+      }
+      
+      #heatmap-overlay.expanded {
+        width: 300px;
+        height: 300px;
+        padding: 16px;
+      }
+      
+      #heatmap-overlay.expanded::before {
+        display: none;
+      }
+      
+      #heatmap-overlay.expanded h3,
+      #heatmap-overlay.expanded #heatmap-canvas,
+      #heatmap-overlay.expanded #heatmap-controls,
+      #heatmap-overlay.expanded #heatmap-legend {
+        display: block;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .lil-gui {
+        display: none !important;
+      }
+      
+      #mobile-toolbar {
+        display: flex;
+      }
+      
+      #floating-heatmap-toggle {
+        display: block;
+      }
+      
+      #heatmap-overlay {
+        display: none;
+      }
+      
+      #heatmap-overlay.visible {
+        display: block;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90vw;
+        max-width: 350px;
+        height: auto;
+        aspect-ratio: 1;
+      }
+      
+      #heatmap-overlay.visible h3,
+      #heatmap-overlay.visible #heatmap-canvas,
+      #heatmap-overlay.visible #heatmap-controls,
+      #heatmap-overlay.visible #heatmap-legend {
+        display: block;
+      }
+      
+      #heatmap-overlay::before {
+        display: none !important;
+      }
+    }
+    
+    .color-picker-wrapper {
+      position: relative;
+      width: 100%;
+      height: 150px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+    
+    .color-picker-wheel {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      cursor: crosshair;
+    }
+    
+    .color-picker-handle {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border: 2px solid white;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+    }
+    
+    .notification {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      background: rgba(233, 69, 96, 0.95);
+      color: white;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 2000;
+      backdrop-filter: blur(10px);
+      animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container"></div>
+    
+    <div id="stats-panel">
+      <div class="stat-item">
+        <span class="stat-label">FPS:</span>
+        <span class="stat-value" id="stat-fps">60</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">光源数量:</span>
+        <span class="stat-value" id="stat-lights">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">阴影贴图尺寸:</span>
+        <span class="stat-value" id="stat-shadow">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">网格更新耗时:</span>
+        <span class="stat-value" id="stat-mesh">0ms</span>
+      </div>
+    </div>
+    
+    <div id="heatmap-overlay">
+      <h3>光照强度热力图</h3>
+      <canvas id="heatmap-canvas" width="400" height="400"></canvas>
+      <div id="heatmap-controls">
+        <label>透明度</label>
+        <input type="range" id="heatmap-opacity" min="0.3" max="0.7" step="0.05" value="0.5">
+      </div>
+      <div id="heatmap-legend">
+        <span>低 (蓝)</span>
+        <span>高 (红)</span>
+      </div>
+    </div>
+    
+    <button id="floating-heatmap-toggle">🔥</button>
+    
+    <div id="mobile-toolbar">
+      <button id="btn-add-light">+ 添加光源</button>
+      <button id="btn-toggle-heatmap">热力图</button>
+      <button id="btn-settings">设置</button>
+    </div>
+  </div>
+  
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
