@@ -1,0 +1,33 @@
+{
+  "name": "collaborative-whiteboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n WS,VITE -c magenta,cyan \"npm:dev:ws\" \"npm:dev:vite\"",
+    "dev:ws": "node --loader ts-node/esm src/modules/sync/syncServer.ts",
+    "dev:vite": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.16.0",
+    "zustand": "^4.5.2",
+    "lucide-react": "^0.400.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "@types/uuid": "^9.0.8",
+    "@types/ws": "^8.5.10",
+    "@types/node": "^20.11.30",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.2",
+    "vite": "^5.1.6"
+  }
+}
