@@ -1,0 +1,452 @@
+.card-spread-container {
+  width: 100%;
+  padding: 20px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.card-spread {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+.card-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  animation: cardAppear 0.6s ease-out backwards;
+  cursor: pointer;
+}
+
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-pedestal {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  margin-bottom: -70px;
+  order: 2;
+}
+
+.pedestal-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 110px;
+  height: 110px;
+  margin: -55px 0 0 -55px;
+  border-radius: 50%;
+  background: rgba(224, 216, 240, 0.4);
+  border: 1px dashed rgba(106, 13, 173, 0.5);
+  box-shadow: 0 0 30px rgba(106, 13, 173, 0.3), inset 0 0 20px rgba(212, 167, 98, 0.15);
+  animation: pedestalPulse 3s ease-in-out infinite;
+}
+
+@keyframes pedestalPulse {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(106, 13, 173, 0.2), inset 0 0 20px rgba(212, 167, 98, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(106, 13, 173, 0.5), inset 0 0 30px rgba(212, 167, 98, 0.25);
+  }
+}
+
+.pedestal-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 80px;
+  height: 80px;
+  margin: -40px 0 0 -40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 167, 98, 0.25) 0%, transparent 70%);
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+
+.pedestal-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 28px;
+}
+
+.position-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #d4a762;
+  letter-spacing: 2px;
+}
+
+.position-sub {
+  font-size: 10px;
+  color: rgba(224, 216, 240, 0.6);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.tarot-card {
+  width: 92px;
+  height: 140px;
+  perspective: 1000px;
+  order: 1;
+  margin-bottom: 8px;
+  z-index: 2;
+  transition: transform 0.3s ease;
+}
+
+.tarot-card.selected {
+  transform: scale(1.2) translateY(-10px);
+  z-index: 10;
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  will-change: transform;
+}
+
+.tarot-card.flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-back-face {
+  background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+  border: 2px solid rgba(212, 167, 98, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 30px rgba(106, 13, 173, 0.2);
+}
+
+.card-back-face .spiral-pattern {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  border: 2px solid rgba(212, 167, 98, 0.5);
+  border-radius: 50%;
+  border-top-color: transparent;
+  border-right-color: transparent;
+  animation: spiral 10s linear infinite;
+}
+
+.card-back-face .spiral-pattern-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38px;
+  height: 38px;
+  margin: -19px 0 0 -19px;
+  border: 2px solid rgba(212, 167, 98, 0.7);
+  border-radius: 50%;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  animation: spiralReverse 8s linear infinite;
+}
+
+.card-back-face .back-center-symbol {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #d4a762;
+  font-size: 20px;
+  text-shadow: 0 0 10px rgba(212, 167, 98, 0.6);
+}
+
+.card-back-face .corner-decoration {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(212, 167, 98, 0.5);
+}
+
+.card-back-face .corner-decoration.top-left {
+  top: 5px;
+  left: 5px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 3px;
+}
+
+.card-back-face .corner-decoration.top-right {
+  top: 5px;
+  right: 5px;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 3px;
+}
+
+.card-back-face .corner-decoration.bottom-left {
+  bottom: 5px;
+  left: 5px;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 3px;
+}
+
+.card-back-face .corner-decoration.bottom-right {
+  bottom: 5px;
+  right: 5px;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 3px;
+}
+
+@keyframes spiral {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spiralReverse {
+  to { transform: rotate(-360deg); }
+}
+
+.card-front-face {
+  transform: rotateY(180deg);
+  background: #ffffff;
+  border: 2px solid;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(106, 13, 173, 0.15);
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  animation: cardBreathe 3s ease-in-out infinite;
+}
+
+@keyframes cardBreathe {
+  0%, 100% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(106, 13, 173, 0.1);
+  }
+  50% {
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 40px rgba(106, 13, 173, 0.25);
+  }
+}
+
+.special-badge {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  color: #d4a762;
+  background: linear-gradient(90deg, #6a0dad, #8b5cf6, #6a0dad);
+  padding: 1px 6px;
+  border-radius: 6px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.card-header {
+  display: flex;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.card-symbol {
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.card-main-symbol {
+  font-size: 32px;
+  z-index: 2;
+  line-height: 1;
+}
+
+.card-geometry {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  z-index: 1;
+  animation: geoRotate 20s linear infinite;
+}
+
+@keyframes geoRotate {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.geometry-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.card-footer {
+  text-align: center;
+  padding-bottom: 4px;
+}
+
+.card-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  line-height: 1.2;
+}
+
+.card-keyword {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.divider {
+  width: 8px;
+  height: 1px;
+  opacity: 0.5;
+}
+
+.card-corner-tl,
+.card-corner-br {
+  position: absolute;
+  font-size: 8px;
+  opacity: 0.4;
+}
+
+.card-corner-tl {
+  top: 3px;
+  left: 4px;
+}
+
+.card-corner-br {
+  bottom: 3px;
+  right: 4px;
+  transform: rotate(180deg);
+}
+
+.theme-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: #e0d8f0;
+  letter-spacing: 1px;
+  opacity: 0.9;
+  order: 3;
+  animation: fadeIn 0.5s ease-out backwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
+}
+
+.theme-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+@media (max-width: 1024px) {
+  .card-spread {
+    gap: 24px;
+  }
+
+  .tarot-card {
+    width: 83px;
+    height: 126px;
+  }
+
+  .card-pedestal {
+    width: 99px;
+    height: 99px;
+    margin-bottom: -63px;
+  }
+
+  .pedestal-ring {
+    width: 99px;
+    height: 99px;
+    margin: -49px 0 0 -49px;
+  }
+
+  .position-label {
+    font-size: 14px;
+  }
+
+  .pedestal-label {
+    margin-top: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .card-spread {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .tarot-card {
+    width: 92px;
+    height: 140px;
+  }
+
+  .card-pedestal {
+    width: 110px;
+    height: 110px;
+    margin-bottom: -70px;
+  }
+
+  .pedestal-ring {
+    width: 110px;
+    height: 110px;
+    margin: -55px 0 0 -55px;
+  }
+
+  .pedestal-label {
+    margin-top: 28px;
+  }
+
+  .position-label {
+    font-size: 16px;
+  }
+}
