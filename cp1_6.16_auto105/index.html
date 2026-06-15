@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LyricCollab - 协作歌词创作与节奏标注</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #1A1A2E; color: #E0E0E0; font-family: 'Fira Code', monospace; }
+      #root { width: 100vw; height: 100vh; }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+      button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+      input:focus, textarea:focus { border-color: #4A9EFF !important; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: #16213E; }
+      ::-webkit-scrollbar-thumb { background: #0F3460; border-radius: 3px; }
+      @media (max-width: 767px) {
+        .main-layout { flex-direction: column !important; }
+        .editor-panel, .timeline-panel { flex: none !important; width: 100% !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/client/main.tsx"></script>
+  </body>
+</html>
