@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>植物神经信号可视化系统</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="scene-container"></div>
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <h3>数据监测面板</h3>
+        <button id="toggle-sidebar" class="toggle-btn">
+          <span class="toggle-icon">&#10095;</span>
+        </button>
+      </div>
+      <div class="sidebar-content">
+        <div class="chart-section">
+          <div class="chart-title">根部电位 (mV)</div>
+          <canvas id="chart-potential" width="280" height="100"></canvas>
+          <div class="stats-row">
+            <div class="stat-item">
+              <span class="stat-label">最大</span>
+              <span id="stat-potential-max" class="stat-value">-80.0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">最小</span>
+              <span id="stat-potential-min" class="stat-value">-120.0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">平均</span>
+              <span id="stat-potential-avg" class="stat-value">-100.0</span>
+            </div>
+          </div>
+        </div>
+        <div class="chart-section">
+          <div class="chart-title">气孔开合度 (%)</div>
+          <canvas id="chart-stomatal" width="280" height="100"></canvas>
+          <div class="stats-row">
+            <div class="stat-item">
+              <span class="stat-label">最大</span>
+              <span id="stat-stomatal-max" class="stat-value">100.0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">最小</span>
+              <span id="stat-stomatal-min" class="stat-value">0.0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">平均</span>
+              <span id="stat-stomatal-avg" class="stat-value">50.0</span>
+            </div>
+          </div>
+        </div>
+        <div class="chart-section">
+          <div class="chart-title">钙离子振荡 (Hz)</div>
+          <canvas id="chart-calcium" width="280" height="100"></canvas>
+          <div class="stats-row">
+            <div class="stat-item">
+              <span class="stat-label">最大</span>
+              <span id="stat-calcium-max" class="stat-value">2.0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">最小</span>
+              <span id="stat-calcium-min" class="stat-value">0.5</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">平均</span>
+              <span id="stat-calcium-avg" class="stat-value">1.25</span>
+            </div>
+          </div>
+        </div>
+        <div class="time-range-section">
+          <div class="chart-title">时间范围</div>
+          <input type="range" id="time-range-slider" min="60" max="3600" value="60" step="10" />
+          <div class="time-range-labels">
+            <span>60秒</span>
+            <span id="time-range-value">60秒</span>
+            <span>1小时</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="probe-tooltip" class="probe-tooltip" style="display: none;">
+      <div class="probe-title" id="probe-title">节段信息</div>
+      <div class="probe-row">
+        <span class="probe-label">电位值:</span>
+        <span id="probe-potential" class="probe-value">-100 mV</span>
+      </div>
+      <div class="probe-row">
+        <span class="probe-label">气孔开合度:</span>
+        <span id="probe-stomatal" class="probe-value">50%</span>
+      </div>
+      <div class="probe-row">
+        <span class="probe-label">钙离子频率:</span>
+        <span id="probe-calcium" class="probe-value">1.2 Hz</span>
+      </div>
+      <div class="probe-row">
+        <span class="probe-label">水分流速:</span>
+        <span id="probe-waterflow" class="probe-value">2.5 cm/s</span>
+      </div>
+    </div>
+    <div id="mobile-handle" class="mobile-handle">
+      <div class="handle-bar"></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
