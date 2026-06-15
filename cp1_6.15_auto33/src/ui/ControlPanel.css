@@ -1,0 +1,244 @@
+.control-panel {
+  position: absolute;
+  top: 140px;
+  right: 20px;
+  width: 280px;
+  background: rgba(26, 26, 46, 0.85);
+  border: 1px solid #d4af37;
+  border-radius: 12px;
+  padding: 20px;
+  color: #e0e0e0;
+  backdrop-filter: blur(10px);
+  z-index: 100;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.panel-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+  color: #d4af37;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+.panel-section {
+  margin-bottom: 20px;
+}
+
+.panel-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #b0b0c0;
+  margin-bottom: 8px;
+}
+
+.section-label .value {
+  color: #4ecdc4;
+  font-weight: 600;
+}
+
+.slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.sensitivity-slider {
+  background: linear-gradient(90deg, #6c63ff, #a855f7);
+}
+
+.particle-slider {
+  background: linear-gradient(90deg, #d4af37, #ffd700);
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #808090;
+  margin-top: 4px;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.theme-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.theme-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.theme-btn.active {
+  border-color: #d4af37;
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.theme-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.theme-name {
+  font-size: 10px;
+  color: #b0b0c0;
+}
+
+.stats-section {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.stat-item:last-child {
+  margin-bottom: 0;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #808090;
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.stat-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.stat-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.1s ease;
+}
+
+.volume-fill {
+  background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+}
+
+.stat-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
+  width: 40px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.stat-value.low {
+  color: #ff6b6b;
+}
+
+.bpm-value {
+  color: #4ecdc4;
+  font-size: 18px;
+}
+
+.export-section {
+  display: flex;
+  gap: 10px;
+}
+
+.export-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  background: linear-gradient(135deg, #4ecdc4, #44a08d);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+}
+
+.export-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
+}
+
+.export-btn:active {
+  transform: translateY(-1px);
+}
+
+.export-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.export-btn.data-export {
+  background: linear-gradient(135deg, #6c63ff, #a855f7);
+  box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+}
+
+.export-btn.data-export:hover {
+  box-shadow: 0 6px 20px rgba(108, 99, 255, 0.4);
+}
