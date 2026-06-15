@@ -1,0 +1,242 @@
+[
+  {
+    "id": "r001",
+    "name": "番茄炒蛋",
+    "ingredients": ["番茄", "鸡蛋", "葱花", "盐", "糖", "食用油"],
+    "cookTime": 15,
+    "nutrition": { "calories": 320, "protein": 18, "fat": 22, "carbs": 16, "fiber": 3 },
+    "allergens": ["egg"]
+  },
+  {
+    "id": "r002",
+    "name": "宫保鸡丁",
+    "ingredients": ["鸡胸肉", "花生", "干辣椒", "花椒", "葱", "姜", "蒜", "生抽", "醋", "糖"],
+    "cookTime": 25,
+    "nutrition": { "calories": 450, "protein": 35, "fat": 26, "carbs": 18, "fiber": 4 },
+    "allergens": ["peanut", "tree_nut"]
+  },
+  {
+    "id": "r003",
+    "name": "红烧肉",
+    "ingredients": ["五花肉", "冰糖", "生抽", "老抽", "料酒", "八角", "桂皮", "姜片", "葱段"],
+    "cookTime": 90,
+    "nutrition": { "calories": 680, "protein": 28, "fat": 58, "carbs": 12, "fiber": 1 },
+    "allergens": []
+  },
+  {
+    "id": "r004",
+    "name": "麻婆豆腐",
+    "ingredients": ["豆腐", "猪肉末", "豆瓣酱", "花椒粉", "辣椒粉", "葱花", "蒜末", "生抽"],
+    "cookTime": 20,
+    "nutrition": { "calories": 380, "protein": 22, "fat": 26, "carbs": 14, "fiber": 5 },
+    "allergens": ["soy"]
+  },
+  {
+    "id": "r005",
+    "name": "蒜蓉西兰花",
+    "ingredients": ["西兰花", "大蒜", "盐", "生抽", "食用油"],
+    "cookTime": 10,
+    "nutrition": { "calories": 120, "protein": 6, "fat": 7, "carbs": 10, "fiber": 6 },
+    "allergens": []
+  },
+  {
+    "id": "r006",
+    "name": "糖醋里脊",
+    "ingredients": ["猪里脊", "番茄酱", "白糖", "醋", "淀粉", "鸡蛋", "盐", "食用油"],
+    "cookTime": 35,
+    "nutrition": { "calories": 520, "protein": 32, "fat": 28, "carbs": 30, "fiber": 2 },
+    "allergens": ["egg", "wheat"]
+  },
+  {
+    "id": "r007",
+    "name": "土豆丝",
+    "ingredients": ["土豆", "青椒", "醋", "盐", "蒜", "食用油"],
+    "cookTime": 15,
+    "nutrition": { "calories": 210, "protein": 4, "fat": 8, "carbs": 32, "fiber": 4 },
+    "allergens": []
+  },
+  {
+    "id": "r008",
+    "name": "鱼香肉丝",
+    "ingredients": ["猪里脊肉", "胡萝卜", "青椒", "木耳", "豆瓣酱", "醋", "糖", "生抽", "料酒"],
+    "cookTime": 25,
+    "nutrition": { "calories": 380, "protein": 28, "fat": 18, "carbs": 22, "fiber": 5 },
+    "allergens": ["wheat"]
+  },
+  {
+    "id": "r009",
+    "name": "可乐鸡翅",
+    "ingredients": ["鸡翅中", "可乐", "生抽", "料酒", "姜片", "葱段"],
+    "cookTime": 40,
+    "nutrition": { "calories": 420, "protein": 26, "fat": 24, "carbs": 22, "fiber": 0 },
+    "allergens": []
+  },
+  {
+    "id": "r010",
+    "name": "紫菜蛋花汤",
+    "ingredients": ["紫菜", "鸡蛋", "虾皮", "葱花", "盐", "香油"],
+    "cookTime": 10,
+    "nutrition": { "calories": 160, "protein": 12, "fat": 10, "carbs": 6, "fiber": 2 },
+    "allergens": ["egg", "shellfish"]
+  },
+  {
+    "id": "r011",
+    "name": "青椒肉丝",
+    "ingredients": ["猪里脊肉", "青椒", "生抽", "料酒", "淀粉", "盐", "姜", "蒜"],
+    "cookTime": 20,
+    "nutrition": { "calories": 340, "protein": 30, "fat": 18, "carbs": 10, "fiber": 3 },
+    "allergens": ["wheat"]
+  },
+  {
+    "id": "r012",
+    "name": "水煮鱼",
+    "ingredients": ["草鱼", "豆芽", "干辣椒", "花椒", "豆瓣酱", "姜", "蒜", "葱", "盐"],
+    "cookTime": 45,
+    "nutrition": { "calories": 520, "protein": 42, "fat": 34, "carbs": 12, "fiber": 4 },
+    "allergens": ["fish"]
+  },
+  {
+    "id": "r013",
+    "name": "糖醋排骨",
+    "ingredients": ["猪排骨", "白糖", "醋", "生抽", "料酒", "姜片", "葱段", "八角"],
+    "cookTime": 60,
+    "nutrition": { "calories": 580, "protein": 32, "fat": 38, "carbs": 24, "fiber": 1 },
+    "allergens": ["soy"]
+  },
+  {
+    "id": "r014",
+    "name": "西红柿牛腩汤",
+    "ingredients": ["牛腩", "番茄", "土豆", "胡萝卜", "洋葱", "姜", "盐", "料酒"],
+    "cookTime": 120,
+    "nutrition": { "calories": 420, "protein": 34, "fat": 22, "carbs": 26, "fiber": 6 },
+    "allergens": []
+  },
+  {
+    "id": "r015",
+    "name": "干煸豆角",
+    "ingredients": ["豆角", "猪肉末", "干辣椒", "花椒", "蒜", "生抽", "盐", "食用油"],
+    "cookTime": 25,
+    "nutrition": { "calories": 280, "protein": 14, "fat": 18, "carbs": 16, "fiber": 8 },
+    "allergens": []
+  },
+  {
+    "id": "r016",
+    "name": "地三鲜",
+    "ingredients": ["土豆", "茄子", "青椒", "蒜", "生抽", "盐", "糖", "食用油"],
+    "cookTime": 30,
+    "nutrition": { "calories": 320, "protein": 6, "fat": 18, "carbs": 36, "fiber": 8 },
+    "allergens": ["soy"]
+  },
+  {
+    "id": "r017",
+    "name": "葱爆牛肉",
+    "ingredients": ["牛肉", "大葱", "生抽", "料酒", "淀粉", "姜", "蒜", "盐", "食用油"],
+    "cookTime": 20,
+    "nutrition": { "calories": 420, "protein": 38, "fat": 24, "carbs": 8, "fiber": 3 },
+    "allergens": ["wheat"]
+  },
+  {
+    "id": "r018",
+    "name": "皮蛋瘦肉粥",
+    "ingredients": ["大米", "皮蛋", "猪瘦肉", "姜丝", "葱花", "盐", "白胡椒粉"],
+    "cookTime": 50,
+    "nutrition": { "calories": 280, "protein": 16, "fat": 8, "carbs": 42, "fiber": 2 },
+    "allergens": ["egg"]
+  },
+  {
+    "id": "r019",
+    "name": "虾仁豆腐羹",
+    "ingredients": ["虾仁", "豆腐", "胡萝卜丁", "青豆", "玉米粒", "淀粉", "盐", "姜", "葱"],
+    "cookTime": 20,
+    "nutrition": { "calories": 220, "protein": 22, "fat": 8, "carbs": 14, "fiber": 3 },
+    "allergens": ["shellfish", "soy"]
+  },
+  {
+    "id": "r020",
+    "name": "煎饺",
+    "ingredients": ["饺子皮", "猪肉末", "韭菜", "鸡蛋", "姜", "盐", "生抽", "食用油"],
+    "cookTime": 30,
+    "nutrition": { "calories": 460, "protein": 22, "fat": 22, "carbs": 46, "fiber": 4 },
+    "allergens": ["egg", "wheat"]
+  },
+  {
+    "id": "r021",
+    "name": "咖喱鸡",
+    "ingredients": ["鸡腿肉", "土豆", "胡萝卜", "洋葱", "咖喱块", "椰浆", "盐"],
+    "cookTime": 50,
+    "nutrition": { "calories": 540, "protein": 28, "fat": 32, "carbs": 34, "fiber": 6 },
+    "allergens": ["milk"]
+  },
+  {
+    "id": "r022",
+    "name": "蒜蓉粉丝蒸扇贝",
+    "ingredients": ["扇贝", "粉丝", "大蒜", "葱花", "生抽", "盐", "食用油"],
+    "cookTime": 20,
+    "nutrition": { "calories": 240, "protein": 24, "fat": 8, "carbs": 14, "fiber": 2 },
+    "allergens": ["shellfish"]
+  },
+  {
+    "id": "r023",
+    "name": "清蒸鲈鱼",
+    "ingredients": ["鲈鱼", "葱丝", "姜丝", "蒸鱼豉油", "盐", "料酒", "食用油"],
+    "cookTime": 25,
+    "nutrition": { "calories": 280, "protein": 44, "fat": 10, "carbs": 2, "fiber": 0 },
+    "allergens": ["fish"]
+  },
+  {
+    "id": "r024",
+    "name": "奶酪土豆泥",
+    "ingredients": ["土豆", "牛奶", "奶酪", "黄油", "盐", "黑胡椒粉"],
+    "cookTime": 35,
+    "nutrition": { "calories": 380, "protein": 12, "fat": 22, "carbs": 34, "fiber": 4 },
+    "allergens": ["milk"]
+  },
+  {
+    "id": "r025",
+    "name": "双椒炒鸡蛋",
+    "ingredients": ["青椒", "红椒", "鸡蛋", "盐", "生抽", "食用油", "葱"],
+    "cookTime": 12,
+    "nutrition": { "calories": 260, "protein": 18, "fat": 18, "carbs": 10, "fiber": 4 },
+    "allergens": ["egg"]
+  },
+  {
+    "id": "r026",
+    "name": "黄豆猪蹄汤",
+    "ingredients": ["猪蹄", "黄豆", "姜片", "葱段", "料酒", "盐", "白胡椒粉"],
+    "cookTime": 150,
+    "nutrition": { "calories": 520, "protein": 40, "fat": 34, "carbs": 12, "fiber": 4 },
+    "allergens": ["soy"]
+  },
+  {
+    "id": "r027",
+    "name": "韭菜盒子",
+    "ingredients": ["面粉", "韭菜", "鸡蛋", "虾皮", "盐", "食用油", "姜末"],
+    "cookTime": 40,
+    "nutrition": { "calories": 440, "protein": 18, "fat": 22, "carbs": 44, "fiber": 5 },
+    "allergens": ["egg", "wheat", "shellfish"]
+  },
+  {
+    "id": "r028",
+    "name": "蘑菇奶油意面",
+    "ingredients": ["意面", "蘑菇", "奶油", "黄油", "大蒜", "牛奶", "奶酪", "盐", "黑胡椒"],
+    "cookTime": 30,
+    "nutrition": { "calories": 580, "protein": 18, "fat": 34, "carbs": 54, "fiber": 6 },
+    "allergens": ["milk", "wheat"]
+  },
+  {
+    "id": "r029",
+    "name": "花生酱拌面",
+    "ingredients": ["面条", "花生酱", "黄瓜丝", "胡萝卜丝", "葱花", "生抽", "醋", "糖"],
+    "cookTime": 15,
+    "nutrition": { "calories": 480, "protein": 14, "fat": 22, "carbs": 58, "fiber": 6 },
+    "allergens": ["peanut", "wheat"]
+  },
+  {
+    "id": "r030",
+    "name": "凉拌黄瓜",
+    "ingredients": ["黄瓜", "大蒜", "醋", "生抽", "盐", "糖", "辣椒油", "香油", "香菜"],
+    "cookTime": 8,
+    "nutrition": { "calories": 80, "protein": 2, "fat": 5, "carbs": 8, "fiber": 3 },
+    "allergens": []
+  }
+]
