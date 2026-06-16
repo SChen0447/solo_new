@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>三维文物展示</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700&family=Orbitron:wght@400;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0f0f23;
+      font-family: 'Noto Sans SC', sans-serif;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #loading-bar-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      z-index: 1000;
+      overflow: hidden;
+      border-radius: 3px;
+    }
+
+    #loading-bar {
+      width: 0%;
+      height: 100%;
+      background: #e94560;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    #loading-bar.done {
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    #artifact-info {
+      position: fixed;
+      top: 32px;
+      left: 32px;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    #artifact-info h1 {
+      font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
+      font-size: 24px;
+      color: #ffffff;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+      text-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+    }
+
+    #artifact-info p {
+      font-size: 14px;
+      color: #aaaaaa;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+
+    #controls {
+      position: fixed;
+      top: 32px;
+      right: 32px;
+      z-index: 100;
+      display: flex;
+      gap: 12px;
+    }
+
+    .ctrl-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .ctrl-btn.active {
+      background: rgba(233, 69, 96, 0.3);
+      border-color: #e94560;
+      color: #e94560;
+      box-shadow: 0 0 12px rgba(233, 69, 96, 0.3);
+    }
+
+    .ctrl-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    #info-card {
+      position: fixed;
+      right: 40px;
+      top: 50%;
+      transform: translateY(-50%) scale(0.8);
+      width: 380px;
+      background: #2d2d2d;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+      overflow: hidden;
+    }
+
+    #info-card.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(-50%) scale(1);
+    }
+
+    #info-card .card-image {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 8px;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    #info-card .card-image.loaded {
+      opacity: 1;
+    }
+
+    #info-card .card-body {
+      padding: 20px 24px;
+    }
+
+    #info-card .card-title {
+      font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
+      font-size: 24px;
+      color: #ffffff;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    #info-card .card-desc {
+      font-size: 16px;
+      color: #cccccc;
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    #info-card .card-close {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #e94560;
+      border: none;
+      color: #ffffff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.2s ease;
+      z-index: 10;
+    }
+
+    #info-card .card-close:hover {
+      background: #ff5a7a;
+      transform: scale(1.1);
+    }
+
+    #annotation-label {
+      position: fixed;
+      z-index: 150;
+      padding: 4px 10px;
+      background: rgba(51, 51, 51, 0.85);
+      color: #ffffff;
+      font-size: 14px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      white-space: nowrap;
+    }
+
+    #annotation-label.visible {
+      opacity: 1;
+    }
+
+    @media (max-width: 768px) {
+      #info-card {
+        width: 80%;
+        right: 10%;
+        left: 10%;
+        top: 50%;
+      }
+
+      .ctrl-btn {
+        width: 34px;
+        height: 34px;
+      }
+
+      .ctrl-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      #artifact-info {
+        top: 20px;
+        left: 20px;
+      }
+
+      #artifact-info h1 {
+        font-size: 18px;
+      }
+
+      #controls {
+        top: 20px;
+        right: 20px;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="loading-bar-container">
+    <div id="loading-bar"></div>
+  </div>
+
+  <div id="artifact-info">
+    <h1>后母戊鼎</h1>
+    <p>商代晚期 · 约公元前1300年</p>
+  </div>
+
+  <div id="controls">
+    <button class="ctrl-btn active" id="btn-autorotate" title="自动旋转">
+      <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+    </button>
+    <button class="ctrl-btn" id="btn-reset" title="重置视角">
+      <svg viewBox="0 0 24 24"><path d="M3 12c0 2.21.91 4.21 2.38 5.65L3 20h6v-6l-2.3 2.3C5.56 15.18 5 13.66 5 12c0-3.31 2.69-6 6-6s6 2.69 6 6-2.69 6-6 6c-1.02 0-1.99-.25-2.84-.7l-1.46 1.46C8.24 19.54 10.05 20 12 20c4.42 0 8-3.58 8-8s-3.58-8-8-8-8 3.58-8 8z"/></svg>
+    </button>
+  </div>
+
+  <div id="info-card">
+    <img class="card-image" id="card-image" src="" alt="" />
+    <div class="card-body">
+      <div class="card-title" id="card-title"></div>
+      <div class="card-desc" id="card-desc"></div>
+    </div>
+    <button class="card-close" id="card-close">✕</button>
+  </div>
+
+  <div id="annotation-label"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
