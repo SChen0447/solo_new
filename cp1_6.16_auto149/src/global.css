@@ -1,0 +1,30 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 767px) {
+  #root > div > main {
+    flex-direction: column !important;
+  }
+  #root > div > main > div:first-child {
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid #DEE2E6 !important;
+    max-height: 50vh;
+  }
+  #root > div > main > div:last-child {
+    width: 100% !important;
+    max-height: 50vh;
+  }
+}
+
+.add-strategy-btn:hover {
+  background-color: #2980B9 !important;
+}
+
+.add-strategy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
