@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>地质流体模拟</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #1A1A2E;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+    }
+    #canvas-container {
+      flex: 0 0 70%;
+      position: relative;
+    }
+    #canvas-container canvas {
+      display: block;
+    }
+    #control-panel {
+      flex: 0 0 30%;
+      background-color: #16213E;
+      color: #E0E0E0;
+      overflow-y: auto;
+      transition: flex 0.3s ease;
+      position: relative;
+    }
+    #control-panel.collapsed {
+      flex: 0 0 48px;
+      overflow: hidden;
+    }
+    #panel-toggle {
+      position: absolute;
+      top: 50%;
+      left: -24px;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 48px;
+      background: linear-gradient(135deg, #667EEA, #764BA2);
+      border: none;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px 0 0 4px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    #panel-toggle:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 10px rgba(102, 126, 234, 0.6);
+    }
+    .panel-content {
+      padding: 16px;
+    }
+    #control-panel.collapsed .panel-content {
+      display: none;
+    }
+    .panel-section {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .panel-section h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #667EEA;
+    }
+    .control-item {
+      margin-bottom: 12px;
+    }
+    .control-item label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 6px;
+      color: #B0B0B0;
+    }
+    .control-item input[type="range"] {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .control-item input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667EEA, #764BA2);
+      cursor: pointer;
+    }
+    .control-item input[type="number"] {
+      width: 100%;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      color: #E0E0E0;
+      font-size: 12px;
+      transition: border-color 0.2s;
+    }
+    .control-item input[type="number"]:focus {
+      outline: none;
+      border-color: #667EEA;
+    }
+    .control-item input.invalid {
+      border-color: #E57373 !important;
+      animation: shake 0.3s ease;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+    .btn {
+      width: 100%;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #667EEA, #764BA2);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 15px rgba(102, 126, 234, 0.5);
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+      box-shadow: none;
+    }
+    .value-display {
+      display: inline-block;
+      float: right;
+      font-size: 12px;
+      color: #64B5F6;
+    }
+    .stat-box {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .stat-box .label {
+      color: #B0B0B0;
+      font-size: 11px;
+    }
+    .stat-box .value {
+      color: #64B5F6;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    #chart-container {
+      width: 100%;
+      height: 200px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    #chart-container canvas {
+      width: 100%;
+      height: 100%;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      font-size: 10px;
+      color: #B0B0B0;
+    }
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+    #info-panel {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(22, 33, 62, 0.9);
+      padding: 12px 16px;
+      border-radius: 8px;
+      color: #E0E0E0;
+      font-size: 12px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    #info-panel div {
+      margin-bottom: 4px;
+    }
+    #info-panel .value {
+      color: #64B5F6;
+      font-weight: 500;
+    }
+    .material-info {
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+    }
+    .material-info .row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .material-info .label {
+      color: #B0B0B0;
+    }
+    .material-info .val {
+      color: #81C784;
+    }
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .toggle-switch label {
+      font-size: 12px;
+      color: #B0B0B0;
+    }
+    .switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .switch.active {
+      background: linear-gradient(135deg, #667EEA, #764BA2);
+    }
+    .switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      transition: left 0.3s;
+    }
+    .switch.active::after {
+      left: 20px;
+    }
+    @media (max-width: 1440px) {
+      #canvas-container {
+        flex: 0 0 65%;
+      }
+      #control-panel {
+        flex: 0 0 35%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container">
+      <div id="info-panel">
+        <div>模拟时间: <span class="value" id="sim-time">0</span> 秒</div>
+        <div>污染面积: <span class="value" id="pollution-area">0</span> m²</div>
+      </div>
+    </div>
+    <div id="control-panel">
+      <button id="panel-toggle" title="展开/收起">◀</button>
+      <div class="panel-content">
+        <div class="panel-section">
+          <h3>岩层材质层</h3>
+          <div id="material-controls"></div>
+          <div class="material-info" id="material-info" style="display:none;">
+            <div class="row"><span class="label">材质名称:</span><span class="val" id="mi-name">-</span></div>
+            <div class="row"><span class="label">渗透率:</span><span class="val" id="mi-perm">-</span></div>
+            <div class="row"><span class="label">孔隙度:</span><span class="val" id="mi-poro">-</span></div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>污染源设置</h3>
+          <div class="control-item">
+            <label>X位置 <span class="value-display" id="source-x-val">25</span> m</label>
+            <input type="range" id="source-x" min="0" max="50" step="1" value="25">
+          </div>
+          <div class="control-item">
+            <label>Y位置 <span class="value-display" id="source-y-val">25</span> m</label>
+            <input type="range" id="source-y" min="0" max="50" step="1" value="25">
+          </div>
+          <div class="control-item">
+            <label>Z位置(深度) <span class="value-display" id="source-z-val">28</span> m</label>
+            <input type="range" id="source-z" min="0" max="30" step="1" value="28">
+          </div>
+          <div class="control-item">
+            <label>初始浓度 (mg/L)</label>
+            <input type="number" id="source-conc" value="1000" min="100" max="5000" step="100">
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>地下水流向</h3>
+          <div class="control-item">
+            <label>水平方向角 <span class="value-display" id="flow-xy-val">0</span>°</label>
+            <input type="range" id="flow-xy" min="0" max="360" step="1" value="0">
+          </div>
+          <div class="control-item">
+            <label>垂直倾斜角 <span class="value-display" id="flow-z-val">0</span>°</label>
+            <input type="range" id="flow-z" min="-30" max="30" step="1" value="0">
+          </div>
+          <div class="control-item">
+            <label>流速 (m/d)</label>
+            <input type="number" id="flow-speed" value="1" min="0.1" max="10" step="0.1">
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>模拟控制</h3>
+          <button class="btn" id="btn-start">开始模拟</button>
+          <div style="height:8px;"></div>
+          <button class="btn btn-secondary" id="btn-reset">重置模拟</button>
+          <div style="height:8px;"></div>
+          <div class="stat-box">
+            <span class="label">帧率</span>
+            <span class="value" id="fps-display">-</span>
+          </div>
+          <div class="stat-box">
+            <span class="label">粒子数量</span>
+            <span class="value" id="particle-count">0</span>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>治理干预</h3>
+          <div class="toggle-switch">
+            <label>隔离墙</label>
+            <div class="switch" id="toggle-wall"></div>
+          </div>
+          <div class="control-item" id="wall-controls" style="display:none;">
+            <label>位置(X) <span class="value-display" id="wall-x-val">30</span> m</label>
+            <input type="range" id="wall-x" min="5" max="45" step="1" value="30">
+          </div>
+          <div class="control-item" id="wall-height-ctrl" style="display:none;">
+            <label>高度 <span class="value-display" id="wall-h-val">15</span> m</label>
+            <input type="range" id="wall-h" min="1" max="20" step="1" value="15">
+          </div>
+
+          <div style="height:8px;"></div>
+          <div class="toggle-switch">
+            <label>活性炭吸附层</label>
+            <div class="switch" id="toggle-absorbent"></div>
+          </div>
+          <div class="control-item" id="absorbent-controls" style="display:none;">
+            <label>位置(Z) <span class="value-display" id="abs-z-val">15</span> m</label>
+            <input type="range" id="abs-z" min="5" max="25" step="1" value="15">
+          </div>
+          <div class="control-item" id="abs-thick-ctrl" style="display:none;">
+            <label>厚度 <span class="value-display" id="abs-t-val">2</span> m</label>
+            <input type="range" id="abs-t" min="1" max="5" step="0.5" value="2">
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>监测井</h3>
+          <div class="toggle-switch">
+            <label>显示监测井</label>
+            <div class="switch active" id="toggle-wells"></div>
+          </div>
+          <div id="well-controls" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="panel-section">
+          <h3>监测数据</h3>
+          <div id="chart-container">
+            <canvas id="chart-canvas"></canvas>
+          </div>
+          <div class="legend" id="chart-legend"></div>
+          <div style="height:8px;"></div>
+          <button class="btn btn-secondary" id="btn-export">导出 CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
