@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASCII 贪吃蛇大作战</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #121212;
+      font-family: 'Consolas', 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #ffffff;
+      font-size: 28px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .game-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 1200px;
+      aspect-ratio: 3 / 2;
+      background-color: #1E1E1E;
+      border: 2px solid #333;
+      border-radius: 4px;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .score-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .score-item {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .score-value {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+
+    .score-value.bounce {
+      animation: scoreBounce 0.3s ease;
+    }
+
+    @keyframes scoreBounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+
+    .speed-display {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #ffffff;
+      font-size: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .time-display {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ffffff;
+      font-size: 24px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .special-food-notice {
+      position: absolute;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #FFD700;
+      font-size: 22px;
+      font-weight: bold;
+      opacity: 0;
+      z-index: 10;
+      pointer-events: none;
+      transition: opacity 0.75s ease-in-out;
+    }
+
+    .special-food-notice.show {
+      opacity: 1;
+    }
+
+    .game-over-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .game-over-overlay.show {
+      display: flex;
+    }
+
+    .game-over-card {
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      min-width: 300px;
+    }
+
+    .winner-color {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      border: 3px solid #333;
+    }
+
+    .game-over-card h2 {
+      color: #333;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .final-score {
+      color: #555;
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+
+    .restart-btn {
+      background-color: #444;
+      color: #fff;
+      border: none;
+      padding: 12px 32px;
+      font-size: 18px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .restart-btn:hover {
+      background-color: #666;
+    }
+
+    .restart-btn:active {
+      transform: translateY(2px);
+    }
+  </style>
+</head>
+<body>
+  <h1>🎮 ASCII 贪吃蛇大作战 🐍</h1>
+  
+  <div class="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="score-panel" id="scorePanel"></div>
+    <div class="speed-display" id="speedDisplay">速度: 8 格/秒</div>
+    <div class="time-display" id="timeDisplay">90</div>
+    <div class="special-food-notice" id="specialFoodNotice">✨ 金色食物出现了！+3分 缩短2格 ✨</div>
+    
+    <div class="game-over-overlay" id="gameOverOverlay">
+      <div class="game-over-card">
+        <div class="winner-color" id="winnerColor"></div>
+        <h2 id="winnerText">获胜者！</h2>
+        <div class="final-score" id="finalScore">得分: 0</div>
+        <button class="restart-btn" id="restartBtn">重新开始</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
