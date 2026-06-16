@@ -1,0 +1,28 @@
+{
+  "name": "emotion-diary",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "check": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "uuid": "^9.0.1",
+    "date-fns": "^3.6.0",
+    "react-window": "^1.8.10"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^9.0.8",
+    "@types/react-window": "^1.8.8",
+    "@vitejs/plugin-react": "^4.4.1",
+    "typescript": "~5.6.2",
+    "vite": "^5.4.10"
+  }
+}
