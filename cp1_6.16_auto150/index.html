@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>符文对战 - Rune Battle</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #212121;
+      color: #FFFFFF;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .game-container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .player-panel {
+      width: 220px;
+      padding: 16px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .player-panel.p1 {
+      background-color: #1E3A5F;
+    }
+
+    .player-panel.p2 {
+      background-color: #5F1E1E;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .player-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #FFFFFF;
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .player-panel.p1 .player-avatar {
+      background-color: #2196F3;
+    }
+
+    .player-panel.p2 .player-avatar {
+      background-color: #F44336;
+    }
+
+    .player-name {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .stat-bar {
+      width: 100%;
+      height: 12px;
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .stat-bar-label {
+      font-size: 11px;
+      margin-bottom: 2px;
+      opacity: 0.8;
+    }
+
+    .health-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4CAF50, #F44336);
+      transition: width 0.3s ease;
+      border-radius: 6px;
+    }
+
+    .mana-fill {
+      height: 100%;
+      background-color: #2196F3;
+      transition: width 0.3s ease;
+      border-radius: 6px;
+    }
+
+    .stat-value {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 10px;
+      font-weight: bold;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .summon-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .summon-list-title {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+
+    .summon-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px;
+      background-color: #263238;
+      border: 1px solid #37474F;
+      border-radius: 4px;
+    }
+
+    .summon-icon {
+      width: 30px;
+      height: 30px;
+      background-color: #37474F;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .summon-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .summon-hp {
+      height: 6px;
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .summon-hp-fill {
+      height: 100%;
+      background-color: #4CAF50;
+      border-radius: 3px;
+    }
+
+    .board-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #gameCanvas {
+      border: 2px solid #5D4037;
+      border-radius: 4px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .turn-info {
+      font-size: 18px;
+      font-weight: bold;
+      padding: 8px 20px;
+      border-radius: 6px;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      padding: 16px;
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      align-items: center;
+    }
+
+    .skill-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .skill-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-size: 22px;
+      color: #FFFFFF;
+      font-weight: bold;
+      transition: transform 0.2s ease;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .skill-btn:hover:not(:disabled) {
+      transform: scale(1.1);
+    }
+
+    .skill-btn:disabled {
+      background-color: #BDBDBD !important;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .skill-btn.fire { background-color: #FF5722; }
+    .skill-btn.ice { background-color: #4FC3F7; }
+    .skill-btn.thunder { background-color: #FFEB3B; color: #333; }
+    .skill-btn.wind { background-color: #81C784; }
+
+    .skill-tooltip {
+      position: absolute;
+      bottom: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #FFFFFF;
+      color: #424242;
+      border: 1px solid #424242;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 100;
+    }
+
+    .skill-btn:hover .skill-tooltip {
+      opacity: 1;
+    }
+
+    .action-btn {
+      padding: 10px 20px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .action-btn.primary {
+      background-color: #2196F3;
+      color: white;
+    }
+
+    .action-btn.secondary {
+      background-color: #5D4037;
+      color: white;
+    }
+
+    .action-btn.danger {
+      background-color: #F44336;
+      color: white;
+    }
+
+    .replay-controls {
+      display: none;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 20px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+    }
+
+    .replay-controls.active {
+      display: flex;
+    }
+
+    .replay-progress {
+      width: 300px;
+      height: 8px;
+      background-color: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .replay-progress-fill {
+      height: 100%;
+      background-color: #FFC107;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    .replay-step-label {
+      font-size: 12px;
+      min-width: 80px;
+    }
+
+    .speed-btns {
+      display: flex;
+      gap: 4px;
+    }
+
+    .speed-btn {
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    .speed-btn.active {
+      background-color: #FFC107;
+      color: #333;
+    }
+
+    .network-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .room-input {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #5D4037;
+      background-color: #212121;
+      color: white;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      width: 120px;
+      text-align: center;
+    }
+
+    .room-display {
+      padding: 8px 16px;
+      background-color: rgba(255, 193, 7, 0.2);
+      border: 1px solid #FFC107;
+      border-radius: 6px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      color: #FFC107;
+    }
+
+    .status-msg {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+      background-color: rgba(76, 175, 80, 0.2);
+      color: #4CAF50;
+    }
+
+    .status-msg.error {
+      background-color: rgba(244, 67, 54, 0.2);
+      color: #F44336;
+    }
+
+    .mode-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .mode-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid #5D4037;
+      cursor: pointer;
+      font-size: 13px;
+      background-color: transparent;
+      color: white;
+    }
+
+    .mode-btn.active {
+      background-color: #5D4037;
+      border-color: #8D6E63;
+    }
+  </style>
+</head>
+<body>
+  <h1 style="margin-bottom: 16px; font-size: 28px;">⚔️ 符文对战 Rune Battle</h1>
+
+  <div class="mode-buttons">
+    <button class="mode-btn active" id="localBtn">本地对战</button>
+    <button class="mode-btn" id="onlineBtn">联机对战</button>
+  </div>
+
+  <div class="game-container">
+    <div class="player-panel p1" id="player1Panel">
+      <div class="panel-header">
+        <div class="player-avatar">P1</div>
+        <div>
+          <div class="player-name">玩家1</div>
+          <div style="font-size: 11px; opacity: 0.7;">法师</div>
+        </div>
+      </div>
+      <div>
+        <div class="stat-bar-label">生命值</div>
+        <div class="stat-bar">
+          <div class="health-fill" id="p1HealthFill" style="width: 100%"></div>
+          <span class="stat-value" id="p1HealthText">100 / 100</span>
+        </div>
+      </div>
+      <div>
+        <div class="stat-bar-label">魔力值</div>
+        <div class="stat-bar">
+          <div class="mana-fill" id="p1ManaFill" style="width: 100%"></div>
+          <span class="stat-value" id="p1ManaText">50 / 50</span>
+        </div>
+      </div>
+      <div class="summon-list">
+        <div class="summon-list-title">召唤物</div>
+        <div id="p1SummonList"></div>
+      </div>
+    </div>
+
+    <div class="board-wrapper">
+      <div class="turn-info" id="turnInfo">回合 1 - 玩家1行动</div>
+      <canvas id="gameCanvas" width="320" height="320"></canvas>
+
+      <div class="network-controls" id="networkControls" style="display: none;">
+        <button class="action-btn primary" id="createRoomBtn">创建房间</button>
+        <div class="room-display" id="roomDisplay" style="display: none;"></div>
+        <input type="text" class="room-input" id="roomInput" placeholder="房间码" maxlength="6">
+        <button class="action-btn secondary" id="joinRoomBtn">加入房间</button>
+        <div class="status-msg" id="networkStatus" style="display: none;"></div>
+      </div>
+
+      <div class="replay-controls" id="replayControls">
+        <button class="action-btn secondary" id="replayPlayPause">⏸ 暂停</button>
+        <div class="speed-btns">
+          <button class="speed-btn" data-speed="0.5">0.5x</button>
+          <button class="speed-btn active" data-speed="1">1x</button>
+          <button class="speed-btn" data-speed="2">2x</button>
+        </div>
+        <div class="replay-progress" id="replayProgress">
+          <div class="replay-progress-fill" id="replayProgressFill"></div>
+        </div>
+        <span class="replay-step-label" id="replayStepLabel">0 / 0</span>
+        <button class="action-btn danger" id="exitReplayBtn">退出回放</button>
+      </div>
+
+      <div class="controls">
+        <div class="skill-buttons">
+          <button class="skill-btn fire" id="fireBtn" data-skill="fire">
+            🔥
+            <div class="skill-tooltip">火焰符文 - 造成25伤害<br>消耗15魔力，冷却2回合</div>
+          </button>
+          <button class="skill-btn ice" id="iceBtn" data-skill="ice">
+            ❄️
+            <div class="skill-tooltip">冰霜符文 - 减速50%<br>消耗10魔力，持续2回合</div>
+          </button>
+          <button class="skill-btn thunder" id="thunderBtn" data-skill="thunder">
+            ⚡
+            <div class="skill-tooltip">雷电符文 - 造成35伤害<br>消耗20魔力，冷却2回合</div>
+          </button>
+          <button class="skill-btn wind" id="windBtn" data-skill="wind">
+            🌪
+            <div class="skill-tooltip">风暴符文 - 击退3格<br>消耗10魔力，撞击额外伤害</div>
+          </button>
+        </div>
+        <button class="action-btn secondary" id="moveBtn">🚶 移动</button>
+        <button class="action-btn secondary" id="attackBtn">⚔️ 攻击</button>
+        <button class="action-btn primary" id="endTurnBtn">结束回合</button>
+        <button class="action-btn secondary" id="saveBtn">💾 保存</button>
+        <button class="action-btn secondary" id="loadBtn">📂 加载</button>
+        <button class="action-btn secondary" id="replayBtn" style="display: none;">🎬 回放</button>
+      </div>
+
+      <div style="font-size: 12px; color: #888; max-width: 400px; text-align: center;">
+        操作说明：点击单位选中 → 点击技能/移动/攻击按钮 → 点击目标格。技能和攻击需要选中法师或召唤物。
+      </div>
+    </div>
+
+    <div class="player-panel p2" id="player2Panel">
+      <div class="panel-header">
+        <div class="player-avatar">P2</div>
+        <div>
+          <div class="player-name">玩家2</div>
+          <div style="font-size: 11px; opacity: 0.7;">法师</div>
+        </div>
+      </div>
+      <div>
+        <div class="stat-bar-label">生命值</div>
+        <div class="stat-bar">
+          <div class="health-fill" id="p2HealthFill" style="width: 100%"></div>
+          <span class="stat-value" id="p2HealthText">100 / 100</span>
+        </div>
+      </div>
+      <div>
+        <div class="stat-bar-label">魔力值</div>
+        <div class="stat-bar">
+          <div class="mana-fill" id="p2ManaFill" style="width: 100%"></div>
+          <span class="stat-value" id="p2ManaText">50 / 50</span>
+        </div>
+      </div>
+      <div class="summon-list">
+        <div class="summon-list-title">召唤物</div>
+        <div id="p2SummonList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
